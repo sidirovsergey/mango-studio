@@ -2,6 +2,14 @@
 @import './index.css';
 
 /*
+ * Tailwind v4 default source detection only scans the input CSS file's
+ * directory and parents — sibling workspace packages are missed. Add an
+ * explicit @source for everything in @mango/ui so primitives' class
+ * literals are picked up when the package is consumed via @mango/ui/tokens.
+ */
+@source '../**/*.{ts,tsx}';
+
+/*
  * Tailwind v4 bridge — exposes design tokens from index.css as Tailwind
  * utility classes (bg-mango-500, text-ink-900, animate-stage-in, etc.).
  * Naming kept identical to the source CSS variables in mockups/index.html.
