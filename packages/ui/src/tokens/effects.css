@@ -1,0 +1,46 @@
+/* @mango/ui — surface effects (glass, gradients, shadows) */
+
+/*
+ * Shadow recipes — copied verbatim from mockups/index.html `:root`.
+ * Used on glass surfaces (cards, frames, input shells).
+ */
+:root {
+  --shadow-glass:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 0 0 1px rgba(26, 18, 7, 0.04),
+    0 1px 1px rgba(26, 18, 7, 0.02),
+    0 8px 16px -8px rgba(26, 18, 7, 0.08),
+    0 28px 60px -28px rgba(26, 18, 7, 0.18);
+
+  --shadow-glass-hover:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 0 0 1px rgba(26, 18, 7, 0.06),
+    0 2px 2px rgba(26, 18, 7, 0.03),
+    0 16px 28px -12px rgba(26, 18, 7, 0.12),
+    0 44px 80px -36px rgba(26, 18, 7, 0.18);
+
+  /* Brand halo — conic-gradient signature (extracted from demo .orb / .halo recipes) */
+  --halo-mango: conic-gradient(from 200deg, #F57600, #FFB35A, #1FB364, #F57600);
+  --halo-mango-warm: conic-gradient(from 0deg, #FFB35A, #F57600, #FF6B00, #FFB35A);
+}
+
+/*
+ * Glass utilities — extracted from the two distinct glass tiers in demo:
+ *   - .glass        : light surfaces (cards, sticky bars), blur(10px)
+ *   - .glass-frame  : premium input shells / hero frames, saturate(140%) blur(20px)
+ */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(26, 18, 7, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-glass);
+}
+
+.glass-frame {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(26, 18, 7, 0.08);
+  backdrop-filter: saturate(140%) blur(20px);
+  -webkit-backdrop-filter: saturate(140%) blur(20px);
+  box-shadow: var(--shadow-glass);
+}

@@ -1,9 +1,20 @@
-/* @mango/ui tokens будут импортированы в Task 23 */
+@import '@mango/ui/tokens';
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
-  background: #0a0a0a;
-  color: #fafafa;
-  min-height: 100vh;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--ink-900);
+  background: #FFFCF6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
 }

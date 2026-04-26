@@ -1,0 +1,27 @@
+/* @mango/ui — spacing & radii tokens */
+
+:root {
+  /* Spacing scale (4px base) */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --space-10: 56px;
+  --space-11: 64px;
+  --space-12: 72px;
+
+  /* Radii — extracted verbatim from mockups/index.html `:root` */
+  --r-card: 22px;
+  --r-pill: 999px;
+  --r-input: 18px;
+  --r-tile: 14px;
+
+  /* Aspect ratio for video preview surfaces (9:16 vertical) */
+  --aspect: 9 / 16;
+}

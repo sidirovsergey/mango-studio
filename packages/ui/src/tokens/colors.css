@@ -1,0 +1,35 @@
+/* @mango/ui — colors tokens, extracted from mockups/index.html */
+
+:root {
+  /* Mango — primary brand orange */
+  --mango-50: #FFF7EC;
+  --mango-100: #FFE9C8;
+  --mango-200: #FFD394;
+  --mango-300: #FFB35A;
+  --mango-400: #FF9026;
+  --mango-500: #F57600;
+  --mango-600: #D85F00;
+  --mango-700: #A84800;
+
+  /* Leaf — secondary green accent */
+  --leaf-50: #ECFBF1;
+  --leaf-100: #C8F2D7;
+  --leaf-200: #8FE2B0;
+  --leaf-300: #4FCB85;
+  --leaf-400: #1FB364;
+  --leaf-500: #069150;
+  --leaf-600: #056F3F;
+
+  /* Ink — warm dark neutrals */
+  --ink-900: #1A1207;
+  --ink-800: #2C2114;
+  --ink-700: #4A3520;
+  --ink-500: #7A6651;
+  --ink-300: #B5A38C;
+  --ink-200: #D5C7B3;
+  --ink-100: #EFE7DA;
+
+  /* Surfaces */
+  --paper: #FFFFFF;
+  --cream: #FFFAF1;
+}

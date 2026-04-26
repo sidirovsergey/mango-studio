@@ -1,0 +1,13 @@
+/* @mango/ui — typography tokens, extracted from mockups/index.html */
+
+/*
+ * next/font/google overrides these variables on <html class="__className_...">
+ * with hashed runtime references. Values below are static fallbacks.
+ * Source: mockups/index.html font-family declarations.
+ */
+:root {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Manrope', sans-serif;
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
+}

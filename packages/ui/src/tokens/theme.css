@@ -1,0 +1,72 @@
+@import 'tailwindcss';
+@import './index.css';
+
+/*
+ * Tailwind v4 bridge — exposes design tokens from index.css as Tailwind
+ * utility classes (bg-mango-500, text-ink-900, animate-stage-in, etc.).
+ * Naming kept identical to the source CSS variables in mockups/index.html.
+ */
+@theme {
+  /* Mango */
+  --color-mango-50: var(--mango-50);
+  --color-mango-100: var(--mango-100);
+  --color-mango-200: var(--mango-200);
+  --color-mango-300: var(--mango-300);
+  --color-mango-400: var(--mango-400);
+  --color-mango-500: var(--mango-500);
+  --color-mango-600: var(--mango-600);
+  --color-mango-700: var(--mango-700);
+
+  /* Leaf */
+  --color-leaf-50: var(--leaf-50);
+  --color-leaf-100: var(--leaf-100);
+  --color-leaf-200: var(--leaf-200);
+  --color-leaf-300: var(--leaf-300);
+  --color-leaf-400: var(--leaf-400);
+  --color-leaf-500: var(--leaf-500);
+  --color-leaf-600: var(--leaf-600);
+
+  /* Ink */
+  --color-ink-100: var(--ink-100);
+  --color-ink-200: var(--ink-200);
+  --color-ink-300: var(--ink-300);
+  --color-ink-500: var(--ink-500);
+  --color-ink-700: var(--ink-700);
+  --color-ink-800: var(--ink-800);
+  --color-ink-900: var(--ink-900);
+
+  /* Surfaces */
+  --color-paper: var(--paper);
+  --color-cream: var(--cream);
+
+  /* Fonts (next/font/google overrides on <html class="...">) */
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-serif: var(--font-serif);
+  --font-mono: var(--font-mono);
+
+  /* Radii — demo names preserved (rounded-card, rounded-pill, ...) */
+  --radius-card: var(--r-card);
+  --radius-pill: var(--r-pill);
+  --radius-input: var(--r-input);
+  --radius-tile: var(--r-tile);
+
+  /* Easing curves (ease-spring-fast, ease-spring-soft) */
+  --ease-spring-fast: var(--spring-fast);
+  --ease-spring-soft: var(--spring-soft);
+
+  /* Animations — timings copied verbatim from demo `animation:` declarations */
+  --animate-drift1: drift1 18s ease-in-out infinite alternate;
+  --animate-drift2: drift2 22s ease-in-out infinite alternate;
+  --animate-drift3: drift3 26s ease-in-out infinite alternate;
+  --animate-drift4: drift4 30s ease-in-out infinite alternate;
+  --animate-pulse-dot: pulseDot 2.4s ease-in-out infinite;
+  --animate-stage-in: stageIn 800ms var(--spring-fast) both;
+  --animate-chat-in: chatIn 700ms var(--spring-fast) both;
+  --animate-refine-in: refineIn 320ms var(--spring-soft);
+  --animate-hl-pulse: hlPulse 700ms ease-out;
+  --animate-orb-pulse: orb-pulse 4s ease-in-out infinite;
+  --animate-typedot: typedot 1.2s ease-in-out infinite;
+  --animate-halo-breathe: halo-breathe 2.4s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+}
