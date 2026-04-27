@@ -1,6 +1,7 @@
 @import '@mango/ui/tokens';
 @import '../styles/landing.css';
 @import '../styles/workspace.css';
+@import '../styles/stages/idea.css';
 
 html,
 body {

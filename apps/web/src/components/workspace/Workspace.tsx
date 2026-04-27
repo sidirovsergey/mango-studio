@@ -1,5 +1,6 @@
 'use client';
 
+import type { LandingFormat, LandingStyle } from '../landing/Landing';
 import { WorkspaceScroll } from './WorkspaceScroll';
 import { StageCharacters } from './stages/StageCharacters';
 import { StageFinal } from './stages/StageFinal';
@@ -9,10 +10,17 @@ import { StageScript } from './stages/StageScript';
 
 interface WorkspaceProps {
   initialIdea: string;
+  initialFormat: LandingFormat;
+  initialStyle: LandingStyle;
   onBackToLanding?: () => void;
 }
 
-export function Workspace({ initialIdea, onBackToLanding }: WorkspaceProps) {
+export function Workspace({
+  initialIdea,
+  initialFormat,
+  initialStyle,
+  onBackToLanding,
+}: WorkspaceProps) {
   return (
     <main className="workspace-shell">
       <div className="topbar">
@@ -89,7 +97,7 @@ export function Workspace({ initialIdea, onBackToLanding }: WorkspaceProps) {
 
       <WorkspaceScroll>
         <div className="workspace">
-          <StageIdea idea={initialIdea} />
+          <StageIdea idea={initialIdea} format={initialFormat} style={initialStyle} />
           <StageCharacters />
           <StageScript />
           <StageScenes />

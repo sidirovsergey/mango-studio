@@ -21,7 +21,12 @@ export default function HomePage() {
         />
       )}
       {view === 'workspace' && choice && (
-        <Workspace initialIdea={choice.idea} onBackToLanding={() => setView('landing')} />
+        <Workspace
+          initialIdea={choice.idea}
+          initialFormat={choice.format}
+          initialStyle={choice.style}
+          onBackToLanding={() => setView('landing')}
+        />
       )}
     </>
   );

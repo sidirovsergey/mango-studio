@@ -1,0 +1,181 @@
+/*
+ * Stage 01 (Идея) styles — copied verbatim from mockups/index.html
+ * lines 549-646 (.ref-*) and 1146-1183 (.idea-summary, .meta-tile).
+ * The 900px @media override for .idea-summary is in workspace responsive.
+ */
+
+.idea-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 12px;
+}
+.meta-tile {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(26, 18, 7, 0.05);
+  border-radius: var(--r-tile);
+  padding: 12px 14px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 1) inset;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition:
+    transform 200ms var(--spring-soft),
+    border-color 180ms,
+    background 180ms;
+}
+.meta-tile:hover {
+  border-color: var(--mango-200);
+  background: var(--paper);
+  transform: translateY(-1px);
+}
+.meta-tile:focus-visible {
+  outline: 2px solid var(--mango-400);
+  outline-offset: 2px;
+}
+.meta-tile .key {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+  font-weight: 600;
+}
+.meta-tile .val {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  margin-top: 4px;
+  color: var(--ink-900);
+}
+.meta-tile .val em {
+  font-style: normal;
+  color: var(--mango-600);
+}
+
+.ref-block {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(26, 18, 7, 0.1);
+}
+.ref-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.ref-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-500);
+  font-weight: 600;
+}
+.ref-count {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-700);
+  background: rgba(26, 18, 7, 0.05);
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+.ref-strip {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ref-add {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  border: 1.5px dashed rgba(26, 18, 7, 0.18);
+  background: rgba(255, 255, 255, 0.4);
+  color: var(--ink-500);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 10px;
+  font-family: inherit;
+  transition: all 200ms var(--spring-fast);
+}
+.ref-add:hover {
+  border-color: var(--mango-400);
+  color: var(--mango-600);
+  background: var(--cream);
+  transform: translateY(-1px);
+}
+.ref-add .plus {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.ref-thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(26, 18, 7, 0.06);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 4px 10px -6px rgba(26, 18, 7, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  cursor: pointer;
+  transition: transform 220ms var(--spring-soft);
+}
+.ref-thumb:hover {
+  transform: translateY(-1px) scale(1.04);
+}
+.ref-thumb .ref-x {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(26, 18, 7, 0.78);
+  color: white;
+  border: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 180ms;
+}
+.ref-thumb:hover .ref-x {
+  opacity: 1;
+}
+.ref-thumb .ref-kind {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  font-size: 9px;
+  font-family: 'Geist Mono', monospace;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink-700);
+  padding: 1px 5px;
+  border-radius: 4px;
+  line-height: 1.3;
+}
+.ref-thumb.uploading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.7) 50%, transparent 65%);
+  background-size: 240% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@media (max-width: 900px) {
+  .idea-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+}
