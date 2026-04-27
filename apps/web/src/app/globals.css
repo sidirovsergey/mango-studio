@@ -1,4 +1,13 @@
 @import '@mango/ui/tokens';
+@import '../styles/landing.css';
+@import '../styles/workspace.css';
+@import '../styles/stages/idea.css';
+@import '../styles/stages/characters.css';
+@import '../styles/stages/script.css';
+@import '../styles/stages/scenes.css';
+@import '../styles/stages/final.css';
+@import '../styles/chat.css';
+@import '../styles/morph.css';
 
 html,
 body {

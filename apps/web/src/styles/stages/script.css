@@ -1,0 +1,128 @@
+/*
+ * Stage 03 (Сценарий) styles — copied verbatim from mockups/index.html
+ * lines 669-774 (.script-summary + .beats-list + .beat-* + edit input).
+ * .stage-head .icon-btn override already in workspace.css.
+ */
+
+.script-summary {
+  position: relative;
+  font-family: 'Fraunces', serif;
+  font-weight: 400;
+  font-size: 17px;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+  color: var(--ink-800);
+  padding: 16px 18px 16px 22px;
+  background: linear-gradient(180deg, var(--cream), #fff6e2);
+  border-radius: 14px;
+  border: 1px solid rgba(245, 118, 0, 0.12);
+  margin-bottom: 14px;
+  cursor: text;
+  transition:
+    background 220ms,
+    border-color 200ms,
+    box-shadow 200ms;
+}
+.script-summary::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--mango-300), var(--mango-500));
+}
+.script-summary:hover {
+  border-color: rgba(245, 118, 0, 0.28);
+  box-shadow: 0 6px 14px -8px rgba(245, 118, 0, 0.3);
+}
+.script-summary[contenteditable='true'] {
+  background: var(--paper);
+  border-color: var(--mango-300);
+  box-shadow: 0 0 0 4px rgba(245, 118, 0, 0.14);
+  outline: 0;
+}
+
+.beats-list {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 12px;
+  border: 1px solid rgba(26, 18, 7, 0.06);
+  overflow: hidden;
+}
+
+.beat {
+  display: grid;
+  grid-template-columns: auto 50px auto 1fr auto;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 11px 14px;
+  cursor: pointer;
+  border: 0;
+  border-top: 1px solid rgba(26, 18, 7, 0.05);
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: background 180ms;
+}
+.beat:first-child {
+  border-top: 0;
+}
+.beat:hover {
+  background: var(--cream);
+}
+
+.beat-num {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mango-700);
+  background: rgba(245, 118, 0, 0.1);
+  padding: 3px 8px;
+  border-radius: 8px;
+  margin-top: 1px;
+}
+.beat-duration {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-500);
+  margin-top: 4px;
+  text-align: right;
+}
+.beat-arrow {
+  color: var(--ink-300);
+  font-family: 'Geist Mono', monospace;
+  font-size: 13px;
+  margin-top: 3px;
+}
+.beat-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-800);
+}
+.beat-act {
+  color: var(--ink-300);
+  margin-top: 2px;
+  opacity: 0;
+  transition: opacity 200ms;
+}
+.beat:hover .beat-act {
+  opacity: 1;
+}
+
+.beat .beat-text-input {
+  grid-column: 4 / 5;
+  border: 1px solid var(--mango-300);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  background: var(--paper);
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(245, 118, 0, 0.14);
+  resize: none;
+  min-height: 32px;
+}

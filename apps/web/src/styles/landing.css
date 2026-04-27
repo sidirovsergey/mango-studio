@@ -1,0 +1,311 @@
+/*
+ * Landing-screen styles — copied verbatim from mockups/index.html lines 263-510.
+ * Morph transitions (body.morphing/morphed .landing) are intentionally omitted —
+ * they will be reintroduced in Task 83 with [data-phase="..."] selectors.
+ * .brand-mark is also used by Workspace topbar (Task 75); it lives here for now
+ * and may move to a shared brand.css when Workspace is ported.
+ */
+
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 55%),
+    conic-gradient(from 200deg, #f57600, #ffb35a, #1fb364, #f57600);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 6px 14px -4px rgba(245, 118, 0, 0.55);
+}
+
+.landing {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+  transition: opacity 700ms var(--spring-fast), transform 900ms var(--spring-fast);
+}
+
+.landing-brand {
+  position: absolute;
+  top: 28px;
+  left: 32px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-size: 16px;
+}
+.landing-brand .brand-mark { width: 28px; height: 28px; }
+.landing-brand .name span { color: var(--mango-600); }
+
+.landing-corner {
+  position: absolute;
+  top: 28px;
+  right: 32px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--ink-500);
+  font-size: 13px;
+}
+.landing-corner a {
+  color: var(--ink-700);
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 999px;
+  transition: background 200ms;
+}
+.landing-corner a:hover { background: rgba(26, 18, 7, 0.05); }
+.landing-corner .login {
+  background: var(--ink-900);
+  color: var(--cream);
+  font-weight: 600;
+}
+.landing-corner .login:hover { background: var(--ink-800); }
+
+.landing-stage {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  transform: translateY(-40px);
+}
+
+.landing-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-500);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(26, 18, 7, 0.06);
+  backdrop-filter: blur(10px);
+}
+.landing-eyebrow .pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--leaf-400);
+  box-shadow: 0 0 0 3px rgba(31, 179, 100, 0.2);
+  animation: pulseDot 2.4s ease-in-out infinite;
+}
+
+.landing-headline {
+  font-family: 'Fraunces', serif;
+  font-weight: 400;
+  font-size: clamp(38px, 5.4vw, 64px);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  text-align: center;
+  color: var(--ink-900);
+  margin: 0;
+}
+.landing-headline em {
+  font-style: italic;
+  background: linear-gradient(120deg, var(--mango-500), var(--mango-700));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.landing-sub {
+  font-size: 16px;
+  color: var(--ink-500);
+  line-height: 1.55;
+  text-align: center;
+  max-width: 540px;
+  margin: -16px 0 0;
+}
+
+.landing-input-shell {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(26, 18, 7, 0.08);
+  backdrop-filter: saturate(140%) blur(20px);
+  -webkit-backdrop-filter: saturate(140%) blur(20px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 1px 1px rgba(26, 18, 7, 0.02),
+    0 12px 24px -12px rgba(26, 18, 7, 0.12),
+    0 40px 90px -40px rgba(245, 118, 0, 0.35);
+  transition:
+    box-shadow 280ms var(--spring-fast),
+    border-color 220ms,
+    transform 320ms var(--spring-fast);
+}
+.landing-input-shell:focus-within {
+  border-color: rgba(245, 118, 0, 0.4);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 0 0 6px rgba(255, 144, 38, 0.1),
+    0 16px 28px -12px rgba(26, 18, 7, 0.14),
+    0 50px 100px -40px rgba(245, 118, 0, 0.5);
+}
+.landing-input-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  pointer-events: none;
+  box-shadow: 0 0 0 0 rgba(245, 118, 0, 0);
+  transition: box-shadow 320ms;
+}
+.landing-input-shell:focus-within::before {
+  box-shadow: 0 0 0 4px rgba(245, 118, 0, 0.18);
+}
+
+.landing-input-row {
+  display: flex;
+  align-items: flex-end;
+  padding: 18px 18px 18px 22px;
+  gap: 12px;
+}
+.landing-input-row textarea {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 17px;
+  color: var(--ink-900);
+  resize: none;
+  min-height: 48px;
+  max-height: 160px;
+  line-height: 1.45;
+  padding-top: 6px;
+}
+.landing-input-row textarea::placeholder { color: var(--ink-300); }
+
+.landing-send {
+  border: 0;
+  cursor: pointer;
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 14px;
+  color: white;
+  font: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  background: linear-gradient(180deg, var(--mango-400), var(--mango-600));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.1) inset,
+    0 8px 16px -4px rgba(245, 118, 0, 0.55);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  transition: transform 240ms var(--spring-soft);
+}
+.landing-send:hover { transform: translateY(-1px); }
+.landing-send:active { transform: scale(0.96); }
+
+.landing-tools {
+  padding: 0 18px 14px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  color: var(--ink-500);
+  font-size: 11px;
+}
+.landing-tools .tool-chip {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-700);
+  background: rgba(26, 18, 7, 0.04);
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 0;
+  transition: background 180ms;
+}
+.landing-tools .tool-chip:hover { background: rgba(26, 18, 7, 0.08); }
+.landing-tools .tool-chip.active {
+  background: var(--ink-900);
+  color: var(--mango-200);
+}
+.landing-tools .sep {
+  width: 1px;
+  height: 14px;
+  background: rgba(26, 18, 7, 0.12);
+}
+.landing-tools .kbd-hint {
+  margin-left: auto;
+  font-family: 'Geist Mono', monospace;
+  color: var(--ink-300);
+}
+
+.landing-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 720px;
+}
+.suggestion {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(26, 18, 7, 0.06);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--ink-700);
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition:
+    transform 220ms var(--spring-soft),
+    background 200ms,
+    border-color 200ms;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.suggestion:hover {
+  transform: translateY(-1px);
+  border-color: rgba(245, 118, 0, 0.35);
+  background: var(--cream);
+}
+.suggestion .emoji { font-size: 14px; }
+
+.landing-footer {
+  position: absolute;
+  bottom: 24px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: var(--ink-300);
+  font-size: 11px;
+  font-family: 'Geist Mono', monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 520px) {
+  .landing-stage { gap: 22px; }
+  .landing-sub { display: none; }
+  .landing-corner { right: 14px; top: 18px; }
+  .landing-corner a:not(.login) { display: none; }
+  .landing-brand { left: 14px; top: 18px; font-size: 14px; }
+  .landing-suggestions { gap: 6px; }
+  .suggestion { padding: 6px 12px; font-size: 12px; }
+  .landing-footer { font-size: 9px; }
+  .landing-input-row { padding: 14px 14px 14px 16px; }
+  .landing-input-row textarea { font-size: 15px; min-height: 40px; }
+  .landing-tools { padding: 0 14px 12px; }
+}

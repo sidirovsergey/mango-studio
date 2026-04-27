@@ -1,0 +1,86 @@
+/*
+ * Landing → Workspace morph transitions.
+ * Ported from mockups/index.html lines 274-277 (landing fade+scale),
+ * 512-522 (.app fade-in with delayed visibility), and 1078-style chain.
+ *
+ * Demo uses body.morphing/morphed classes; React equivalent puts
+ * data-phase on the page root so we don't have to mutate <body>.
+ *
+ * Phases:
+ *   landing   — Landing visible (default), .app opacity:0 visibility:hidden
+ *   morphing  — Landing fades out + scales down, .app fades in (150ms delay)
+ *   workspace — Landing fully hidden (visibility:hidden after 700ms), .app stays
+ */
+
+[data-phase='morphing'] .landing,
+[data-phase='workspace'] .landing {
+  opacity: 0;
+  transform: scale(0.96) translateY(-12px);
+  pointer-events: none;
+}
+[data-phase='workspace'] .landing {
+  visibility: hidden;
+  transition:
+    opacity 700ms var(--spring-fast),
+    transform 900ms var(--spring-fast),
+    visibility 0s linear 700ms;
+}
+[data-phase='morphing'] .landing-input-shell {
+  transform: scale(0.92);
+}
+
+.app {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 700ms var(--spring-fast),
+    visibility 0s linear 700ms;
+}
+[data-phase='morphing'] .app,
+[data-phase='workspace'] .app {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 700ms var(--spring-fast) 150ms,
+    visibility 0s linear 0s;
+}
+
+/*
+ * Stagger appearance of the 5 stages once morph kicks in.
+ * Mirrors mockups/index.html lines 524-537 (stageIn 800ms, delays 250→690ms).
+ * stageIn keyframe lives in @mango/ui/tokens/keyframes.css.
+ */
+[data-phase='morphing'] .stage,
+[data-phase='workspace'] .stage {
+  animation: stageIn 800ms var(--spring-fast) both;
+}
+[data-phase='morphing'] .workspace .stage:nth-child(1),
+[data-phase='workspace'] .workspace .stage:nth-child(1) {
+  animation-delay: 250ms;
+}
+[data-phase='morphing'] .workspace .stage:nth-child(2),
+[data-phase='workspace'] .workspace .stage:nth-child(2) {
+  animation-delay: 360ms;
+}
+[data-phase='morphing'] .workspace .stage:nth-child(3),
+[data-phase='workspace'] .workspace .stage:nth-child(3) {
+  animation-delay: 470ms;
+}
+[data-phase='morphing'] .workspace .stage:nth-child(4),
+[data-phase='workspace'] .workspace .stage:nth-child(4) {
+  animation-delay: 580ms;
+}
+[data-phase='morphing'] .workspace .stage:nth-child(5),
+[data-phase='workspace'] .workspace .stage:nth-child(5) {
+  animation-delay: 690ms;
+}
+
+/*
+ * Chat slide-in from left edge during morph.
+ * Mirrors mockups/index.html lines 539-546 (chatIn 700ms).
+ * chatIn keyframe lives in @mango/ui/tokens/keyframes.css.
+ */
+[data-phase='morphing'] .chat,
+[data-phase='workspace'] .chat {
+  animation: chatIn 700ms var(--spring-fast) both;
+}
