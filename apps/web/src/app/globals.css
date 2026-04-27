@@ -1,4 +1,5 @@
 @import '@mango/ui/tokens';
+@import '../styles/landing.css';
 
 html,
 body {
