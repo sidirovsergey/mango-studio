@@ -6,6 +6,7 @@
 @import '../styles/stages/script.css';
 @import '../styles/stages/scenes.css';
 @import '../styles/stages/final.css';
+@import '../styles/chat.css';
 
 html,
 body {
