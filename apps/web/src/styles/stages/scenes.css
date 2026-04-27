@@ -1,0 +1,292 @@
+/*
+ * Stage 04 (Сцены) styles — copied verbatim from mockups/index.html
+ * lines 1334-1475 (scenes/scene-card/thumb/tags/dialogue/foot/loading) and
+ * 1478-1594 (cta-row/toolbar/toolbar-row/group-label/chip-row/chip variants).
+ *
+ * Default --aspect token defined here so .scene-thumb has a sane ratio without
+ * the demo's interactive body[data-aspect] switcher (Phase 1+).
+ */
+
+:root {
+  --aspect: 9 / 16;
+}
+
+.scenes {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin: 0 -4px;
+  scroll-snap-type: x mandatory;
+}
+.scenes::-webkit-scrollbar { height: 6px; }
+.scenes::-webkit-scrollbar-thumb {
+  background: rgba(26, 18, 7, 0.15);
+  border-radius: 999px;
+}
+
+.scene-card {
+  flex: 0 0 240px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(26, 18, 7, 0.06);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 10px 20px -12px rgba(26, 18, 7, 0.15);
+  scroll-snap-align: start;
+  transition:
+    flex-basis 360ms var(--spring-soft),
+    transform 320ms var(--spring-soft),
+    box-shadow 220ms;
+}
+.scene-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 14px 24px -12px rgba(26, 18, 7, 0.16),
+    0 28px 60px -28px rgba(26, 18, 7, 0.18);
+}
+
+body[data-aspect='16/9'] .scene-card { flex-basis: 320px; }
+body[data-aspect='1/1'] .scene-card { flex-basis: 220px; }
+
+.scene-thumb {
+  aspect-ratio: var(--aspect);
+  width: 100%;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(26, 18, 7, 0.08);
+  transition: aspect-ratio 360ms var(--spring-soft);
+}
+.scene-thumb .sky {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #5fb6e8 0%, #b7e3ff 50%, #ffe3b0 100%);
+}
+.scene-thumb .sun {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%, #fff, #ffc56c);
+  box-shadow: 0 0 22px rgba(255, 197, 108, 0.75);
+}
+.scene-thumb .ground {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 32%;
+  background: linear-gradient(180deg, rgba(255, 228, 170, 0), #e9c58a);
+}
+.scene-thumb .silhouette {
+  position: absolute;
+  bottom: 22%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 64px;
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.18));
+}
+.scene-thumb .scan {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%);
+  background-size: 250% 100%;
+  animation: shimmer 2.4s ease-in-out infinite;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  opacity: 0.9;
+}
+.scene-thumb .play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%) scale(0.9);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-900);
+  opacity: 0;
+  transition: opacity 220ms, transform 280ms var(--spring-soft);
+}
+.scene-card:hover .scene-thumb .play {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.scene-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px;
+}
+.scene-tags .pill {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(26, 18, 7, 0.05);
+  color: var(--ink-700);
+}
+.scene-tags .pill.live {
+  background: var(--leaf-50);
+  color: var(--leaf-600);
+}
+
+.scene-dialogue {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-700);
+  border-left: 2px solid var(--mango-300);
+  padding-left: 8px;
+}
+
+.scene-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(26, 18, 7, 0.08);
+}
+.scene-foot .model {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-500);
+}
+.scene-foot .actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* Empty/loading scene */
+.scene-card.loading .scene-thumb {
+  background: linear-gradient(135deg, #f4ecdd, #ffeacb);
+}
+.scene-card.loading .scene-thumb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.7) 50%, transparent 70%);
+  background-size: 220% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+.scene-card.loading .placeholder-text {
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(26, 18, 7, 0.06), rgba(26, 18, 7, 0.12), rgba(26, 18, 7, 0.06));
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+.scene-card.loading .placeholder-text.short { width: 60%; }
+
+/* CTA-row layout (the .cta button itself is shared in workspace.css) */
+.cta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 18px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* Models / voice / music chip toolbar */
+.toolbar {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(26, 18, 7, 0.05);
+  border-radius: 14px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 1) inset;
+  padding: 4px;
+  overflow: hidden;
+}
+.toolbar-row {
+  display: grid;
+  grid-template-columns: 86px 1fr;
+  column-gap: 14px;
+  align-items: center;
+  padding: 9px 12px;
+}
+.toolbar-row + .toolbar-row {
+  border-top: 1px solid rgba(26, 18, 7, 0.05);
+}
+.toolbar .group-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-500);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0;
+}
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-height: 26px;
+}
+.chip {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(26, 18, 7, 0.04);
+  color: var(--ink-700);
+  cursor: pointer;
+  transition:
+    transform 220ms var(--spring-soft),
+    background 180ms,
+    color 180ms;
+  border: 1px solid transparent;
+  font-family: inherit;
+}
+.chip:hover {
+  background: rgba(26, 18, 7, 0.08);
+  transform: translateY(-1px);
+}
+.chip.active {
+  background: linear-gradient(180deg, var(--mango-400), var(--mango-600));
+  color: white;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 6px 12px -4px rgba(245, 118, 0, 0.45);
+  transform: translateY(-1px);
+}
+.chip.live {
+  background: var(--leaf-50);
+  color: var(--leaf-600);
+  border: 1px solid rgba(31, 179, 100, 0.25);
+}
+
+@media (max-width: 900px) {
+  .scene-card { flex: 0 0 180px; }
+  body[data-aspect='16/9'] .scene-card { flex-basis: 260px; }
+  body[data-aspect='1/1'] .scene-card { flex-basis: 180px; }
+  .cta-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .toolbar { padding: 4px; }
+  .toolbar-row { padding: 10px 12px; }
+}
+
+@media (max-width: 520px) {
+  .toolbar-row {
+    grid-template-columns: 1fr;
+    row-gap: 6px;
+    padding: 10px 12px;
+  }
+  .toolbar-row .group-label { opacity: 0.85; }
+}
