@@ -244,6 +244,53 @@
   font-size: 11px;
 }
 
+/* Shared across stages 02-04 (action buttons in stage-head and char-actions) */
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(26, 18, 7, 0.08);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 10px;
+  color: var(--ink-700);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 1) inset;
+  transition:
+    transform 220ms var(--spring-soft),
+    color 180ms,
+    background 180ms;
+}
+.icon-btn:hover {
+  color: var(--mango-600);
+  background: var(--cream);
+  transform: translateY(-1px);
+}
+.icon-btn:active {
+  transform: scale(0.92);
+}
+.stage-head .icon-btn {
+  width: 30px;
+  height: 30px;
+}
+
+/* Shared "section badge" pill used in stage-head trailing slots (02, 03, 04) */
+.section-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--leaf-600);
+  background: var(--leaf-50);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 179, 100, 0.18);
+}
+
 @media (max-width: 900px) {
   .workspace {
     padding: 18px 14px 100px;

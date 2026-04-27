@@ -2,6 +2,7 @@
 @import '../styles/landing.css';
 @import '../styles/workspace.css';
 @import '../styles/stages/idea.css';
+@import '../styles/stages/characters.css';
 
 html,
 body {
