@@ -1,7 +1,9 @@
 'use server';
 
-import { type ChatMessage, getLLMProvider } from '@mango/core';
+import { getLLMProvider, type ChatMessage } from '@mango/core';
 
 export async function chatAction(messages: ChatMessage[]): Promise<{ reply: string }> {
-  return getLLMProvider().chat({ messages });
+  const llm = getLLMProvider();
+  const result = await llm.chat({ messages });
+  return result.output;
 }

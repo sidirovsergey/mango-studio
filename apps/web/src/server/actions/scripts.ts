@@ -1,7 +1,9 @@
 'use server';
 
-import { type ScriptGenInput, type ScriptGenOutput, getLLMProvider } from '@mango/core';
+import { getLLMProvider, type ScriptGenInput, type ScriptGenOutput } from '@mango/core';
 
 export async function generateScriptAction(input: ScriptGenInput): Promise<ScriptGenOutput> {
-  return getLLMProvider().generateScript(input);
+  const llm = getLLMProvider();
+  const result = await llm.generateScript(input);
+  return result.output;
 }

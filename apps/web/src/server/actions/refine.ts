@@ -7,5 +7,7 @@ export async function refineSceneAction(input: {
   current: string;
   instruction: string;
 }): Promise<{ updated_description: string }> {
-  return getLLMProvider().refineScene(input);
+  const llm = getLLMProvider();
+  const result = await llm.refineScene(input);
+  return result.output;
 }
