@@ -1,0 +1,278 @@
+/*
+ * Workspace shell styles — topbar, scrollable workspace area, and the base
+ * .stage card with .stage-head sub-elements. Copied from mockups/index.html
+ * lines 162-260, 935-946, 1096-1143, 1484-1532, plus the @media (max-width:900px)
+ * shell adjustments at lines 1704-1762.
+ *
+ * Scopes:
+ *   .workspace-shell — substitutes the demo's bare <main> selector so we don't
+ *     accidentally style other potential <main> elements.
+ *   .topbar / .workspace-scroll / .workspace / .stage — verbatim from demo.
+ *
+ * NOT included (left for later tasks):
+ *   .app grid wrapper (Task 82, when Chat lands and the 360px column is filled)
+ *   stage-content styles (.idea-summary, .char-grid, .scenes, .final, ...)
+ *   .cta-row / .toolbar / .chip / .player / etc. — ported with their owning stages.
+ */
+
+.workspace-shell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.topbar {
+  flex: 0 0 auto;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: rgba(255, 252, 246, 0.92);
+  border-bottom: 1px solid rgba(26, 18, 7, 0.06);
+  gap: 12px;
+}
+
+.workspace-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.brand-name {
+  font-size: 16px;
+}
+.brand-name span {
+  color: var(--mango-600);
+}
+
+.back-pill {
+  border: 1px solid rgba(26, 18, 7, 0.08);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 999px;
+  padding: 6px 12px 6px 8px;
+  font-size: 12px;
+  color: var(--ink-700);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 180ms;
+}
+.back-pill:hover {
+  background: white;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.seg {
+  display: flex;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(26, 18, 7, 0.06);
+  border-radius: var(--r-pill);
+  padding: 3px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 1) inset;
+}
+.seg button {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--ink-700);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: color 200ms var(--spring-fast);
+}
+.seg button.active {
+  background: var(--ink-900);
+  color: var(--mango-200);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.15) inset,
+    0 6px 14px -4px rgba(26, 18, 7, 0.4);
+}
+
+.credits {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(26, 18, 7, 0.06);
+  border-radius: var(--r-pill);
+  padding: 6px 12px 6px 8px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 12px;
+  color: var(--ink-700);
+  backdrop-filter: blur(10px);
+}
+.credits .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--leaf-400);
+  box-shadow: 0 0 0 3px rgba(31, 179, 100, 0.18);
+}
+
+.cta {
+  position: relative;
+  border: 0;
+  color: white;
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 12px 18px 12px 16px;
+  border-radius: 14px;
+  cursor: pointer;
+  background: linear-gradient(180deg, var(--mango-400), var(--mango-600));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.1) inset,
+    0 8px 16px -4px rgba(245, 118, 0, 0.55),
+    0 0 0 1px rgba(168, 72, 0, 0.4);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    transform 240ms var(--spring-soft),
+    box-shadow 240ms var(--spring-fast);
+}
+.cta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 45%);
+  pointer-events: none;
+}
+.cta::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 30%;
+  background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  transform: skewX(-20deg);
+  pointer-events: none;
+  transition: left 700ms var(--spring-fast);
+}
+.cta:hover::after {
+  left: 130%;
+}
+.cta:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.1) inset,
+    0 14px 24px -6px rgba(245, 118, 0, 0.65),
+    0 0 0 1px rgba(168, 72, 0, 0.4);
+}
+.cta:active {
+  transform: scale(0.97);
+}
+
+.workspace {
+  padding: 28px 32px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 1140px;
+  margin: 0 auto;
+}
+
+.stage {
+  position: relative;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(26, 18, 7, 0.05);
+  border-radius: var(--r-card);
+  padding: 22px 24px 24px;
+  box-shadow: var(--shadow-glass);
+  overflow: hidden;
+}
+
+.stage-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.stage-num {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Geist Mono', monospace;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--mango-700);
+  background: linear-gradient(180deg, #fff6e2, #ffe9c8);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 0 0 1px rgba(245, 118, 0, 0.18),
+    0 6px 12px -6px rgba(245, 118, 0, 0.35);
+}
+.stage-title {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.015em;
+  flex: 1;
+}
+.stage-meta {
+  color: var(--ink-500);
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+}
+
+@media (max-width: 900px) {
+  .workspace {
+    padding: 18px 14px 100px;
+    max-width: none;
+  }
+  .topbar {
+    padding: 0 12px;
+    height: 56px;
+  }
+  .brand-name {
+    display: none;
+  }
+  .credits {
+    display: none;
+  }
+  .seg button {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+  .stage {
+    padding: 18px 16px;
+  }
+  .stage-head .stage-meta {
+    display: none;
+  }
+  .topbar .cta {
+    padding: 10px 14px;
+  }
+  .topbar .cta svg {
+    display: none;
+  }
+}

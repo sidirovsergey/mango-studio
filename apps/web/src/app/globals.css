@@ -1,5 +1,6 @@
 @import '@mango/ui/tokens';
 @import '../styles/landing.css';
+@import '../styles/workspace.css';
 
 html,
 body {

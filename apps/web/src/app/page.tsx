@@ -1,19 +1,28 @@
 'use client';
 
 import { BackgroundOrbs } from '@/components/effects/BackgroundOrbs';
-import { Landing } from '@/components/landing/Landing';
+import { Landing, type LandingChoice } from '@/components/landing/Landing';
+import { Workspace } from '@/components/workspace/Workspace';
+import { useState } from 'react';
 
 export default function HomePage() {
+  const [view, setView] = useState<'landing' | 'workspace'>('landing');
+  const [choice, setChoice] = useState<LandingChoice | null>(null);
+
   return (
     <>
       <BackgroundOrbs />
-      <Landing
-        onStart={(choice) => {
-          // Wired in Task 83 (morph + Workspace mount).
-          // biome-ignore lint/suspicious/noConsole: dev scaffold for Phase 0.8 progress preview.
-          console.log('[Landing onStart]', choice);
-        }}
-      />
+      {view === 'landing' && (
+        <Landing
+          onStart={(c) => {
+            setChoice(c);
+            setView('workspace');
+          }}
+        />
+      )}
+      {view === 'workspace' && choice && (
+        <Workspace initialIdea={choice.idea} onBackToLanding={() => setView('landing')} />
+      )}
     </>
   );
 }
