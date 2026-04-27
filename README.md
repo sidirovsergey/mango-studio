@@ -2,8 +2,10 @@
 
 > AI-режиссёр коротких вертикальных мультиков (TikTok / Reels / Shorts) из одной строки.
 
-**Production app:** TBD (in development, Phase 0)
-**Demo (legacy):** https://mango-studio-demo.vercel.app/
+**Production app:** https://www.mangopro.ru
+**Demo (legacy / 1:1 mockup):** https://mango-studio-demo.vercel.app/
+
+> **Phase 0 status: ✅ Complete** (2026-04-27) — foundation, monorepo, design tokens, provider contracts (mock impl), Supabase scaffold, и полный порт демо на боевой стек. Готово к Фазе 1 (real fal.ai + OpenRouter).
 
 ---
 
