@@ -54,3 +54,6 @@ pnpm dev
 ## Лицензия
 
 [MIT](LICENSE)
+
+
+<!-- ci-cycle test marker -->
