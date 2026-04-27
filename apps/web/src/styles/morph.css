@@ -44,3 +44,43 @@
     opacity 700ms var(--spring-fast) 150ms,
     visibility 0s linear 0s;
 }
+
+/*
+ * Stagger appearance of the 5 stages once morph kicks in.
+ * Mirrors mockups/index.html lines 524-537 (stageIn 800ms, delays 250→690ms).
+ * stageIn keyframe lives in @mango/ui/tokens/keyframes.css.
+ */
+[data-phase='morphing'] .stage,
+[data-phase='workspace'] .stage {
+  animation: stageIn 800ms var(--spring-fast) both;
+}
+[data-phase='morphing'] .workspace .stage:nth-child(1),
+[data-phase='workspace'] .workspace .stage:nth-child(1) {
+  animation-delay: 250ms;
+}
+[data-phase='morphing'] .workspace .stage:nth-child(2),
+[data-phase='workspace'] .workspace .stage:nth-child(2) {
+  animation-delay: 360ms;
+}
+[data-phase='morphing'] .workspace .stage:nth-child(3),
+[data-phase='workspace'] .workspace .stage:nth-child(3) {
+  animation-delay: 470ms;
+}
+[data-phase='morphing'] .workspace .stage:nth-child(4),
+[data-phase='workspace'] .workspace .stage:nth-child(4) {
+  animation-delay: 580ms;
+}
+[data-phase='morphing'] .workspace .stage:nth-child(5),
+[data-phase='workspace'] .workspace .stage:nth-child(5) {
+  animation-delay: 690ms;
+}
+
+/*
+ * Chat slide-in from left edge during morph.
+ * Mirrors mockups/index.html lines 539-546 (chatIn 700ms).
+ * chatIn keyframe lives in @mango/ui/tokens/keyframes.css.
+ */
+[data-phase='morphing'] .chat,
+[data-phase='workspace'] .chat {
+  animation: chatIn 700ms var(--spring-fast) both;
+}
