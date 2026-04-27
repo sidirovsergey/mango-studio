@@ -69,6 +69,9 @@ export function Workspace({
               1:1
             </button>
           </div>
+          <div className="tier-indicator" data-tier="economy" title="Текущий режим генерации">
+            Режим: Эконом
+          </div>
           <div className="credits">
             <span className="dot" />
             ~12 480 кр

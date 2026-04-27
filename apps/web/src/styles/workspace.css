@@ -122,6 +122,34 @@
   color: var(--ink-700);
   backdrop-filter: blur(10px);
 }
+
+/*
+ * Tier mode indicator (Эконом / Премиум). Reserved space introduced in
+ * Phase 0.8; cosmetic-only here since Phase 0 mock providers ignore tier.
+ * Real switcher lands in Phase 1 (per project_two_mode_system memory).
+ */
+.tier-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(245, 118, 0, 0.08);
+  border: 1px solid rgba(245, 118, 0, 0.18);
+  border-radius: var(--r-pill);
+  padding: 5px 10px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--mango-700);
+}
+.tier-indicator[data-tier='premium'] {
+  background: linear-gradient(180deg, var(--mango-400), var(--mango-600));
+  border-color: rgba(168, 72, 0, 0.4);
+  color: white;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 6px 12px -4px rgba(245, 118, 0, 0.45);
+}
 .credits .dot {
   width: 8px;
   height: 8px;
@@ -304,6 +332,9 @@
     display: none;
   }
   .credits {
+    display: none;
+  }
+  .tier-indicator {
     display: none;
   }
   .seg button {
