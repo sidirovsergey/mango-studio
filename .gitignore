@@ -32,6 +32,9 @@ supabase/.temp/
 .DS_Store
 Thumbs.db
 
+# Git worktrees (Claude Code subagent-driven sessions)
+.worktrees/
+
 # Logs
 *.log
 npm-debug.log*
