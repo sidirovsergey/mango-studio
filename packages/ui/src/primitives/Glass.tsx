@@ -14,13 +14,7 @@ const variantClasses: Record<Variant, string> = {
 
 export const Glass = forwardRef<HTMLDivElement, GlassProps>(
   ({ variant = 'card', className, ...props }, ref) => {
-    return (
-      <div
-        ref={ref}
-        className={cn(variantClasses[variant], className)}
-        {...props}
-      />
-    );
+    return <div ref={ref} className={cn(variantClasses[variant], className)} {...props} />;
   },
 );
 

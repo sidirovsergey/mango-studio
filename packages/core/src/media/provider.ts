@@ -1,6 +1,6 @@
 import 'server-only';
-import type { Tier } from '../tier/types';
 import type { CharacterDescriptor, ProjectBible, SceneIntent } from '../prompt/types';
+import type { Tier } from '../tier/types';
 
 export interface CharacterSheetInput {
   character: CharacterDescriptor;

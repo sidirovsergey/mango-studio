@@ -18,7 +18,8 @@ function delay(ms: number): Promise<void> {
 
 export class MockMediaProvider implements MediaProvider {
   async generateCharacterSheet(input: CharacterSheetInput): Promise<CharacterSheetOutput> {
-    const latency = input.tier === 'premium' ? PREMIUM_LATENCY_MS.character : ECONOMY_LATENCY_MS.character;
+    const latency =
+      input.tier === 'premium' ? PREMIUM_LATENCY_MS.character : ECONOMY_LATENCY_MS.character;
     await delay(latency);
 
     const fixture = demoCharacters[input.character.char_id] ?? demoCharacters.default!;

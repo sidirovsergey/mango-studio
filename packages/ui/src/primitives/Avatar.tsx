@@ -13,7 +13,7 @@ const sizeClasses = {
 };
 
 export const Avatar = forwardRef<HTMLImageElement, AvatarProps>(
-  ({ size = 'md', fallback, className, src, alt = '', ...props }, ref) => {
+  ({ size = 'md', fallback, className, src, alt = 'Avatar', ...props }, ref) => {
     if (!src && fallback) {
       return (
         <div
@@ -30,11 +30,11 @@ export const Avatar = forwardRef<HTMLImageElement, AvatarProps>(
     }
     return (
       <img
+        {...props}
         ref={ref}
         src={src}
         alt={alt}
         className={cn('rounded-full object-cover', sizeClasses[size], className)}
-        {...props}
       />
     );
   },

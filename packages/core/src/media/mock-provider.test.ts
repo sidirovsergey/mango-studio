@@ -65,7 +65,11 @@ describe('MockMediaProvider', () => {
   it('falls back to default fixture for unknown character/scene IDs', async () => {
     const p = new MockMediaProvider();
     const unknownChar = { ...character, char_id: 'nonexistent' };
-    const result = await p.generateCharacterSheet({ character: unknownChar, bible, tier: 'economy' });
+    const result = await p.generateCharacterSheet({
+      character: unknownChar,
+      bible,
+      tier: 'economy',
+    });
     expect(result.reference_image_urls).toBeInstanceOf(Array);
   });
 });

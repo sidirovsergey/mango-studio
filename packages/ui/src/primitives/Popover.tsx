@@ -12,7 +12,14 @@ interface PopoverProps {
   children: ReactNode;
 }
 
-export function Popover({ open, onClose, anchor, placement = 'bottom', className, children }: PopoverProps) {
+export function Popover({
+  open,
+  onClose,
+  anchor,
+  placement = 'bottom',
+  className,
+  children,
+}: PopoverProps) {
   const popRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
 
@@ -59,11 +66,7 @@ export function Popover({ open, onClose, anchor, placement = 'bottom', className
   return (
     <div
       ref={popRef}
-      className={cn(
-        'fixed z-50 glass-frame p-2 min-w-[180px]',
-        'animate-refine-in',
-        className,
-      )}
+      className={cn('fixed z-50 glass-frame p-2 min-w-[180px]', 'animate-refine-in', className)}
       style={position ? { top: position.top, left: position.left } : { visibility: 'hidden' }}
     >
       {children}

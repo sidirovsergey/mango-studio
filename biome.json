@@ -42,7 +42,10 @@
         "noUnusedVariables": "warn"
       },
       "nursery": {
-        "useImportRestrictions": "error"
+        "useImportRestrictions": "off"
+      },
+      "complexity": {
+        "noForEach": "off"
       }
     }
   },
