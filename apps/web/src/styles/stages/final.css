@@ -1,0 +1,138 @@
+/*
+ * Stage 05 (Финал) styles — copied verbatim from mockups/index.html
+ * lines 1601-1686 (.final grid, .player + frame/silhouette/progress/play-big,
+ * .share-grid + .share-btn + .ico variants for tg/vk/yt/dl).
+ * The 900px @media collapses .final to single column and centers .player.
+ */
+
+.final {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 22px;
+  align-items: start;
+}
+
+.player {
+  aspect-ratio: var(--aspect);
+  width: 100%;
+  transition: aspect-ratio 360ms var(--spring-soft);
+  border-radius: 22px;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(26, 18, 7, 0.08),
+    0 24px 48px -16px rgba(26, 18, 7, 0.32),
+    0 60px 120px -40px rgba(245, 118, 0, 0.4);
+}
+.player .frame {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 30%, #ffc56c, transparent 40%),
+    linear-gradient(180deg, #5fb6e8 0%, #b7e3ff 55%, #ffe3b0 100%);
+}
+.player .silhouette {
+  position: absolute;
+  bottom: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 92px;
+  filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.2));
+}
+.player .progress {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  right: 14px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(4px);
+  overflow: hidden;
+}
+.player .progress i {
+  display: block;
+  height: 100%;
+  width: 38%;
+  background: linear-gradient(90deg, var(--mango-300), var(--mango-500));
+  border-radius: 999px;
+  box-shadow: 0 0 10px rgba(255, 144, 38, 0.7);
+}
+.player .play-big {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-900);
+}
+
+.share-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.share-btn {
+  border: 1px solid rgba(26, 18, 7, 0.08);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 14px;
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 1) inset;
+  transition:
+    transform 220ms var(--spring-soft),
+    box-shadow 200ms;
+}
+.share-btn:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 12px 22px -10px rgba(26, 18, 7, 0.2);
+}
+.share-btn .ico {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+}
+.share-btn .label {
+  font-size: 12px;
+  font-weight: 600;
+}
+.share-btn .label .sub {
+  display: block;
+  color: var(--ink-500);
+  font-weight: 400;
+  font-size: 10px;
+  margin-top: 2px;
+}
+.ico.tg { background: linear-gradient(135deg, #2aabee, #1b8fcb); }
+.ico.vk { background: linear-gradient(135deg, #4a77bb, #2c5da0); }
+.ico.yt { background: linear-gradient(135deg, #ff4444, #c00); }
+.ico.dl { background: linear-gradient(135deg, var(--ink-800), #000); }
+
+@media (max-width: 900px) {
+  .final {
+    grid-template-columns: 1fr;
+  }
+  .player {
+    max-width: 240px;
+    margin: 0 auto;
+  }
+}
