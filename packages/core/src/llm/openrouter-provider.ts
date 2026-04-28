@@ -49,6 +49,7 @@ export class OpenRouterLLMProvider implements LLMProvider {
       const llmUsage = await this.buildUsage(params.model, usage, start);
       return { output: object, usage: llmUsage };
     } catch (err) {
+      console.error('[OpenRouterLLMProvider.generateScript]', err);
       throw classifyLLMError(err);
     }
   }
@@ -67,6 +68,7 @@ export class OpenRouterLLMProvider implements LLMProvider {
       const llmUsage = await this.buildUsage(params.model, usage, start);
       return { output: { updated_description: text.trim() }, usage: llmUsage };
     } catch (err) {
+      console.error('[OpenRouterLLMProvider.refineScene]', err);
       throw classifyLLMError(err);
     }
   }
@@ -88,6 +90,7 @@ export class OpenRouterLLMProvider implements LLMProvider {
       const llmUsage = await this.buildUsage(params.model, usage, start);
       return { output: { reply: text.trim() }, usage: llmUsage };
     } catch (err) {
+      console.error('[OpenRouterLLMProvider.chat]', err);
       throw classifyLLMError(err);
     }
   }
