@@ -23,10 +23,20 @@ export class LLMProviderError extends Error {
 export function classifyLLMError(err: unknown): LLMProviderError {
   if (err instanceof LLMProviderError) return err;
 
+  const name = (err as { name?: string })?.name ?? '';
   const msg = (err as { message?: string })?.message?.toLowerCase() ?? '';
   const status =
     (err as { status?: number; statusCode?: number })?.status ??
     (err as { statusCode?: number })?.statusCode;
+
+  // AI SDK 6 errors: checked by name before message-based fallbacks
+  if (name === 'AI_NoObjectGeneratedError' || name === 'AI_TypeValidationError') {
+    return new LLMProviderError('invalid_json', 'Модель вернула невалидный объект.', err);
+  }
+  if (name === 'AI_RetryError') {
+    const cause = (err as { cause?: unknown })?.cause;
+    return classifyLLMError(cause ?? err);
+  }
 
   if (status === 429 || msg.includes('rate limit') || msg.includes('rate_limit')) {
     return new LLMProviderError('rate_limit', 'Слишком много запросов. Подожди минутку.', err);

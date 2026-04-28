@@ -49,7 +49,8 @@ export class OpenRouterLLMProvider implements LLMProvider {
       const llmUsage = await this.buildUsage(params.model, usage, start);
       return { output: object, usage: llmUsage };
     } catch (err) {
-      console.error('[OpenRouterLLMProvider.generateScript]', err);
+      const e = err as { name?: string; message?: string };
+      console.error(`[ORL.generateScript] ${e?.name}: ${e?.message}`, err);
       throw classifyLLMError(err);
     }
   }
@@ -68,7 +69,8 @@ export class OpenRouterLLMProvider implements LLMProvider {
       const llmUsage = await this.buildUsage(params.model, usage, start);
       return { output: { updated_description: text.trim() }, usage: llmUsage };
     } catch (err) {
-      console.error('[OpenRouterLLMProvider.refineScene]', err);
+      const e = err as { name?: string; message?: string };
+      console.error(`[ORL.refineScene] ${e?.name}: ${e?.message}`, err);
       throw classifyLLMError(err);
     }
   }
@@ -90,7 +92,8 @@ export class OpenRouterLLMProvider implements LLMProvider {
       const llmUsage = await this.buildUsage(params.model, usage, start);
       return { output: { reply: text.trim() }, usage: llmUsage };
     } catch (err) {
-      console.error('[OpenRouterLLMProvider.chat]', err);
+      const e = err as { name?: string; message?: string };
+      console.error(`[ORL.chat] ${e?.name}: ${e?.message}`, err);
       throw classifyLLMError(err);
     }
   }
