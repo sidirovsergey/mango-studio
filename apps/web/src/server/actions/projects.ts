@@ -37,6 +37,7 @@ export async function createProjectAction(input: z.infer<typeof CreateProjectSch
 
 const UpdateMetaSchema = z.object({
   project_id: z.string().uuid(),
+  idea: z.string().min(1).max(500).optional(),
   style: z.enum(['3d_pixar', '2d_drawn', 'clay_art']).optional(),
   format: z.enum(['9:16', '16:9', '1:1']).optional(),
   target_duration_sec: z.number().int().min(15).max(90).optional(),
