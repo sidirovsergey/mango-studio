@@ -24,24 +24,22 @@ export function Workspace({ project, initialChatMessages }: WorkspaceProps) {
   const status = project.status;
 
   return (
-    <div className="app">
+    <main className="workspace-shell">
+      <TopBar
+        projectId={project.id}
+        autoMode={project.auto_mode}
+        format={project.format as '9:16' | '16:9' | '1:1'}
+      />
+      <WorkspaceScroll>
+        <div className="workspace">
+          <StageIdea project={project} />
+          <StageCharacters projectStatus={status} />
+          <StageScript project={project} script={script} />
+          <StageScenes projectStatus={status} />
+          <StageFinal projectStatus={status} />
+        </div>
+      </WorkspaceScroll>
       <Chat projectId={project.id} initialMessages={initialChatMessages} />
-      <main className="workspace-shell">
-        <TopBar
-          projectId={project.id}
-          autoMode={project.auto_mode}
-          format={project.format as '9:16' | '16:9' | '1:1'}
-        />
-        <WorkspaceScroll>
-          <div className="workspace">
-            <StageIdea project={project} />
-            <StageCharacters projectStatus={status} />
-            <StageScript project={project} script={script} />
-            <StageScenes projectStatus={status} />
-            <StageFinal projectStatus={status} />
-          </div>
-        </WorkspaceScroll>
-      </main>
-    </div>
+    </main>
   );
 }
