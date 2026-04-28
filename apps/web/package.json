@@ -15,6 +15,8 @@
     "@mango/core": "workspace:*",
     "@mango/db": "workspace:*",
     "@mango/ui": "workspace:*",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.104.1",
     "clsx": "^2.1.1",
     "next": "^15.1.0",
     "react": "^19.0.0",
@@ -24,8 +26,8 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0-beta.7",
-    "@testing-library/react": "^16.1.0",
     "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
