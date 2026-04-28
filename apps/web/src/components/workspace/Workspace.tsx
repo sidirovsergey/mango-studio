@@ -1,112 +1,45 @@
 'use client';
 
-import type { LandingFormat, LandingStyle } from '../landing/Landing';
 import { WorkspaceScroll } from './WorkspaceScroll';
-import { StageCharacters } from './stages/StageCharacters';
-import { StageFinal } from './stages/StageFinal';
+import { TopBar } from './TopBar';
 import { StageIdea } from './stages/StageIdea';
-import { StageScenes } from './stages/StageScenes';
+import { StageCharacters } from './stages/StageCharacters';
 import { StageScript } from './stages/StageScript';
+import { StageScenes } from './stages/StageScenes';
+import { StageFinal } from './stages/StageFinal';
+import { Chat } from '@/components/chat/Chat';
+import type { Database } from '@mango/db/types';
+import type { ScriptGenOutput } from '@mango/core';
+
+type ProjectRow = Database['public']['Tables']['projects']['Row'];
+type ChatMessageRow = Database['public']['Tables']['chat_messages']['Row'];
 
 interface WorkspaceProps {
-  initialIdea: string;
-  initialFormat: LandingFormat;
-  initialStyle: LandingStyle;
-  onBackToLanding?: () => void;
+  project: ProjectRow;
+  initialChatMessages: ChatMessageRow[];
 }
 
-export function Workspace({
-  initialIdea,
-  initialFormat,
-  initialStyle,
-  onBackToLanding,
-}: WorkspaceProps) {
+export function Workspace({ project, initialChatMessages }: WorkspaceProps) {
+  const script = project.script as ScriptGenOutput | null;
+  const status = project.status;
+
   return (
     <main className="workspace-shell">
-      <div className="topbar">
-        <div className="brand">
-          {onBackToLanding && (
-            <button
-              type="button"
-              className="back-pill"
-              id="backToLanding"
-              title="К landing"
-              onClick={onBackToLanding}
-            >
-              <svg
-                className="i"
-                viewBox="0 0 24 24"
-                width="14"
-                height="14"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                role="img"
-                aria-label="Назад"
-              >
-                <title>Назад</title>
-                <path d="M19 12H5M11 18l-6-6 6-6" />
-              </svg>
-              Назад
-            </button>
-          )}
-          <span className="brand-mark" />
-          <span className="brand-name">
-            Mango<span>Studio</span>
-          </span>
-        </div>
-        <div className="topbar-right">
-          <div className="seg" role="tablist" aria-label="Aspect">
-            <button type="button" className="active" data-aspect="9/16">
-              9:16
-            </button>
-            <button type="button" data-aspect="16/9">
-              16:9
-            </button>
-            <button type="button" data-aspect="1/1">
-              1:1
-            </button>
-          </div>
-          <div className="tier-indicator" data-tier="economy" title="Текущий режим генерации">
-            Режим: Эконом
-          </div>
-          <div className="credits">
-            <span className="dot" />
-            ~12 480 кр
-          </div>
-          <button type="button" className="cta" id="publishBtn">
-            <svg
-              className="i"
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              role="img"
-              aria-label="Опубликовать"
-            >
-              <title>Опубликовать</title>
-              <path d="M5 12h14M13 6l6 6-6 6" />
-            </svg>
-            Опубликовать
-          </button>
-        </div>
-      </div>
-
+      <TopBar
+        projectId={project.id}
+        autoMode={project.auto_mode}
+        format={project.format as '9:16' | '16:9' | '1:1'}
+      />
       <WorkspaceScroll>
         <div className="workspace">
-          <StageIdea idea={initialIdea} format={initialFormat} style={initialStyle} />
-          <StageCharacters />
-          <StageScript />
-          <StageScenes />
-          <StageFinal />
+          <StageIdea project={project} />
+          <StageCharacters projectStatus={status} />
+          <StageScript project={project} script={script} />
+          <StageScenes projectStatus={status} />
+          <StageFinal projectStatus={status} />
         </div>
       </WorkspaceScroll>
+      <Chat projectId={project.id} initialMessages={initialChatMessages} />
     </main>
   );
 }

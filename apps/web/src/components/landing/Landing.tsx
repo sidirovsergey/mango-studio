@@ -1,48 +1,50 @@
 'use client';
 
-import { useState } from 'react';
-import { LandingFooter } from './LandingFooter';
+import { useState, useTransition } from 'react';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { LandingInput } from './LandingInput';
 import { LandingSuggestions } from './LandingSuggestions';
+import { LandingFooter } from './LandingFooter';
+import { createProjectAction } from '@/server/actions/projects';
 
-export type LandingFormat = '9:16' | '16:9' | '1:1';
-export type LandingStyle = '3d_pixar' | '2d_drawn' | 'clay_art';
+type Aspect = '9:16' | '16:9' | '1:1';
+type Style = '3d_pixar' | '2d_drawn' | 'clay_art';
 
-export interface LandingChoice {
-  idea: string;
-  format: LandingFormat;
-  style: LandingStyle;
-}
-
-interface LandingProps {
-  onStart: (choice: LandingChoice) => void;
-}
-
-export function Landing({ onStart }: LandingProps) {
+export function Landing() {
   const [idea, setIdea] = useState('');
-  const [format, setFormat] = useState<LandingFormat>('9:16');
-  const [style, setStyle] = useState<LandingStyle>('3d_pixar');
+  const [aspect, setAspect] = useState<Aspect>('9:16');
+  const [style, setStyle] = useState<Style>('3d_pixar');
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   const submit = (text: string) => {
-    const trimmed = text.trim();
-    if (trimmed.length === 0) return;
-    onStart({ idea: trimmed, format, style });
+    if (text.trim().length === 0) return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        await createProjectAction({
+          idea: text.trim(),
+          style,
+          format: aspect,
+          target_duration_sec: 40,
+        });
+      } catch (err) {
+        if (isRedirectError(err)) throw err;
+        setError(err instanceof Error ? err.message : 'Не получилось создать проект');
+      }
+    });
   };
 
   return (
     <section className="landing" id="landing">
       <div className="landing-brand">
         <span className="brand-mark" />
-        <span className="name">
-          Mango<span>Studio</span>
-        </span>
+        <span className="name">Mango<span>Studio</span></span>
       </div>
       <div className="landing-corner">
-        <a href="/gallery">Галерея</a>
-        <a href="/pricing">Цены</a>
-        <a href="/login" className="login">
-          Войти
-        </a>
+        <a href="#">Галерея</a>
+        <a href="#">Цены</a>
+        <a href="#" className="login">Войти</a>
       </div>
 
       <div className="landing-stage">
@@ -51,23 +53,32 @@ export function Landing({ onStart }: LandingProps) {
           AI-режиссёр на связи
         </span>
         <h1 className="landing-headline">
-          Мультик за <em>40&nbsp;секунд</em>.<br />
-          Просто опиши идею.
+          Мультик за <em>40&nbsp;секунд</em>.<br />Просто опиши идею.
         </h1>
         <p className="landing-sub">
-          Mango сама подберёт персонажей, сценарий, голоса и сцены в стиле Pixar. Ты только
-          направляешь.
+          Mango сама подберёт персонажей, сценарий, голоса и сцены в стиле Pixar. Ты только направляешь.
         </p>
+
         <LandingInput
           value={idea}
           onChange={setIdea}
-          onSubmit={() => submit(idea)}
-          format={format}
-          onFormatChange={setFormat}
+          aspect={aspect}
+          onAspectChange={setAspect}
           style={style}
           onStyleChange={setStyle}
+          onSubmit={() => submit(idea)}
+          submitting={isPending}
         />
-        <LandingSuggestions onPick={submit} />
+
+        {error && <div className="landing-error" role="alert">{error}</div>}
+
+        <LandingSuggestions
+          onPick={(s) => {
+            setIdea(s);
+            submit(s);
+          }}
+          disabled={isPending}
+        />
       </div>
 
       <LandingFooter />
