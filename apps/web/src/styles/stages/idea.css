@@ -52,6 +52,86 @@
   color: var(--mango-600);
 }
 
+.meta-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  background: var(--paper);
+  border: 1px solid rgba(26, 18, 7, 0.08);
+  border-radius: 12px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 8px 24px -6px rgba(26, 18, 7, 0.18);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 148px;
+}
+.popover-opt {
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--ink-900);
+  transition: background 140ms;
+}
+.popover-opt:hover {
+  background: rgba(26, 18, 7, 0.04);
+}
+.popover-opt.active {
+  background: rgba(245, 118, 0, 0.08);
+  color: var(--mango-700);
+  font-weight: 600;
+}
+
+.idea-text-row {
+  margin-top: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.idea-text {
+  flex: 1;
+  margin: 0;
+  color: var(--ink-700);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.idea-edit-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--mango-300);
+  background: var(--paper);
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink-900);
+  resize: vertical;
+  box-shadow: 0 0 0 3px rgba(255, 144, 38, 0.12);
+  outline: none;
+}
+.cancel-btn {
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid rgba(26, 18, 7, 0.1);
+  border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink-700);
+  transition: background 160ms;
+}
+.cancel-btn:hover {
+  background: rgba(26, 18, 7, 0.04);
+}
+
 .ref-block {
   margin-top: 16px;
   padding-top: 14px;

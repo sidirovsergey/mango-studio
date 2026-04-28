@@ -52,6 +52,23 @@ export async function updateProjectMetaAction(input: z.infer<typeof UpdateMetaSc
   revalidatePath(`/projects/${project_id}`);
 }
 
+const UpdateIdeaSchema = z.object({
+  project_id: z.string().uuid(),
+  idea: z.string().min(1).max(500),
+});
+
+export async function updateIdeaAction(input: z.infer<typeof UpdateIdeaSchema>) {
+  const data = UpdateIdeaSchema.parse(input);
+  await getCurrentUserId();
+  const supabase = await getServerSupabase();
+  const { error } = await supabase
+    .from('projects')
+    .update({ idea: data.idea })
+    .eq('id', data.project_id);
+  if (error) throw new Error(`updateIdea: ${error.message}`);
+  revalidatePath(`/projects/${data.project_id}`);
+}
+
 const SetAutoModeSchema = z.object({
   project_id: z.string().uuid(),
   auto_mode: z.boolean(),
