@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { createProjectAction } from '@/server/actions/projects';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
+import { useState, useTransition } from 'react';
+import { LandingFooter } from './LandingFooter';
 import { LandingInput } from './LandingInput';
 import { LandingSuggestions } from './LandingSuggestions';
-import { LandingFooter } from './LandingFooter';
-import { createProjectAction } from '@/server/actions/projects';
 
 type Aspect = '9:16' | '16:9' | '1:1';
 type Style = '3d_pixar' | '2d_drawn' | 'clay_art';
@@ -39,12 +39,16 @@ export function Landing() {
     <section className="landing" id="landing">
       <div className="landing-brand">
         <span className="brand-mark" />
-        <span className="name">Mango<span>Studio</span></span>
+        <span className="name">
+          Mango<span>Studio</span>
+        </span>
       </div>
       <div className="landing-corner">
-        <a href="#">Галерея</a>
-        <a href="#">Цены</a>
-        <a href="#" className="login">Войти</a>
+        <button type="button">Галерея</button>
+        <button type="button">Цены</button>
+        <button type="button" className="login">
+          Войти
+        </button>
       </div>
 
       <div className="landing-stage">
@@ -53,10 +57,12 @@ export function Landing() {
           AI-режиссёр на связи
         </span>
         <h1 className="landing-headline">
-          Мультик за <em>40&nbsp;секунд</em>.<br />Просто опиши идею.
+          Мультик за <em>40&nbsp;секунд</em>.<br />
+          Просто опиши идею.
         </h1>
         <p className="landing-sub">
-          Mango сама подберёт персонажей, сценарий, голоса и сцены в стиле Pixar. Ты только направляешь.
+          Mango сама подберёт персонажей, сценарий, голоса и сцены в стиле Pixar. Ты только
+          направляешь.
         </p>
 
         <LandingInput
@@ -70,7 +76,11 @@ export function Landing() {
           submitting={isPending}
         />
 
-        {error && <div className="landing-error" role="alert">{error}</div>}
+        {error && (
+          <div className="landing-error" role="alert">
+            {error}
+          </div>
+        )}
 
         <LandingSuggestions
           onPick={(s) => {

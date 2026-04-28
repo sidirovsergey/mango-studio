@@ -1,9 +1,9 @@
 'use server';
 
+import { getCurrentUserId } from '@/lib/auth/get-user';
+import { getServerSupabase } from '@mango/db/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { getServerSupabase } from '@mango/db/server';
-import { getCurrentUserId } from '@/lib/auth/get-user';
 
 type ProjectStatus = 'draft' | 'script_ready' | 'characters_ready' | 'scenes_ready' | 'final_ready';
 

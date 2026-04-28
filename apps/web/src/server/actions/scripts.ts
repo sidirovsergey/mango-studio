@@ -1,17 +1,17 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
-import { z } from 'zod';
+import { getCurrentUserId } from '@/lib/auth/get-user';
+import { logLLMCall } from '@/server/lib/log-llm-call';
 import {
+  type ScriptGenOutput,
   classifyLLMError,
   getLLMProvider,
   getModelParams,
-  type ScriptGenOutput,
 } from '@mango/core';
-import { getServerSupabase } from '@mango/db/server';
 import type { Database } from '@mango/db';
-import { getCurrentUserId } from '@/lib/auth/get-user';
-import { logLLMCall } from '@/server/lib/log-llm-call';
+import { getServerSupabase } from '@mango/db/server';
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
 
 const ProjectIdSchema = z.object({ project_id: z.string().uuid() });
 
@@ -30,12 +30,17 @@ async function persistScript(projectId: string, script: ScriptGenOutput) {
   const supabase = await getServerSupabase();
   const { error } = await supabase
     .from('projects')
-    .update({ script: script as unknown as Database['public']['Tables']['projects']['Update']['script'], status: 'script_ready' })
+    .update({
+      script: script as unknown as Database['public']['Tables']['projects']['Update']['script'],
+      status: 'script_ready',
+    })
     .eq('id', projectId);
   if (error) throw new Error(`persistScript: ${error.message}`);
 }
 
-export async function generateScriptAction(input: z.infer<typeof ProjectIdSchema>): Promise<ScriptGenOutput> {
+export async function generateScriptAction(
+  input: z.infer<typeof ProjectIdSchema>,
+): Promise<ScriptGenOutput> {
   const { project_id } = ProjectIdSchema.parse(input);
   const userId = await getCurrentUserId();
   const project = await loadProjectForGeneration(project_id);
@@ -72,7 +77,9 @@ export async function generateScriptAction(input: z.infer<typeof ProjectIdSchema
   }
 }
 
-export async function regenScriptAction(input: z.infer<typeof ProjectIdSchema>): Promise<ScriptGenOutput> {
+export async function regenScriptAction(
+  input: z.infer<typeof ProjectIdSchema>,
+): Promise<ScriptGenOutput> {
   return generateScriptAction(input);
 }
 
@@ -81,7 +88,9 @@ const RefineScriptSchema = z.object({
   instruction: z.string().min(1).max(500),
 });
 
-export async function refineScriptAction(input: z.infer<typeof RefineScriptSchema>): Promise<ScriptGenOutput> {
+export async function refineScriptAction(
+  input: z.infer<typeof RefineScriptSchema>,
+): Promise<ScriptGenOutput> {
   const { project_id, instruction } = RefineScriptSchema.parse(input);
   const userId = await getCurrentUserId();
   const project = await loadProjectForGeneration(project_id);
@@ -126,7 +135,9 @@ const RefineBeatSchema = z.object({
   instruction: z.string().min(1).max(500),
 });
 
-export async function refineBeatAction(input: z.infer<typeof RefineBeatSchema>): Promise<{ updated_description: string }> {
+export async function refineBeatAction(
+  input: z.infer<typeof RefineBeatSchema>,
+): Promise<{ updated_description: string }> {
   const { project_id, scene_id, instruction } = RefineBeatSchema.parse(input);
   const userId = await getCurrentUserId();
   const project = await loadProjectForGeneration(project_id);
@@ -147,9 +158,7 @@ export async function refineBeatAction(input: z.infer<typeof RefineBeatSchema>):
     const updatedScript: ScriptGenOutput = {
       ...script,
       scenes: script.scenes.map((s) =>
-        s.scene_id === scene_id
-          ? { ...s, description: result.output.updated_description }
-          : s,
+        s.scene_id === scene_id ? { ...s, description: result.output.updated_description } : s,
       ),
     };
     await persistScript(project_id, updatedScript);

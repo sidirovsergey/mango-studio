@@ -30,7 +30,11 @@ export function ChatStream({ messages, pending }: Props) {
       {pending && (
         <div className="msg ai">
           <span className="label">Mango AI</span>
-          <span className="typing-dots"><i /><i /><i /></span>
+          <span className="typing-dots">
+            <i />
+            <i />
+            <i />
+          </span>
         </div>
       )}
     </div>

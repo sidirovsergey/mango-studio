@@ -1,10 +1,5 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import type { FormEvent } from 'react';
-import type { Database } from '@mango/db/types';
-import { type LLMProviderError, type ScriptGenOutput } from '@mango/core';
-import { StageHead } from '../shared/StageHead';
 import { ThinkingShimmer } from '@/components/effects/ThinkingShimmer';
 import {
   generateScriptAction,
@@ -12,6 +7,11 @@ import {
   refineScriptAction,
   regenScriptAction,
 } from '@/server/actions/scripts';
+import type { LLMProviderError, ScriptGenOutput } from '@mango/core';
+import type { Database } from '@mango/db/types';
+import { useState, useTransition } from 'react';
+import type { FormEvent } from 'react';
+import { StageHead } from '../shared/StageHead';
 
 type ProjectRow = Database['public']['Tables']['projects']['Row'];
 
@@ -117,14 +117,21 @@ export function StageScript({ project, script }: Props) {
     return (
       <section className="stage" data-stage id="scriptStage">
         <StageHead num="03" title="Сценарий" />
-        <div className="stage-body" style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-start' }}>
+        <div
+          className="stage-body"
+          style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-start' }}
+        >
           <p style={{ color: 'var(--ink-400)' }}>
             Mango готова собрать сценарий из твоей идеи в 5 битах.
           </p>
-          <button className="cta" onClick={handleGenerate} disabled={isPending}>
+          <button type="button" className="cta" onClick={handleGenerate} disabled={isPending}>
             Создать сценарий
           </button>
-          {error && <div className="stage-error" role="alert" style={{ color: 'var(--err-500, #c0392b)' }}>{error}</div>}
+          {error && (
+            <div className="stage-error" role="alert" style={{ color: 'var(--err-500, #c0392b)' }}>
+              {error}
+            </div>
+          )}
         </div>
       </section>
     );
@@ -145,27 +152,41 @@ export function StageScript({ project, script }: Props) {
         <span className="stage-num">03</span>
         <div className="stage-title">Сценарий</div>
         <span className="section-tag">
-          <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--leaf-500)', boxShadow: '0 0 0 3px rgba(31,179,100,0.18)' }} />
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 999,
+              background: 'var(--leaf-500)',
+              boxShadow: '0 0 0 3px rgba(31,179,100,0.18)',
+            }}
+          />
           Готов
         </span>
         <div style={{ flex: 1 }} />
         <button
+          type="button"
           className="icon-btn"
           id="scriptRegen"
           title="Перегенерировать сценарий"
           onClick={handleRegen}
           disabled={isPending}
         >
-          <svg className="i" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15.5-6.3L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.3L3 16M3 21v-5h5" /></svg>
+          <svg className="i" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 12a9 9 0 0 1 15.5-6.3L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.3L3 16M3 21v-5h5" />
+          </svg>
         </button>
         <button
+          type="button"
           className="icon-btn"
           id="scriptRefine"
           title="Уточнить промптом"
           onClick={() => setRefineFormOpen((v) => !v)}
           disabled={isPending}
         >
-          <svg className="i" viewBox="0 0 24 24"><path d="M12 20l4-4M3 21l3-9 9-9 6 6-9 9-9 3z" /></svg>
+          <svg className="i" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 20l4-4M3 21l3-9 9-9 6 6-9 9-9 3z" />
+          </svg>
         </button>
       </div>
 
@@ -177,24 +198,31 @@ export function StageScript({ project, script }: Props) {
 
       {currentScript && (
         <>
-          <div className="script-summary" id="scriptSummary">{currentScript.title}</div>
+          <div className="script-summary" id="scriptSummary">
+            {currentScript.title}
+          </div>
           <div className="beats-list" id="beatsList">
             {currentScript.scenes.map((scene, idx) => (
               <button
                 key={scene.scene_id}
+                type="button"
                 className="beat"
                 data-beat={idx + 1}
                 onClick={() => setActiveBeatId(scene.scene_id)}
                 style={{
-                  animation: `fadeInUp 0.4s ease-out both`,
+                  animation: 'fadeInUp 0.4s ease-out both',
                   animationDelay: `${idx * 0.08}s`,
                 }}
               >
                 <span className="beat-num">{String(idx + 1).padStart(2, '0')}</span>
                 <span className="beat-duration">{scene.duration_sec} сек</span>
                 <span className="beat-arrow">→</span>
-                <span className="beat-text" data-beat-text>{scene.description}</span>
-                <svg className="i beat-act" viewBox="0 0 24 24"><path d="M3 21l3-9 9-9 6 6-9 9-9 3z" /></svg>
+                <span className="beat-text" data-beat-text>
+                  {scene.description}
+                </span>
+                <svg className="i beat-act" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 21l3-9 9-9 6 6-9 9-9 3z" />
+                </svg>
               </button>
             ))}
           </div>
@@ -207,6 +235,7 @@ export function StageScript({ project, script }: Props) {
             placeholder="Например: «сделай развязку грустнее» или «добавь второго краба-конкурента»"
             value={refineInstruction}
             onChange={(e) => setRefineInstruction(e.target.value)}
+            // biome-ignore lint/a11y/noAutofocus: refine form opens on explicit user action; autofocus is desired UX
             autoFocus
             disabled={isPending}
           />
@@ -227,6 +256,7 @@ export function StageScript({ project, script }: Props) {
             placeholder={`Уточни бит «${currentScript?.scenes.find((s) => s.scene_id === activeBeatId)?.description ?? ''}»`}
             value={activeBeatInstruction}
             onChange={(e) => setActiveBeatInstruction(e.target.value)}
+            // biome-ignore lint/a11y/noAutofocus: refine form opens on explicit user action; autofocus is desired UX
             autoFocus
             disabled={isPending}
           />
@@ -242,7 +272,11 @@ export function StageScript({ project, script }: Props) {
       )}
 
       {error && (
-        <div className="stage-error" role="alert" style={{ color: 'var(--err-500, #c0392b)', marginTop: 12 }}>
+        <div
+          className="stage-error"
+          role="alert"
+          style={{ color: 'var(--err-500, #c0392b)', marginTop: 12 }}
+        >
           {error}
         </div>
       )}

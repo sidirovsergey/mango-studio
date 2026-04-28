@@ -13,12 +13,11 @@ export function StageFinal({ projectStatus }: Props) {
   return (
     <section className="stage" data-stage id="finalStage">
       <StageHead num="05" title="Финал" />
-      <StageGate
-        unlocked={unlocked}
-        scrollToStageId="scenesStage"
-        hint="Сначала собери все сцены"
-      >
-        <div className="final-placeholder" style={{ padding: '24px', textAlign: 'center', color: 'var(--ink-300)' }}>
+      <StageGate unlocked={unlocked} scrollToStageId="scenesStage" hint="Сначала собери все сцены">
+        <div
+          className="final-placeholder"
+          style={{ padding: '24px', textAlign: 'center', color: 'var(--ink-300)' }}
+        >
           Финальный плеер появится в Phase 1.4
         </div>
       </StageGate>

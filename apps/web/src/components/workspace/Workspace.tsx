@@ -1,15 +1,15 @@
 'use client';
 
-import { WorkspaceScroll } from './WorkspaceScroll';
-import { TopBar } from './TopBar';
-import { StageIdea } from './stages/StageIdea';
-import { StageCharacters } from './stages/StageCharacters';
-import { StageScript } from './stages/StageScript';
-import { StageScenes } from './stages/StageScenes';
-import { StageFinal } from './stages/StageFinal';
 import { Chat } from '@/components/chat/Chat';
-import type { Database } from '@mango/db/types';
 import type { ScriptGenOutput } from '@mango/core';
+import type { Database } from '@mango/db/types';
+import { TopBar } from './TopBar';
+import { WorkspaceScroll } from './WorkspaceScroll';
+import { StageCharacters } from './stages/StageCharacters';
+import { StageFinal } from './stages/StageFinal';
+import { StageIdea } from './stages/StageIdea';
+import { StageScenes } from './stages/StageScenes';
+import { StageScript } from './stages/StageScript';
 
 type ProjectRow = Database['public']['Tables']['projects']['Row'];
 type ChatMessageRow = Database['public']['Tables']['chat_messages']['Row'];

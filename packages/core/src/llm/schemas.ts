@@ -4,7 +4,10 @@ import type { ScriptGenOutput } from './provider';
 
 export const SceneSchema = z.object({
   scene_id: z.string().min(1).describe('Уникальный id сцены, например s1, s2'),
-  description: z.string().min(1).describe('Описание сцены, что в ней происходит, для media-генерации'),
+  description: z
+    .string()
+    .min(1)
+    .describe('Описание сцены, что в ней происходит, для media-генерации'),
   duration_sec: z.number().int().min(1).max(30).describe('Длительность сцены в секундах'),
   voiceover: z.string().optional().describe('Реплика/закадровый голос для этой сцены'),
 });
@@ -16,8 +19,16 @@ export const CharacterSchema = z.object({
 
 export const ScriptGenSchema = z.object({
   title: z.string().min(1).max(120).describe('Короткий цепляющий заголовок мультика'),
-  scenes: z.array(SceneSchema).min(2).max(8).describe('2-8 сцен, в сумме укладывающихся в target_duration_sec'),
-  characters: z.array(CharacterSchema).min(1).max(5).describe('Главные персонажи, фигурирующие в сценах'),
+  scenes: z
+    .array(SceneSchema)
+    .min(2)
+    .max(8)
+    .describe('2-8 сцен, в сумме укладывающихся в target_duration_sec'),
+  characters: z
+    .array(CharacterSchema)
+    .min(1)
+    .max(5)
+    .describe('Главные персонажи, фигурирующие в сценах'),
 });
 
 type _SchemaMatchesType = z.infer<typeof ScriptGenSchema> extends ScriptGenOutput

@@ -39,7 +39,9 @@ export function ChatInput({ onSend, disabled }: Props) {
         onClick={submit}
         disabled={disabled || text.trim().length === 0}
       >
-        <svg className="i" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+        <svg className="i" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 12h14M13 6l6 6-6 6" />
+        </svg>
       </button>
     </div>
   );

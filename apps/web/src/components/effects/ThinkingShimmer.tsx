@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-const STEPS = [
-  'Прорабатываю персонажей…',
-  'Раскадровываю сцены…',
-  'Шлифую диалоги…',
-];
+const STEPS = ['Прорабатываю персонажей…', 'Раскадровываю сцены…', 'Шлифую диалоги…'];
 
 interface Props {
   active: boolean;
@@ -48,7 +44,8 @@ export function ThinkingShimmer({ active }: Props) {
             style={{
               height: '20px',
               borderRadius: '6px',
-              background: 'linear-gradient(110deg, transparent 35%, rgba(255,255,255,0.55) 50%, transparent 65%)',
+              background:
+                'linear-gradient(110deg, transparent 35%, rgba(255,255,255,0.55) 50%, transparent 65%)',
               backgroundSize: '240% 100%',
               animation: `shimmer 1.6s ease-in-out infinite ${i * 0.18}s, pulse 2.4s ease-in-out infinite`,
             }}

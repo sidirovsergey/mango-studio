@@ -1,10 +1,10 @@
 'use server';
 
+import { getCurrentUserId } from '@/lib/auth/get-user';
+import { getServerSupabase } from '@mango/db/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
-import { getServerSupabase } from '@mango/db/server';
-import { getCurrentUserId } from '@/lib/auth/get-user';
 
 const CreateProjectSchema = z.object({
   idea: z.string().min(1).max(500),

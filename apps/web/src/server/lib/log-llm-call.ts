@@ -1,6 +1,6 @@
 import 'server-only';
-import { getServerSupabase } from '@mango/db/server';
 import type { LLMUsage } from '@mango/core';
+import { getServerSupabase } from '@mango/db/server';
 
 type LLMMethod = 'generateScript' | 'refineScene' | 'chat';
 

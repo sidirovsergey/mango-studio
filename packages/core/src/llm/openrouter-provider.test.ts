@@ -28,7 +28,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  delete process.env.OPENROUTER_API_KEY;
+  process.env.OPENROUTER_API_KEY = undefined;
 });
 
 describe('OpenRouterLLMProvider', () => {
@@ -96,7 +96,9 @@ describe('OpenRouterLLMProvider', () => {
     expect(mockGenerateText).toHaveBeenCalledOnce();
     const callArgs = mockGenerateText.mock.calls[0]![0];
     expect(callArgs.messages?.[0]?.role).toBe('system');
-    expect((callArgs.providerOptions?.anthropic?.cacheControl as { type?: string } | undefined)?.type).toBe('ephemeral');
+    expect(
+      (callArgs.providerOptions?.anthropic?.cacheControl as { type?: string } | undefined)?.type,
+    ).toBe('ephemeral');
   });
 
   it('classifies rate-limit errors via LLMProviderError', async () => {
@@ -117,7 +119,7 @@ describe('OpenRouterLLMProvider', () => {
   });
 
   it('throws if OPENROUTER_API_KEY is not set', async () => {
-    delete process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = '';
     expect(() => new OpenRouterLLMProvider()).toThrow(LLMProviderError);
   });
 });

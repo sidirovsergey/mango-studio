@@ -1,8 +1,8 @@
 'use client';
 
+import { getBrowserSupabase } from '@mango/db/browser';
 import type { User } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
-import { getBrowserSupabase } from '@mango/db/browser';
 
 export function useUser(): { user: User | null; loading: boolean } {
   const [user, setUser] = useState<User | null>(null);

@@ -1,7 +1,7 @@
-import { notFound } from 'next/navigation';
-import { getServerSupabase } from '@mango/db/server';
-import { getCurrentUserId } from '@/lib/auth/get-user';
 import { Workspace } from '@/components/workspace/Workspace';
+import { getCurrentUserId } from '@/lib/auth/get-user';
+import { getServerSupabase } from '@mango/db/server';
+import { notFound } from 'next/navigation';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -15,7 +15,9 @@ export default async function ProjectPage({ params }: Props) {
   const [projectResult, messagesResult] = await Promise.all([
     supabase
       .from('projects')
-      .select('id, idea, style, format, target_duration_sec, script, title, status, auto_mode, user_id, created_at, updated_at')
+      .select(
+        'id, idea, style, format, target_duration_sec, script, title, status, auto_mode, user_id, created_at, updated_at',
+      )
       .eq('id', id)
       .single(),
     supabase
@@ -29,10 +31,5 @@ export default async function ProjectPage({ params }: Props) {
     return notFound();
   }
 
-  return (
-    <Workspace
-      project={projectResult.data}
-      initialChatMessages={messagesResult.data ?? []}
-    />
-  );
+  return <Workspace project={projectResult.data} initialChatMessages={messagesResult.data ?? []} />;
 }

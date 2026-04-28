@@ -50,9 +50,18 @@ export interface ChatOutput {
   reply: string;
 }
 
-export interface ScriptGenResult { output: ScriptGenOutput; usage: LLMUsage; }
-export interface RefineSceneResult { output: RefineSceneOutput; usage: LLMUsage; }
-export interface ChatResult { output: ChatOutput; usage: LLMUsage; }
+export interface ScriptGenResult {
+  output: ScriptGenOutput;
+  usage: LLMUsage;
+}
+export interface RefineSceneResult {
+  output: RefineSceneOutput;
+  usage: LLMUsage;
+}
+export interface ChatResult {
+  output: ChatOutput;
+  usage: LLMUsage;
+}
 
 export interface LLMProvider {
   generateScript(input: ScriptGenInput): Promise<ScriptGenResult>;

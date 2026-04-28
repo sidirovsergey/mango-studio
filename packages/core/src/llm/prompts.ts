@@ -10,7 +10,7 @@ const FORMAT_LABEL: Record<ScriptGenInput['format'], string> = {
 const STYLE_LABEL: Record<ScriptGenInput['style'], string> = {
   '3d_pixar': '3D Pixar — объёмный, тёплая палитра, выразительные персонажи',
   '2d_drawn': '2D рисованный — мягкие текстуры карандаша/гуаши, ламповая атмосфера',
-  'clay_art': 'Клей-арт — пластилиновая анимация, фактурные поверхности, лёгкая «несовершенность»',
+  clay_art: 'Клей-арт — пластилиновая анимация, фактурные поверхности, лёгкая «несовершенность»',
 };
 
 export const SCRIPT_SYSTEM_PROMPT = `Ты — Mango, AI-режиссёр коротких мультиков.

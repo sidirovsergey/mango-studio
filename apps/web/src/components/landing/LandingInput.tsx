@@ -17,7 +17,7 @@ interface Props {
 const STYLE_LABEL: Record<Style, string> = {
   '3d_pixar': '3D Pixar',
   '2d_drawn': '2D рисованный',
-  'clay_art': 'Клей-арт',
+  clay_art: 'Клей-арт',
 };
 
 export function LandingInput({
@@ -48,13 +48,16 @@ export function LandingInput({
           disabled={submitting}
         />
         <button
+          type="button"
           className="landing-send"
           id="landingSend"
           onClick={onSubmit}
           disabled={submitting || value.trim().length === 0}
         >
           {submitting ? 'Создаём…' : 'Создать'}
-          <svg className="i" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          <svg className="i" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
         </button>
       </div>
       <div className="landing-tools">
@@ -79,7 +82,13 @@ export function LandingInput({
             {STYLE_LABEL[s]}
           </button>
         ))}
-        <span style={{ marginLeft: 'auto', fontFamily: "'Geist Mono',monospace", color: 'var(--ink-300)' }}>
+        <span
+          style={{
+            marginLeft: 'auto',
+            fontFamily: "'Geist Mono',monospace",
+            color: 'var(--ink-300)',
+          }}
+        >
           ⌘ + ⏎
         </span>
       </div>

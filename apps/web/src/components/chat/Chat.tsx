@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import type { Database } from '@mango/db/types';
-import type { LLMProviderError } from '@mango/core';
-import { ChatStream } from './ChatStream';
-import { ChatInput } from './ChatInput';
 import { sendChatMessageAction } from '@/server/actions/chat';
+import type { LLMProviderError } from '@mango/core';
+import type { Database } from '@mango/db/types';
+import { useState, useTransition } from 'react';
+import { ChatInput } from './ChatInput';
+import { ChatStream } from './ChatStream';
 
 type ChatRow = Database['public']['Tables']['chat_messages']['Row'];
 
@@ -67,7 +67,11 @@ export function Chat({ projectId, initialMessages }: Props) {
       </div>
       <ChatStream messages={messages} pending={isPending} />
       {error && (
-        <div className="chat-error" role="alert" style={{ padding: '8px 16px', color: 'var(--err-500, #c0392b)' }}>
+        <div
+          className="chat-error"
+          role="alert"
+          style={{ padding: '8px 16px', color: 'var(--err-500, #c0392b)' }}
+        >
           {error}
         </div>
       )}
