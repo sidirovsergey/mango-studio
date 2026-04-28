@@ -1,16 +1,27 @@
 'use client';
 
+import { StageGate } from '../StageGate';
+import { StageHead } from '../shared/StageHead';
+
 interface Props {
   projectStatus: string;
 }
 
-export function StageScenes(_props: Props) {
+export function StageScenes({ projectStatus }: Props) {
+  const unlocked = ['characters_ready', 'scenes_ready', 'final_ready'].includes(projectStatus);
+
   return (
-    <section className="stage" data-stage id="scenesStage" data-stub="phase-1.1.H">
-      <div className="stage-head">
-        <span className="stage-num">04</span>
-        <div className="stage-title">Сцены</div>
-      </div>
+    <section className="stage" data-stage id="scenesStage">
+      <StageHead num="04" title="Сцены" />
+      <StageGate
+        unlocked={unlocked}
+        scrollToStageId="charactersStage"
+        hint="Сначала закончи персонажей"
+      >
+        <div className="scene-grid-placeholder" style={{ padding: '24px', textAlign: 'center', color: 'var(--ink-300)' }}>
+          Сцены появятся в Phase 1.3 (fal.ai video)
+        </div>
+      </StageGate>
     </section>
   );
 }
