@@ -19,6 +19,8 @@ export type {
 } from './provider';
 
 export { LLMProviderError, classifyLLMError } from './errors';
+export { getModelParams } from './config';
+export type { LLMTask, ModelParams } from './config';
 
 export function getLLMProvider(): LLMProvider {
   const providerName = process.env.LLM_PROVIDER ?? 'mock';

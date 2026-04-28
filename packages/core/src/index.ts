@@ -32,4 +32,5 @@ export type {
   ScriptGenOutput,
   ScriptGenResult,
 } from './llm';
-export { getLLMProvider, LLMProviderError, classifyLLMError } from './llm';
+export { getLLMProvider, LLMProviderError, classifyLLMError, getModelParams } from './llm';
+export type { LLMTask, ModelParams } from './llm';

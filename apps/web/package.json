@@ -15,14 +15,15 @@
     "@mango/core": "workspace:*",
     "@mango/db": "workspace:*",
     "@mango/ui": "workspace:*",
-    "@supabase/ssr": "^0.5.2",
+    "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.1",
     "clsx": "^2.1.1",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "server-only": "^0.0.1",
-    "tailwind-merge": "^2.5.4"
+    "tailwind-merge": "^2.5.4",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0-beta.7",
