@@ -24,7 +24,7 @@ export function Workspace({ project, initialChatMessages }: WorkspaceProps) {
   const status = project.status;
 
   return (
-    <div className="app" data-phase="workspace">
+    <div className="app" data-phase="workspace" style={{ opacity: 1, visibility: 'visible' as const }}>
       <Chat projectId={project.id} initialMessages={initialChatMessages} />
       <main className="workspace-shell">
         <TopBar
