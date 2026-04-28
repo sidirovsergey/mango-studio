@@ -49,8 +49,8 @@ export class OpenRouterLLMProvider implements LLMProvider {
       const llmUsage = await this.buildUsage(params.model, usage, start);
       return { output: object, usage: llmUsage };
     } catch (err) {
-      const e = err as { name?: string; message?: string };
-      console.error(`[ORL.generateScript] ${e?.name}: ${e?.message}`, err);
+      const e = err as { name?: string; message?: string; statusCode?: number; url?: string };
+      console.error(`[ORL.generateScript] ${e?.name} s=${e?.statusCode}: ${e?.message?.slice(0, 80)}`, err);
       throw classifyLLMError(err);
     }
   }

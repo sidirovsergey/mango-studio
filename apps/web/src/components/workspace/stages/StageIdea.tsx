@@ -67,7 +67,10 @@ export function StageIdea({ project }: Props) {
   return (
     <section className="stage" data-stage id="ideaStage">
       <StageHead num="01" title="Идея">
-        <span className="stage-subtitle">{`Обновлено ${new Date(project.updated_at).toLocaleString('ru-RU')}`}</span>
+        {/* suppressHydrationWarning: toLocaleString differs server(UTC) vs client(user TZ) */}
+        <span className="stage-subtitle" suppressHydrationWarning>
+          {`Обновлено ${new Date(project.updated_at).toLocaleString('ru-RU')}`}
+        </span>
       </StageHead>
 
       <div className="idea-summary">
