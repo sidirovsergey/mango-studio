@@ -10,6 +10,8 @@ import {
 } from '@mango/core';
 import type { Database } from '@mango/db';
 import { getServerSupabase } from '@mango/db/server';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { generateText } from 'ai';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
@@ -124,6 +126,133 @@ export async function refineScriptAction(
       status: 'error',
       error_code: llmErr.code,
       model: getModelParams('script').model,
+    });
+    throw llmErr;
+  }
+}
+
+const AddSceneSchema = z.object({
+  project_id: z.string().uuid(),
+  instruction: z.string().min(1).max(500),
+});
+
+export async function addSceneAction(
+  input: z.infer<typeof AddSceneSchema>,
+): Promise<ScriptGenOutput> {
+  const { project_id, instruction } = AddSceneSchema.parse(input);
+  const userId = await getCurrentUserId();
+  const project = await loadProjectForGeneration(project_id);
+  if (!project.script) throw new Error('addScene: project has no script yet');
+  const script = project.script as unknown as ScriptGenOutput;
+
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY is not set');
+  const openrouter = createOpenRouter({ apiKey });
+  const params = getModelParams('refine');
+  const start = Date.now();
+
+  const styleLabel: Record<string, string> = {
+    '3d_pixar': '3D Pixar',
+    '2d_drawn': '2D рисованный',
+    clay_art: 'Клей-арт',
+  };
+  const styleHuman = styleLabel[project.style ?? '3d_pixar'] ?? project.style;
+
+  const systemPrompt = `Ты — Mango, AI-режиссёр короткого мультика. Тебе нужно ДОБАВИТЬ ОДНУ новую сцену к уже существующему сценарию по запросу пользователя.
+
+Верни ТОЛЬКО валидный JSON без markdown-блоков и пояснений:
+{
+  "description": "подробное одно-два предложения описания сцены для генерации видео в том же стиле и тоне, что и существующие сцены",
+  "duration_sec": 7,
+  "voiceover": "опционально — закадровый текст, пропусти если не нужен"
+}
+
+description должен быть ЗАКОНЧЕННОЙ сценой, не продолжением последней. duration_sec — целое число от 4 до 12 секунд.`;
+
+  const userPrompt = `Идея проекта: «${project.idea}». Стиль: ${styleHuman}.
+
+Существующие сцены (${script.scenes.length}):
+${script.scenes.map((s, i) => `${i + 1}. (${s.duration_sec} сек) ${s.description}`).join('\n\n')}
+
+Инструкция пользователя: добавь сцену — «${instruction}»
+
+Верни JSON одной новой сцены, которая логично встанет В КОНЕЦ.`;
+
+  try {
+    const { text, usage } = await generateText({
+      model: openrouter(params.model),
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: params.temperature,
+      maxOutputTokens: 800,
+      providerOptions: {
+        openrouter: {
+          response_format: { type: 'json_object' },
+          provider: { ignore: ['DeepInfra'] },
+        },
+      },
+    });
+
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new SyntaxError('addScene: no JSON in LLM response');
+    const parsed = JSON.parse(jsonMatch[0]) as {
+      description?: string;
+      duration_sec?: number;
+      voiceover?: string;
+    };
+    if (!parsed.description || typeof parsed.description !== 'string') {
+      throw new Error('addScene: missing or invalid description in LLM response');
+    }
+
+    const maxId = script.scenes.reduce((max, s) => {
+      const num = Number.parseInt(s.scene_id.replace(/^s/, ''), 10);
+      return Number.isFinite(num) && num > max ? num : max;
+    }, 0);
+    const newScene = {
+      scene_id: `s${maxId + 1}`,
+      description: parsed.description.trim(),
+      duration_sec:
+        typeof parsed.duration_sec === 'number' &&
+        parsed.duration_sec >= 4 &&
+        parsed.duration_sec <= 12
+          ? Math.round(parsed.duration_sec)
+          : 7,
+      ...(typeof parsed.voiceover === 'string' && parsed.voiceover.trim()
+        ? { voiceover: parsed.voiceover.trim() }
+        : {}),
+    };
+
+    const updated: ScriptGenOutput = {
+      ...script,
+      scenes: [...script.scenes, newScene],
+    };
+    await persistScript(project_id, updated);
+
+    await logLLMCall({
+      user_id: userId,
+      project_id,
+      method: 'refineScene',
+      status: 'success',
+      usage: {
+        prompt_tokens: usage?.inputTokens ?? 0,
+        completion_tokens: usage?.outputTokens ?? 0,
+        cost_usd: 0,
+        model: params.model,
+        latency_ms: Date.now() - start,
+      },
+    });
+
+    revalidatePath(`/projects/${project_id}`);
+    return updated;
+  } catch (err) {
+    const llmErr = classifyLLMError(err);
+    await logLLMCall({
+      user_id: userId,
+      project_id,
+      method: 'refineScene',
+      status: 'error',
+      error_code: llmErr.code,
+      model: params.model,
     });
     throw llmErr;
   }

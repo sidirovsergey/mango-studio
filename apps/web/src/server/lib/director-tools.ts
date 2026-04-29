@@ -1,5 +1,6 @@
 import 'server-only';
 import {
+  addSceneAction,
   deleteSceneAction,
   generateScriptAction,
   refineBeatAction,
@@ -56,6 +57,31 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
             ok: true,
             new_title: result.title,
             scene_count: result.scenes.length,
+          };
+        } catch (err) {
+          return { ok: false, error: shortError(err) };
+        }
+      },
+    }),
+
+    add_scene: tool({
+      description:
+        'ДОБАВИТЬ новую сцену В КОНЕЦ существующего сценария. Используй когда пользователь говорит «добавь сцену», «добавь ещё сцену про X», «вставь сцену с Y». Этот tool создаёт ОДНУ новую сцену и аппендит к массиву — общее количество сцен увеличивается на 1. НЕ используй refine_script для добавления — он переписывает весь сценарий с нуля и количество сцен может остаться тем же.',
+      inputSchema: z.object({
+        instruction: z
+          .string()
+          .min(1)
+          .max(500)
+          .describe('О чём должна быть новая сцена (одно-два предложения от пользователя)'),
+      }),
+      execute: async ({ instruction }) => {
+        try {
+          const result = await addSceneAction({ project_id, instruction });
+          const newScene = result.scenes[result.scenes.length - 1];
+          return {
+            ok: true,
+            scene_count: result.scenes.length,
+            new_scene_id: newScene?.scene_id,
           };
         } catch (err) {
           return { ok: false, error: shortError(err) };
