@@ -126,3 +126,92 @@
   resize: none;
   min-height: 32px;
 }
+
+/* refine-form — copied verbatim from mockups/index.html lines 854-892 */
+.refine-form {
+  margin-top: 10px;
+  background: var(--cream);
+  border: 1px solid rgba(245, 118, 0, 0.18);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: refineIn 320ms var(--spring-soft, cubic-bezier(0.34, 1.56, 0.64, 1));
+}
+@keyframes refineIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.refine-form textarea {
+  border: 1px solid rgba(26, 18, 7, 0.08);
+  background: var(--paper);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 12px;
+  min-height: 56px;
+  resize: none;
+  outline: 0;
+  color: var(--ink-900);
+}
+.refine-form textarea:focus {
+  border-color: var(--mango-300);
+  box-shadow: 0 0 0 3px rgba(245, 118, 0, 0.14);
+}
+.refine-form .actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.refine-form button {
+  border: 0;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+}
+.refine-form .cancel {
+  background: transparent;
+  color: var(--ink-500);
+}
+.refine-form .apply {
+  background: linear-gradient(180deg, var(--mango-400), var(--mango-600));
+  color: white;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    0 4px 10px -2px rgba(245, 118, 0, 0.45);
+}
+.refine-form .apply:disabled,
+.refine-form .cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Shimmer overlay sits over stage body only, never over .stage-head */
+.stage-body-relative {
+  position: relative;
+}
+.stage-body-relative .thinking-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 250, 240, 0.92) 0%,
+    rgba(255, 250, 240, 0.78) 100%
+  );
+  border-radius: 12px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}

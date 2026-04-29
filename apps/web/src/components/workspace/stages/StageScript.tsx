@@ -147,7 +147,7 @@ export function StageScript({ project, script }: Props) {
   }
 
   return (
-    <section className="stage" data-stage id="scriptStage" style={{ position: 'relative' }}>
+    <section className="stage" data-stage id="scriptStage">
       <div className="stage-head">
         <span className="stage-num">03</span>
         <div className="stage-title">Сценарий</div>
@@ -190,14 +190,13 @@ export function StageScript({ project, script }: Props) {
         </button>
       </div>
 
-      {isPending && (
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          <ThinkingShimmer active />
-        </div>
-      )}
-
       {currentScript && (
-        <>
+        <div className="stage-body-relative">
+          {isPending && (
+            <div className="thinking-overlay">
+              <ThinkingShimmer active />
+            </div>
+          )}
           <div className="script-summary" id="scriptSummary">
             {currentScript.title}
           </div>
@@ -226,7 +225,7 @@ export function StageScript({ project, script }: Props) {
               </button>
             ))}
           </div>
-        </>
+        </div>
       )}
 
       {refineFormOpen && (
