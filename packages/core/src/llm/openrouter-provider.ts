@@ -41,6 +41,7 @@ export class OpenRouterLLMProvider implements LLMProvider {
       const { object, usage } = await generateObject({
         model: this.openrouter(params.model),
         schema: ScriptGenSchema,
+        mode: 'json',
         system: SCRIPT_SYSTEM_PROMPT,
         prompt: buildScriptUserPrompt(input),
         temperature: params.temperature,
