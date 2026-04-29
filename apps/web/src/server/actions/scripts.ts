@@ -98,7 +98,21 @@ export async function refineScriptAction(
   const project = await loadProjectForGeneration(project_id);
   const llm = getLLMProvider();
 
-  const augmentedPrompt = `${project.idea}\n\nДополнительные пожелания: ${instruction}`;
+  // Pass the existing script as context so the LLM can preserve good
+  // findings (character names, plot beats, comedic moments) rather than
+  // regenerating blank from idea+instruction. Without this, "сделай весь
+  // сценарий веселее" emits a wholly different script — losing whatever
+  // user already liked.
+  const currentScenesContext = project.script
+    ? (() => {
+        const existing = project.script as unknown as ScriptGenOutput;
+        const sceneList = existing.scenes
+          .map((s, i) => `${i + 1}. (${s.duration_sec} сек) ${s.description}`)
+          .join('\n\n');
+        return `\n\nТекущий сценарий (название «${existing.title}»):\n${sceneList}\n\nПерерабатывай этот сценарий согласно пожеланиям, сохраняя логику, персонажей и удачные находки где уместно. Можешь менять количество сцен и длительности.`;
+      })()
+    : '';
+  const augmentedPrompt = `${project.idea}\n\nДополнительные пожелания: ${instruction}${currentScenesContext}`;
 
   try {
     const result = await llm.generateScript({
