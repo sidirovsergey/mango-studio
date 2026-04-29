@@ -9,7 +9,7 @@ import {
 } from '@/server/actions/scripts';
 import type { LLMProviderError, ScriptGenOutput } from '@mango/core';
 import type { Database } from '@mango/db/types';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import { StageHead } from '../shared/StageHead';
 
@@ -37,6 +37,14 @@ export function StageScript({ project, script }: Props) {
   const [activeBeatId, setActiveBeatId] = useState<string | null>(null);
   const [activeBeatInstruction, setActiveBeatInstruction] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Chat tools (refine_script / regen_script / refine_beat) mutate the script
+  // server-side and trigger router.refresh(). When the parent receives a new
+  // script prop, sync it into local state so the beats list reflects the
+  // actual content.
+  useEffect(() => {
+    setCurrentScript(script);
+  }, [script]);
 
   const handleError = (err: unknown) => {
     const code = (err as LLMProviderError)?.code ?? 'unknown';

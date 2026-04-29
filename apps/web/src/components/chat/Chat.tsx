@@ -3,6 +3,7 @@
 import { sendChatMessageAction } from '@/server/actions/chat';
 import type { LLMProviderError } from '@mango/core';
 import type { Database } from '@mango/db/types';
+import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { ChatInput } from './ChatInput';
 import { ChatStream } from './ChatStream';
@@ -25,6 +26,7 @@ export function Chat({ projectId, initialMessages }: Props) {
   const [messages, setMessages] = useState<ChatRow[]>(initialMessages);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const handleSend = (text: string) => {
     setError(null);
@@ -48,6 +50,11 @@ export function Chat({ projectId, initialMessages }: Props) {
           created_at: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, assistantMsg]);
+        // Director Agent tools may have mutated project state (script/meta).
+        // revalidatePath in the action only invalidates the server cache —
+        // for the user's open page to re-render with fresh SSR data, the
+        // client must trigger a refresh.
+        router.refresh();
       } catch (err) {
         const code = (err as LLMProviderError)?.code ?? 'unknown';
         setError(ERROR_MESSAGES[code] ?? ERROR_MESSAGES.unknown!);
