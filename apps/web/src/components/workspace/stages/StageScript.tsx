@@ -58,14 +58,23 @@ export function StageScript({ project, script }: Props) {
     }
 
     const titleChanged = prev.title !== script.title;
+    const countChanged = prev.scenes.length !== script.scenes.length;
     const sceneIdsChanged =
-      prev.scenes.length !== script.scenes.length ||
+      countChanged ||
       prev.scenes.some((s, i) => s.scene_id !== script.scenes[i]?.scene_id);
     const isFullRegen = titleChanged && sceneIdsChanged;
 
     if (isFullRegen) {
       setBeatsRenderKey((k) => k + 1);
       setSummaryPulseKey((k) => k + 1);
+      prevScriptRef.current = script;
+      return;
+    }
+    // Add or delete scene: same scenes-list footprint changed, but title may
+    // be unchanged. Re-mount beats list so fadeInUp re-staggers across the
+    // new set — gives visual feedback for delete_scene / add_scene flows.
+    if (countChanged || sceneIdsChanged) {
+      setBeatsRenderKey((k) => k + 1);
       prevScriptRef.current = script;
       return;
     }

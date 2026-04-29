@@ -129,6 +129,32 @@ export async function refineScriptAction(
   }
 }
 
+const DeleteSceneSchema = z.object({
+  project_id: z.string().uuid(),
+  scene_id: z.string().min(1),
+});
+
+export async function deleteSceneAction(
+  input: z.infer<typeof DeleteSceneSchema>,
+): Promise<ScriptGenOutput> {
+  const { project_id, scene_id } = DeleteSceneSchema.parse(input);
+  await getCurrentUserId();
+  const project = await loadProjectForGeneration(project_id);
+  if (!project.script) throw new Error('deleteScene: project has no script yet');
+  const script = project.script as unknown as ScriptGenOutput;
+  const remaining = script.scenes.filter((s) => s.scene_id !== scene_id);
+  if (remaining.length === script.scenes.length) {
+    throw new Error(`deleteScene: scene_id ${scene_id} not found`);
+  }
+  if (remaining.length < 2) {
+    throw new Error('deleteScene: cannot leave script with fewer than 2 scenes');
+  }
+  const updated: ScriptGenOutput = { ...script, scenes: remaining };
+  await persistScript(project_id, updated);
+  revalidatePath(`/projects/${project_id}`);
+  return updated;
+}
+
 const RefineBeatSchema = z.object({
   project_id: z.string().uuid(),
   scene_id: z.string().min(1),

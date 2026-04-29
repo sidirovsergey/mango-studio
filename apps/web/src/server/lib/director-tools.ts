@@ -1,5 +1,6 @@
 import 'server-only';
 import {
+  deleteSceneAction,
   generateScriptAction,
   refineBeatAction,
   refineScriptAction,
@@ -62,9 +63,25 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
       },
     }),
 
+    delete_scene: tool({
+      description:
+        'Удалить ОДНУ конкретную сцену из сценария. Используй когда пользователь говорит «удали сцену 3», «убери четвёртую», «выкинь сцену с офисом». scene_id бери из текущего сценария в системном контексте (s1, s2, ...). НЕ используй refine_beat для удаления — он только меняет описание, не удаляет сцену.',
+      inputSchema: z.object({
+        scene_id: z.string().min(1).describe('Идентификатор сцены, например "s1", "s2"'),
+      }),
+      execute: async ({ scene_id }) => {
+        try {
+          const result = await deleteSceneAction({ project_id, scene_id });
+          return { ok: true, scene_count: result.scenes.length };
+        } catch (err) {
+          return { ok: false, error: shortError(err) };
+        }
+      },
+    }),
+
     refine_beat: tool({
       description:
-        'Обновить ОДНУ конкретную сцену (бит) сценария. scene_id бери из текущего сценария в системном контексте (s1, s2, s3...).',
+        'Обновить ОДНУ конкретную сцену (бит) сценария — изменить её ОПИСАНИЕ. scene_id бери из текущего сценария в системном контексте (s1, s2, s3...). Для удаления сцены используй delete_scene, не этот tool.',
       inputSchema: z.object({
         scene_id: z.string().min(1).describe('Идентификатор сцены, например "s1", "s2"'),
         instruction: z
