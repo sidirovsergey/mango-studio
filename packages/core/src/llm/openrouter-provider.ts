@@ -57,6 +57,13 @@ function logLLMError(stage: string, model: string, err: unknown): void {
   });
 }
 
+// DeepInfra-routed traffic for deepseek/deepseek-chat hits a shared free-tier
+// rate limit (429 "temporarily rate-limited upstream"). Skip it so OpenRouter
+// routes to DeepSeek's own API or other paid providers.
+const OPENROUTER_PROVIDER_ROUTING: { ignore: string[] } = {
+  ignore: ['DeepInfra'],
+};
+
 export class OpenRouterLLMProvider implements LLMProvider {
   private readonly openrouter: ReturnType<typeof createOpenRouter>;
 
@@ -78,9 +85,11 @@ export class OpenRouterLLMProvider implements LLMProvider {
         prompt: buildScriptUserPrompt(input),
         temperature: params.temperature,
         maxOutputTokens: params.max_tokens,
-        maxRetries: 0,
         providerOptions: {
-          openrouter: { response_format: { type: 'json_object' } },
+          openrouter: {
+            response_format: { type: 'json_object' },
+            provider: OPENROUTER_PROVIDER_ROUTING,
+          },
         },
       });
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -104,12 +113,14 @@ export class OpenRouterLLMProvider implements LLMProvider {
         prompt: buildRefineUserPrompt(input),
         temperature: params.temperature,
         maxOutputTokens: params.max_tokens,
+        providerOptions: {
+          openrouter: { provider: OPENROUTER_PROVIDER_ROUTING },
+        },
       });
       const llmUsage = await this.buildUsage(params.model, usage, start);
       return { output: { updated_description: text.trim() }, usage: llmUsage };
     } catch (err) {
-      const e = err as { name?: string; message?: string };
-      console.error(`[ORL.refineScene] ${e?.name}: ${e?.message}`, err);
+      logLLMError('refine', params.model, err);
       throw classifyLLMError(err);
     }
   }
@@ -125,14 +136,14 @@ export class OpenRouterLLMProvider implements LLMProvider {
         temperature: params.temperature,
         maxOutputTokens: params.max_tokens,
         providerOptions: {
+          openrouter: { provider: OPENROUTER_PROVIDER_ROUTING },
           anthropic: { cacheControl: { type: 'ephemeral' } },
         },
       });
       const llmUsage = await this.buildUsage(params.model, usage, start);
       return { output: { reply: text.trim() }, usage: llmUsage };
     } catch (err) {
-      const e = err as { name?: string; message?: string };
-      console.error(`[ORL.chat] ${e?.name}: ${e?.message}`, err);
+      logLLMError('chat', params.model, err);
       throw classifyLLMError(err);
     }
   }
