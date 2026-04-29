@@ -19,9 +19,24 @@ export type {
 export { getMediaProvider } from './media';
 
 export type {
+  ChatInput,
   ChatMessage,
+  ChatOutput,
+  ChatResult,
   LLMProvider,
+  LLMUsage,
+  RefineSceneInput,
+  RefineSceneOutput,
+  RefineSceneResult,
   ScriptGenInput,
   ScriptGenOutput,
+  ScriptGenResult,
 } from './llm';
-export { getLLMProvider } from './llm';
+export {
+  getLLMProvider,
+  LLMProviderError,
+  classifyLLMError,
+  getModelParams,
+  buildDirectorSystemPrompt,
+} from './llm';
+export type { LLMTask, ModelParams } from './llm';

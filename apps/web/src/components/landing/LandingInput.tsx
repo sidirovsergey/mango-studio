@@ -1,41 +1,35 @@
 'use client';
 
-import type { KeyboardEvent } from 'react';
-import type { LandingFormat, LandingStyle } from './Landing';
+type Aspect = '9:16' | '16:9' | '1:1';
+type Style = '3d_pixar' | '2d_drawn' | 'clay_art';
 
-interface LandingInputProps {
+interface Props {
   value: string;
   onChange: (v: string) => void;
+  aspect: Aspect;
+  onAspectChange: (a: Aspect) => void;
+  style: Style;
+  onStyleChange: (s: Style) => void;
   onSubmit: () => void;
-  format: LandingFormat;
-  onFormatChange: (f: LandingFormat) => void;
-  style: LandingStyle;
-  onStyleChange: (s: LandingStyle) => void;
+  submitting?: boolean;
 }
 
-const FORMATS: LandingFormat[] = ['9:16', '16:9', '1:1'];
-const STYLE_LABELS: Array<{ id: LandingStyle; label: string }> = [
-  { id: '3d_pixar', label: '3D Pixar' },
-  { id: '2d_drawn', label: '2D рисованный' },
-  { id: 'clay_art', label: 'Клей-арт' },
-];
+const STYLE_LABEL: Record<Style, string> = {
+  '3d_pixar': '3D Pixar',
+  '2d_drawn': '2D рисованный',
+  clay_art: 'Клей-арт',
+};
 
 export function LandingInput({
   value,
   onChange,
-  onSubmit,
-  format,
-  onFormatChange,
+  aspect,
+  onAspectChange,
   style,
   onStyleChange,
-}: LandingInputProps) {
-  const handleKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      onSubmit();
-    }
-  };
-
+  onSubmit,
+  submitting,
+}: Props) {
   return (
     <div className="landing-input-shell">
       <div className="landing-input-row">
@@ -45,51 +39,58 @@ export function LandingInput({
           placeholder="Например, «дельфин ищет работу и проходит собеседования с курьёзными ситуациями»…"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          onKeyDown={handleKey}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              onSubmit();
+            }
+          }}
+          disabled={submitting}
         />
-        <button className="landing-send" id="landingSend" type="button" onClick={onSubmit}>
-          Создать
-          <svg
-            className="i"
-            viewBox="0 0 24 24"
-            width="16"
-            height="16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            role="img"
-            aria-label="Стрелка вправо"
-          >
-            <title>Стрелка вправо</title>
+        <button
+          type="button"
+          className="landing-send"
+          id="landingSend"
+          onClick={onSubmit}
+          disabled={submitting || value.trim().length === 0}
+        >
+          {submitting ? 'Создаём…' : 'Создать'}
+          <svg className="i" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M5 12h14M13 6l6 6-6 6" />
           </svg>
         </button>
       </div>
       <div className="landing-tools">
-        {FORMATS.map((f) => (
+        {(['9:16', '16:9', '1:1'] as Aspect[]).map((a) => (
           <button
-            key={f}
+            key={a}
+            className={`tool-chip ${aspect === a ? 'active' : ''}`}
+            onClick={() => onAspectChange(a)}
             type="button"
-            className={`tool-chip${f === format ? ' active' : ''}`}
-            onClick={() => onFormatChange(f)}
           >
-            {f}
+            {a}
           </button>
         ))}
         <span className="sep" />
-        {STYLE_LABELS.map(({ id, label }) => (
+        {(['3d_pixar', '2d_drawn', 'clay_art'] as Style[]).map((s) => (
           <button
-            key={id}
+            key={s}
+            className={`tool-chip ${style === s ? 'active' : ''}`}
+            onClick={() => onStyleChange(s)}
             type="button"
-            className={`tool-chip${id === style ? ' active' : ''}`}
-            onClick={() => onStyleChange(id)}
           >
-            {label}
+            {STYLE_LABEL[s]}
           </button>
         ))}
-        <span className="kbd-hint">⌘ + ⏎</span>
+        <span
+          style={{
+            marginLeft: 'auto',
+            fontFamily: "'Geist Mono',monospace",
+            color: 'var(--ink-300)',
+          }}
+        >
+          ⌘ + ⏎
+        </span>
       </div>
     </div>
   );

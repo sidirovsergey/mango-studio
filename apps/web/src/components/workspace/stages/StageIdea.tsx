@@ -1,94 +1,231 @@
-import type { LandingFormat, LandingStyle } from '../../landing/Landing';
+'use client';
+
+import { updateIdeaAction, updateProjectMetaAction } from '@/server/actions/projects';
+import type { Database } from '@mango/db/types';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { StageHead } from '../shared/StageHead';
 
+type ProjectRow = Database['public']['Tables']['projects']['Row'];
+
 interface Props {
-  idea: string;
-  format: LandingFormat;
-  style: LandingStyle;
-  durationSec?: number;
-  genre?: string;
+  project: ProjectRow;
 }
 
-const FORMAT_LABEL: Record<LandingFormat, string> = {
+const DURATION_OPTIONS = [15, 20, 30, 40, 60, 90];
+const FORMAT_OPTIONS: { val: '9:16' | '16:9' | '1:1'; label: string }[] = [
+  { val: '9:16', label: '9:16 · Вертикаль' },
+  { val: '16:9', label: '16:9 · Горизонталь' },
+  { val: '1:1', label: '1:1 · Квадрат' },
+];
+const STYLE_OPTIONS: { val: '3d_pixar' | '2d_drawn' | 'clay_art'; label: string }[] = [
+  { val: '3d_pixar', label: '3D Pixar' },
+  { val: '2d_drawn', label: '2D рисованный' },
+  { val: 'clay_art', label: 'Клей-арт' },
+];
+
+const FORMAT_LABEL: Record<string, string> = {
   '9:16': 'Вертикаль',
   '16:9': 'Горизонталь',
   '1:1': 'Квадрат',
 };
-
-const STYLE_LABEL: Record<LandingStyle, string> = {
+const STYLE_LABEL: Record<string, string> = {
   '3d_pixar': '3D Pixar',
   '2d_drawn': '2D рисованный',
   clay_art: 'Клей-арт',
 };
 
-export function StageIdea({ idea, format, style, durationSec = 40, genre = 'Комедия' }: Props) {
+export function StageIdea({ project }: Props) {
+  const [editingField, setEditingField] = useState<'duration' | 'format' | 'style' | null>(null);
+  const [isEditingIdea, setIsEditingIdea] = useState(false);
+  const [draftIdea, setDraftIdea] = useState(project.idea ?? '');
+  const [isPending, startTransition] = useTransition();
+
+  // Pulse the meta-tile that just changed (e.g. via Director Agent
+  // update_project_meta tool). Compare prev → current and bump a key
+  // per field; the rendered key forces re-mount so hlPulse animation re-fires.
+  const prevProjectRef = useRef(project);
+  const [pulseKeys, setPulseKeys] = useState({ duration: 0, format: 0, style: 0 });
+  useEffect(() => {
+    const prev = prevProjectRef.current;
+    const durChanged = prev.target_duration_sec !== project.target_duration_sec;
+    const fmtChanged = prev.format !== project.format;
+    const styChanged = prev.style !== project.style;
+    if (durChanged || fmtChanged || styChanged) {
+      setPulseKeys((p) => ({
+        duration: p.duration + (durChanged ? 1 : 0),
+        format: p.format + (fmtChanged ? 1 : 0),
+        style: p.style + (styChanged ? 1 : 0),
+      }));
+    }
+    prevProjectRef.current = project;
+  }, [project]);
+
+  const toggleField = (field: 'duration' | 'format' | 'style') =>
+    setEditingField((prev) => (prev === field ? null : field));
+
+  const handleMeta = (fields: {
+    target_duration_sec?: number;
+    format?: '9:16' | '16:9' | '1:1';
+    style?: '3d_pixar' | '2d_drawn' | 'clay_art';
+  }) => {
+    setEditingField(null);
+    startTransition(() => updateProjectMetaAction({ project_id: project.id, ...fields }));
+  };
+
+  const handleSaveIdea = () => {
+    const trimmed = draftIdea.trim();
+    if (!trimmed) return;
+    setIsEditingIdea(false);
+    startTransition(() => updateIdeaAction({ project_id: project.id, idea: trimmed }));
+  };
+
+  const handleCancelIdea = () => {
+    setIsEditingIdea(false);
+    setDraftIdea(project.idea ?? '');
+  };
+
   return (
-    <section className="stage" data-stage>
+    <section className="stage" data-stage id="ideaStage">
       <StageHead num="01" title="Идея">
-        <div className="stage-meta">Обновлено только что</div>
+        {/* suppressHydrationWarning: toLocaleString differs server(UTC) vs client(user TZ) */}
+        <span className="stage-subtitle" suppressHydrationWarning>
+          {`Обновлено ${new Date(project.updated_at).toLocaleString('ru-RU')}`}
+        </span>
       </StageHead>
 
       <div className="idea-summary">
-        <button type="button" className="meta-tile" data-edit="duration" title={idea}>
-          <div className="key">Длительность</div>
-          <div className="val">
-            <em>{durationSec}</em> секунд
-          </div>
-        </button>
-        <button type="button" className="meta-tile" data-edit="format">
-          <div className="key">Формат</div>
-          <div className="val">
-            {format} · {FORMAT_LABEL[format]}
-          </div>
-        </button>
-        <button type="button" className="meta-tile" data-edit="style">
-          <div className="key">Стиль</div>
-          <div className="val">{STYLE_LABEL[style]}</div>
-        </button>
-        <button type="button" className="meta-tile" data-edit="genre">
-          <div className="key">Жанр</div>
-          <div className="val">{genre}</div>
-        </button>
+        {/* Duration */}
+        <div style={{ position: 'relative' }} key={`dur-${pulseKeys.duration}`}>
+          <button
+            type="button"
+            className={`meta-tile${pulseKeys.duration > 0 ? ' hl-pulse' : ''}`}
+            onClick={() => toggleField('duration')}
+            disabled={isPending}
+          >
+            <div className="key">Длительность</div>
+            <div className="val">
+              <em>{project.target_duration_sec}</em> секунд
+            </div>
+          </button>
+          {editingField === 'duration' && (
+            <div className="meta-popover">
+              {DURATION_OPTIONS.map((sec) => (
+                <button
+                  key={sec}
+                  type="button"
+                  className={`popover-opt${project.target_duration_sec === sec ? ' active' : ''}`}
+                  onClick={() => handleMeta({ target_duration_sec: sec })}
+                >
+                  {sec} сек
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Format */}
+        <div style={{ position: 'relative' }} key={`fmt-${pulseKeys.format}`}>
+          <button
+            type="button"
+            className={`meta-tile${pulseKeys.format > 0 ? ' hl-pulse' : ''}`}
+            onClick={() => toggleField('format')}
+            disabled={isPending}
+          >
+            <div className="key">Формат</div>
+            <div className="val">
+              {project.format} · {FORMAT_LABEL[project.format ?? '9:16'] ?? project.format}
+            </div>
+          </button>
+          {editingField === 'format' && (
+            <div className="meta-popover">
+              {FORMAT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  className={`popover-opt${project.format === opt.val ? ' active' : ''}`}
+                  onClick={() => handleMeta({ format: opt.val })}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Style */}
+        <div style={{ position: 'relative' }} key={`sty-${pulseKeys.style}`}>
+          <button
+            type="button"
+            className={`meta-tile${pulseKeys.style > 0 ? ' hl-pulse' : ''}`}
+            onClick={() => toggleField('style')}
+            disabled={isPending}
+          >
+            <div className="key">Стиль</div>
+            <div className="val">{STYLE_LABEL[project.style ?? '3d_pixar'] ?? project.style}</div>
+          </button>
+          {editingField === 'style' && (
+            <div className="meta-popover">
+              {STYLE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  className={`popover-opt${project.style === opt.val ? ' active' : ''}`}
+                  onClick={() => handleMeta({ style: opt.val })}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="ref-block">
-        <div className="ref-head">
-          <span className="ref-label">Референсы проекта</span>
-          <span className="ref-count">2</span>
-          <span style={{ flex: 1 }} />
-          <span style={{ fontSize: 11, color: 'var(--ink-500)' }}>
-            Стиль и настроение для всех генераций
-          </span>
+      {/* Idea text — textarea-swap pattern (no contentEditable) */}
+      {isEditingIdea ? (
+        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <textarea
+            className="idea-edit-textarea"
+            value={draftIdea}
+            onChange={(e) => setDraftIdea(e.target.value)}
+            rows={3}
+            maxLength={500}
+            disabled={isPending}
+            // biome-ignore lint/a11y/noAutofocus: textarea opens on explicit user action; autofocus is desired UX
+            autoFocus
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className="cta"
+              style={{ fontSize: 13, padding: '8px 16px' }}
+              onClick={handleSaveIdea}
+              disabled={isPending || !draftIdea.trim()}
+            >
+              Сохранить
+            </button>
+            <button type="button" className="cancel-btn" onClick={handleCancelIdea}>
+              Отмена
+            </button>
+          </div>
         </div>
-        <div className="ref-strip">
-          <button type="button" className="ref-add" title="Добавить референс">
-            <span className="plus">+</span>
-            <span>Добавить</span>
+      ) : (
+        <div className="idea-text-row">
+          <p className="idea-text">{project.idea}</p>
+          <button
+            type="button"
+            className="icon-btn"
+            title="Редактировать идею"
+            onClick={() => {
+              setDraftIdea(project.idea ?? '');
+              setIsEditingIdea(true);
+            }}
+          >
+            <svg className="i" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 20l4-4M3 21l3-9 9-9 6 6-9 9-9 3z" />
+            </svg>
           </button>
-          <div
-            className="ref-thumb"
-            data-ref="aquarium"
-            style={{ background: 'linear-gradient(160deg, #5FB6E8, #1F6FA8)' }}
-            title="Аквариум · стиль освещения"
-          >
-            🐠<span className="ref-kind">Стиль</span>
-            <button type="button" className="ref-x" title="Убрать">
-              ×
-            </button>
-          </div>
-          <div
-            className="ref-thumb"
-            data-ref="pixar"
-            style={{ background: 'linear-gradient(160deg, #FFD394, #F57600)' }}
-            title="Pixar · палитра"
-          >
-            ⭐<span className="ref-kind">Палитра</span>
-            <button type="button" className="ref-x" title="Убрать">
-              ×
-            </button>
-          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }

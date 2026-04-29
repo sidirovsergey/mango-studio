@@ -21,13 +21,14 @@ const SUGGESTIONS = [
     label: 'Свидание вслепую',
     prompt: 'стеснительный единорог идёт на свидание вслепую',
   },
-] as const;
+];
 
 interface Props {
   onPick: (prompt: string) => void;
+  disabled?: boolean;
 }
 
-export function LandingSuggestions({ onPick }: Props) {
+export function LandingSuggestions({ onPick, disabled }: Props) {
   return (
     <div className="landing-suggestions">
       {SUGGESTIONS.map((s) => (
@@ -37,6 +38,7 @@ export function LandingSuggestions({ onPick }: Props) {
           className="suggestion"
           data-prompt={s.prompt}
           onClick={() => onPick(s.prompt)}
+          disabled={disabled}
         >
           <span className="emoji">{s.emoji}</span>
           {s.label}

@@ -1,156 +1,90 @@
 'use client';
 
-import type { KeyboardEvent, ReactNode } from 'react';
-import { useState } from 'react';
+import { sendChatMessageAction } from '@/server/actions/chat';
+import type { LLMProviderError } from '@mango/core';
+import type { Database } from '@mango/db/types';
+import { useRouter } from 'next/navigation';
+import { useState, useTransition } from 'react';
+import { ChatInput } from './ChatInput';
+import { ChatStream } from './ChatStream';
 
-interface ChatMsg {
-  id: number;
-  role: 'user' | 'ai';
-  label: string;
-  content: ReactNode;
+type ChatRow = Database['public']['Tables']['chat_messages']['Row'];
+
+interface Props {
+  projectId: string;
+  initialMessages: ChatRow[];
 }
 
-const SEED_MESSAGES: ChatMsg[] = [
-  {
-    id: 1,
-    role: 'user',
-    label: 'Ты',
-    content:
-      'Хочу мультик, 40 секунд, про дельфина, который ищет работу и проходит собеседования с курьёзными ситуациями.',
-  },
-  {
-    id: 2,
-    role: 'ai',
-    label: 'Mango AI',
-    content: (
-      <>
-        Поняла! Записала: <b>40 секунд, 9:16, стиль 3D Pixar</b>. Главный герой — оптимистичный
-        дельфин Дэнни. Сейчас сгенерирую персонажей и сценарий — посмотришь справа в карточках, всё
-        можно поправить ✨
-      </>
-    ),
-  },
-  {
-    id: 3,
-    role: 'user',
-    label: 'Ты',
-    content: 'Дельфину можно очки добавить?',
-  },
-  {
-    id: 4,
-    role: 'ai',
-    label: 'Mango AI',
-    content: (
-      <>
-        Перегенерирую с очками — модно-деловыми, в роговой оправе.{' '}
-        <span className="typing-dots">
-          <i />
-          <i />
-          <i />
-        </span>
-      </>
-    ),
-  },
-];
+const ERROR_MESSAGES: Record<string, string> = {
+  rate_limit: 'Mango перегрузилась. Попробуй через минутку.',
+  safety_filter: 'Сработал safety-фильтр. Попробуй переформулировать.',
+  timeout: 'Mango не успела ответить. Попробуй ещё раз.',
+  unknown: 'Что-то пошло не так. Попробуй ещё раз.',
+};
 
-function AiOrb() {
-  return <div className="ai-orb" />;
-}
+export function Chat({ projectId, initialMessages }: Props) {
+  const [messages, setMessages] = useState<ChatRow[]>(initialMessages);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
-function ChatHeader() {
-  return (
-    <div className="chat-header">
-      <AiOrb />
-      <div className="chat-title">
-        Mango AI
-        <span className="sub">Помогает собрать твой мультик</span>
-      </div>
-    </div>
-  );
-}
+  const handleSend = (text: string) => {
+    setError(null);
+    const optimisticUser: ChatRow = {
+      id: `optimistic-${Date.now()}`,
+      project_id: projectId,
+      role: 'user',
+      content: text,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimisticUser]);
 
-interface ChatStreamProps {
-  messages: ChatMsg[];
-}
-
-function ChatStream({ messages }: ChatStreamProps) {
-  return (
-    <div className="chat-stream">
-      {messages.map((m) => (
-        <div key={m.id} className={`msg ${m.role}`}>
-          <span className="label">{m.label}</span>
-          {m.content}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-interface ChatInputProps {
-  value: string;
-  onChange: (v: string) => void;
-  onSend: () => void;
-}
-
-function ChatInput({ value, onChange, onSend }: ChatInputProps) {
-  const handleKey = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      onSend();
-    }
-  };
-  return (
-    <div className="chat-input-wrap">
-      <div className="chat-input">
-        <input
-          placeholder="Уточни что-нибудь… например, «сделай дельфина грустнее»"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={handleKey}
-        />
-        <button type="button" className="send-btn" title="Отправить" onClick={onSend}>
-          <svg
-            className="i"
-            viewBox="0 0 24 24"
-            width="14"
-            height="14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            role="img"
-            aria-label="Отправить"
-          >
-            <title>Отправить</title>
-            <path d="M5 12h14M13 6l6 6-6 6" />
-          </svg>
-        </button>
-      </div>
-    </div>
-  );
-}
-
-export function Chat() {
-  const [messages, setMessages] = useState<ChatMsg[]>(SEED_MESSAGES);
-  const [draft, setDraft] = useState('');
-
-  const handleSend = () => {
-    const text = draft.trim();
-    if (text.length === 0) return;
-    setMessages((prev) => [
-      ...prev,
-      { id: prev.length + 1, role: 'user', label: 'Ты', content: text },
-    ]);
-    setDraft('');
-    // Real LLM call lands in Phase 1.1 via chatAction; for now this is local-only echo state.
+    startTransition(async () => {
+      try {
+        const { reply } = await sendChatMessageAction({ project_id: projectId, content: text });
+        const assistantMsg: ChatRow = {
+          id: `optimistic-${Date.now()}-r`,
+          project_id: projectId,
+          role: 'assistant',
+          content: reply,
+          created_at: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
+        // Director Agent tools may have mutated project state (script/meta).
+        // revalidatePath in the action only invalidates the server cache —
+        // for the user's open page to re-render with fresh SSR data, the
+        // client must trigger a refresh.
+        router.refresh();
+      } catch (err) {
+        const code = (err as LLMProviderError)?.code ?? 'unknown';
+        setError(ERROR_MESSAGES[code] ?? ERROR_MESSAGES.unknown!);
+        setMessages((prev) => prev.filter((m) => m.id !== optimisticUser.id));
+      }
+    });
   };
 
   return (
     <aside className="chat">
-      <ChatHeader />
-      <ChatStream messages={messages} />
-      <ChatInput value={draft} onChange={setDraft} onSend={handleSend} />
+      <div className="chat-header">
+        <div className="ai-orb" />
+        <div className="chat-title">
+          Mango AI
+          <span className="sub">Помогает собрать твой мультик</span>
+        </div>
+      </div>
+      <ChatStream messages={messages} pending={isPending} />
+      {error && (
+        <div
+          className="chat-error"
+          role="alert"
+          style={{ padding: '8px 16px', color: 'var(--err-500, #c0392b)' }}
+        >
+          {error}
+        </div>
+      )}
+      <div className="chat-input-wrap">
+        <ChatInput onSend={handleSend} disabled={isPending} />
+      </div>
     </aside>
   );
 }

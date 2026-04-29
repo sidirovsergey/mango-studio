@@ -1,75 +1,215 @@
+'use client';
+
+import { ThinkingShimmer } from '@/components/effects/ThinkingShimmer';
+import {
+  generateScriptAction,
+  refineBeatAction,
+  refineScriptAction,
+  regenScriptAction,
+} from '@/server/actions/scripts';
+import type { LLMProviderError, ScriptGenOutput } from '@mango/core';
+import type { Database } from '@mango/db/types';
+import { useEffect, useRef, useState, useTransition } from 'react';
+import type { FormEvent } from 'react';
 import { StageHead } from '../shared/StageHead';
 
-interface Beat {
-  id: number;
-  duration: string;
-  text: string;
+type ProjectRow = Database['public']['Tables']['projects']['Row'];
+
+interface Props {
+  project: ProjectRow;
+  script: ScriptGenOutput | null;
 }
 
-const SCRIPT_SUMMARY =
-  'Дэнни — молодой дельфин-оптимист, ищет свою первую работу. Он приходит к менеджеру-крабу Джеку и проходит несколько курьёзных собеседований: то у него нет пальцев для клавиатуры, то он слишком большой для офиса, то его «хорошо плаваю» никого не впечатляет. В финале Дэнни находит должность, которая идеально ему подходит — и о которой он даже не догадывался.';
+const ERROR_MESSAGES: Record<string, string> = {
+  rate_limit: 'Mango перегрузилась — подожди минуту и попробуй снова.',
+  context_length: 'Запрос получился слишком большим. Сократи идею.',
+  safety_filter: 'Сработал safety-фильтр модели. Попробуй сформулировать иначе.',
+  timeout: 'Mango не успела придумать. Попробуй ещё раз.',
+  invalid_json: 'Mango выдала не-JSON. Попробуй ещё раз.',
+  unknown: 'Что-то пошло не так. Попробуй ещё раз.',
+};
 
-const BEATS: Beat[] = [
-  {
-    id: 1,
-    duration: '8 сек',
-    text: 'Дэнни радостно подплывает к стойке регистрации с резюме в плавнике.',
-  },
-  { id: 2, duration: '6 сек', text: 'Джек, прищурившись, листает его резюме клешнёй.' },
-  {
-    id: 3,
-    duration: '8 сек',
-    text: 'Первая преграда: Дэнни не может печатать на клавиатуре — у него нет пальцев.',
-  },
-  {
-    id: 4,
-    duration: '8 сек',
-    text: 'Вторая преграда: его не пускают в кабинет, потому что он не помещается в дверь.',
-  },
-  {
-    id: 5,
-    duration: '10 сек',
-    text: 'Развязка: Джек предлагает ему стать инструктором по плаванию для младших крабиков. Идеально.',
-  },
-];
+export function StageScript({ project, script }: Props) {
+  const [currentScript, setCurrentScript] = useState<ScriptGenOutput | null>(script);
+  const [isPending, startTransition] = useTransition();
+  const [refineFormOpen, setRefineFormOpen] = useState(false);
+  const [refineInstruction, setRefineInstruction] = useState('');
+  const [activeBeatId, setActiveBeatId] = useState<string | null>(null);
+  const [activeBeatInstruction, setActiveBeatInstruction] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-interface IconActionProps {
-  id: string;
-  title: string;
-  path: string;
-}
+  // Animation state for Director-Agent updates.
+  const prevScriptRef = useRef<ScriptGenOutput | null>(script);
+  const [pulsingBeatIds, setPulsingBeatIds] = useState<Set<string>>(new Set());
+  const [summaryPulseKey, setSummaryPulseKey] = useState(0);
+  const [beatsRenderKey, setBeatsRenderKey] = useState(0);
 
-function StageHeadIconBtn({ id, title, path }: IconActionProps) {
+  useEffect(() => {
+    const prev = prevScriptRef.current;
+    setCurrentScript(script);
+
+    if (!script) {
+      prevScriptRef.current = null;
+      return;
+    }
+    if (!prev) {
+      prevScriptRef.current = script;
+      return;
+    }
+
+    const titleChanged = prev.title !== script.title;
+    const countChanged = prev.scenes.length !== script.scenes.length;
+    const sceneIdsChanged =
+      countChanged || prev.scenes.some((s, i) => s.scene_id !== script.scenes[i]?.scene_id);
+    const isFullRegen = titleChanged && sceneIdsChanged;
+
+    if (isFullRegen) {
+      setBeatsRenderKey((k) => k + 1);
+      setSummaryPulseKey((k) => k + 1);
+      prevScriptRef.current = script;
+      return;
+    }
+    // Add or delete scene: same scenes-list footprint changed, but title may
+    // be unchanged. Re-mount beats list so fadeInUp re-staggers across the
+    // new set — gives visual feedback for delete_scene / add_scene flows.
+    if (countChanged || sceneIdsChanged) {
+      setBeatsRenderKey((k) => k + 1);
+      prevScriptRef.current = script;
+      return;
+    }
+
+    const changedDescriptions = new Set<string>();
+    for (const scene of script.scenes) {
+      const oldScene = prev.scenes.find((s) => s.scene_id === scene.scene_id);
+      if (oldScene && oldScene.description !== scene.description) {
+        changedDescriptions.add(scene.scene_id);
+      }
+    }
+    if (changedDescriptions.size > 0) {
+      setPulsingBeatIds(changedDescriptions);
+      const timer = setTimeout(() => setPulsingBeatIds(new Set()), 850);
+      prevScriptRef.current = script;
+      return () => clearTimeout(timer);
+    }
+    if (titleChanged) {
+      setSummaryPulseKey((k) => k + 1);
+    }
+    prevScriptRef.current = script;
+  }, [script]);
+
+  const handleError = (err: unknown) => {
+    const code = (err as LLMProviderError)?.code ?? 'unknown';
+    setError(ERROR_MESSAGES[code] ?? ERROR_MESSAGES.unknown!);
+  };
+
+  const handleGenerate = () => {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const result = await generateScriptAction({ project_id: project.id });
+        setCurrentScript(result);
+      } catch (err) {
+        handleError(err);
+      }
+    });
+  };
+
+  const handleRegen = () => {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const result = await regenScriptAction({ project_id: project.id });
+        setCurrentScript(result);
+      } catch (err) {
+        handleError(err);
+      }
+    });
+  };
+
+  const handleRefineSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (refineInstruction.trim().length === 0) return;
+    setError(null);
+    const instruction = refineInstruction.trim();
+    setRefineFormOpen(false);
+    setRefineInstruction('');
+    startTransition(async () => {
+      try {
+        const result = await refineScriptAction({ project_id: project.id, instruction });
+        setCurrentScript(result);
+      } catch (err) {
+        handleError(err);
+      }
+    });
+  };
+
+  const handleBeatRefineSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!activeBeatId || activeBeatInstruction.trim().length === 0) return;
+    setError(null);
+    const sceneId = activeBeatId;
+    const instruction = activeBeatInstruction.trim();
+    setActiveBeatId(null);
+    setActiveBeatInstruction('');
+    startTransition(async () => {
+      try {
+        const result = await refineBeatAction({
+          project_id: project.id,
+          scene_id: sceneId,
+          instruction,
+        });
+        if (currentScript) {
+          setCurrentScript({
+            ...currentScript,
+            scenes: currentScript.scenes.map((s) =>
+              s.scene_id === sceneId ? { ...s, description: result.updated_description } : s,
+            ),
+          });
+        }
+      } catch (err) {
+        handleError(err);
+      }
+    });
+  };
+
+  if (!currentScript && !isPending) {
+    return (
+      <section className="stage" data-stage id="scriptStage">
+        <StageHead num="03" title="Сценарий" />
+        <div
+          className="stage-body"
+          style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-start' }}
+        >
+          <p style={{ color: 'var(--ink-400)' }}>
+            Mango готова собрать сценарий из твоей идеи в 5 битах.
+          </p>
+          <button type="button" className="cta" onClick={handleGenerate} disabled={isPending}>
+            Создать сценарий
+          </button>
+          {error && (
+            <div className="stage-error" role="alert" style={{ color: 'var(--err-500, #c0392b)' }}>
+              {error}
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  if (isPending && !currentScript) {
+    return (
+      <section className="stage" data-stage id="scriptStage">
+        <StageHead num="03" title="Сценарий" />
+        <ThinkingShimmer active />
+      </section>
+    );
+  }
+
   return (
-    <button type="button" className="icon-btn" id={id} title={title}>
-      <svg
-        className="i"
-        viewBox="0 0 24 24"
-        width="14"
-        height="14"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        role="img"
-        aria-label={title}
-      >
-        <title>{title}</title>
-        <path d={path} />
-      </svg>
-    </button>
-  );
-}
-
-function pad2(n: number): string {
-  return n < 10 ? `0${n}` : String(n);
-}
-
-export function StageScript() {
-  return (
-    <section className="stage" id="scriptStage" data-stage>
-      <StageHead num="03" title="Сценарий">
+    <section className="stage" data-stage id="scriptStage">
+      <div className="stage-head">
+        <span className="stage-num">03</span>
+        <div className="stage-title">Сценарий</div>
         <span className="section-tag">
           <span
             style={{
@@ -83,48 +223,128 @@ export function StageScript() {
           Готов
         </span>
         <div style={{ flex: 1 }} />
-        <StageHeadIconBtn
+        <button
+          type="button"
+          className="icon-btn"
           id="scriptRegen"
           title="Перегенерировать сценарий"
-          path="M3 12a9 9 0 0 1 15.5-6.3L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.3L3 16M3 21v-5h5"
-        />
-        <StageHeadIconBtn
+          onClick={handleRegen}
+          disabled={isPending}
+        >
+          <svg className="i" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 12a9 9 0 0 1 15.5-6.3L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.3L3 16M3 21v-5h5" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          className="icon-btn"
           id="scriptRefine"
           title="Уточнить промптом"
-          path="M12 20l4-4M3 21l3-9 9-9 6 6-9 9-9 3z"
-        />
-      </StageHead>
-
-      <div className="script-summary" id="scriptSummary">
-        {SCRIPT_SUMMARY}
+          onClick={() => setRefineFormOpen((v) => !v)}
+          disabled={isPending}
+        >
+          <svg className="i" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 20l4-4M3 21l3-9 9-9 6 6-9 9-9 3z" />
+          </svg>
+        </button>
       </div>
 
-      <div className="beats-list" id="beatsList">
-        {BEATS.map((b) => (
-          <button key={b.id} type="button" className="beat" data-beat={b.id}>
-            <span className="beat-num">{pad2(b.id)}</span>
-            <span className="beat-duration">{b.duration}</span>
-            <span className="beat-arrow">→</span>
-            <span className="beat-text">{b.text}</span>
-            <svg
-              className="i beat-act"
-              viewBox="0 0 24 24"
-              width="14"
-              height="14"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              role="img"
-              aria-label="Уточнить beat"
-            >
-              <title>Уточнить beat</title>
-              <path d="M3 21l3-9 9-9 6 6-9 9-9 3z" />
-            </svg>
-          </button>
-        ))}
-      </div>
+      {currentScript && (
+        <div className="stage-body-relative">
+          {isPending && (
+            <div className="thinking-overlay">
+              <ThinkingShimmer active />
+            </div>
+          )}
+          <div
+            className={`script-summary${summaryPulseKey > 0 ? ' hl-pulse' : ''}`}
+            id="scriptSummary"
+            key={`summary-${summaryPulseKey}`}
+          >
+            {currentScript.title}
+          </div>
+          <div className="beats-list" id="beatsList" key={`beats-${beatsRenderKey}`}>
+            {currentScript.scenes.map((scene, idx) => {
+              const isPulsing = pulsingBeatIds.has(scene.scene_id);
+              return (
+                <button
+                  key={isPulsing ? `${scene.scene_id}-pulse` : scene.scene_id}
+                  type="button"
+                  className={`beat${isPulsing ? ' hl-pulse' : ''}`}
+                  data-beat={idx + 1}
+                  onClick={() => setActiveBeatId(scene.scene_id)}
+                  style={{
+                    animation: 'fadeInUp 0.4s ease-out both',
+                    animationDelay: `${idx * 0.08}s`,
+                  }}
+                >
+                  <span className="beat-num">{String(idx + 1).padStart(2, '0')}</span>
+                  <span className="beat-duration">{scene.duration_sec} сек</span>
+                  <span className="beat-arrow">→</span>
+                  <span className="beat-text" data-beat-text>
+                    {scene.description}
+                  </span>
+                  <svg className="i beat-act" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 21l3-9 9-9 6 6-9 9-9 3z" />
+                  </svg>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {refineFormOpen && (
+        <form className="refine-form" style={{ marginTop: 12 }} onSubmit={handleRefineSubmit}>
+          <textarea
+            placeholder="Например: «сделай развязку грустнее» или «добавь второго краба-конкурента»"
+            value={refineInstruction}
+            onChange={(e) => setRefineInstruction(e.target.value)}
+            // biome-ignore lint/a11y/noAutofocus: refine form opens on explicit user action; autofocus is desired UX
+            autoFocus
+            disabled={isPending}
+          />
+          <div className="actions">
+            <button type="button" className="cancel" onClick={() => setRefineFormOpen(false)}>
+              Отмена
+            </button>
+            <button type="submit" className="apply" disabled={isPending}>
+              Применить
+            </button>
+          </div>
+        </form>
+      )}
+
+      {activeBeatId && (
+        <form className="refine-form" style={{ marginTop: 12 }} onSubmit={handleBeatRefineSubmit}>
+          <textarea
+            placeholder={`Уточни бит «${currentScript?.scenes.find((s) => s.scene_id === activeBeatId)?.description ?? ''}»`}
+            value={activeBeatInstruction}
+            onChange={(e) => setActiveBeatInstruction(e.target.value)}
+            // biome-ignore lint/a11y/noAutofocus: refine form opens on explicit user action; autofocus is desired UX
+            autoFocus
+            disabled={isPending}
+          />
+          <div className="actions">
+            <button type="button" className="cancel" onClick={() => setActiveBeatId(null)}>
+              Отмена
+            </button>
+            <button type="submit" className="apply" disabled={isPending}>
+              Применить
+            </button>
+          </div>
+        </form>
+      )}
+
+      {error && (
+        <div
+          className="stage-error"
+          role="alert"
+          style={{ color: 'var(--err-500, #c0392b)', marginTop: 12 }}
+        >
+          {error}
+        </div>
+      )}
     </section>
   );
 }

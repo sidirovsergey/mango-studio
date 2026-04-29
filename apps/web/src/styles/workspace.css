@@ -233,7 +233,9 @@
   border-radius: var(--r-card);
   padding: 22px 24px 24px;
   box-shadow: var(--shadow-glass);
-  overflow: hidden;
+  /* overflow: visible — let .meta-popover spill below the tile.
+     Mockup uses position:fixed for popovers; we use position:absolute,
+     which gets clipped when stage has overflow:hidden. */
 }
 
 .stage-head {
@@ -279,7 +281,7 @@
   border: 1px solid rgba(26, 18, 7, 0.08);
   background: rgba(255, 255, 255, 0.7);
   border-radius: 10px;
-  color: var(--ink-700);
+  color: var(--ink-500);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -301,6 +303,19 @@
 .stage-head .icon-btn {
   width: 30px;
   height: 30px;
+}
+
+/* Icon glyph — copied from mockups/index.html line 1689.
+   Without this rule, default <path fill="black" stroke="none"> renders
+   open-path arrow icons as solid black blobs. */
+.i {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.8;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* Shared "section badge" pill used in stage-head trailing slots (02, 03, 04) */
