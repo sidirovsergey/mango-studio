@@ -1,6 +1,6 @@
 import 'server-only';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { generateObject, generateText } from 'ai';
+import { generateText } from 'ai';
 import { getModelParams } from './config';
 import { LLMProviderError, classifyLLMError } from './errors';
 import { calculateCost } from './pricing';
@@ -38,15 +38,17 @@ export class OpenRouterLLMProvider implements LLMProvider {
     const params = getModelParams('script');
     const start = Date.now();
     try {
-      const { object, usage } = await generateObject({
+      const { text, usage } = await generateText({
         model: this.openrouter(params.model),
-        schema: ScriptGenSchema,
-        mode: 'json',
         system: SCRIPT_SYSTEM_PROMPT,
         prompt: buildScriptUserPrompt(input),
         temperature: params.temperature,
         maxOutputTokens: params.max_tokens,
+        providerOptions: {
+          openrouter: { response_format: { type: 'json_object' } },
+        },
       });
+      const object = ScriptGenSchema.parse(JSON.parse(text));
       const llmUsage = await this.buildUsage(params.model, usage, start);
       return { output: object, usage: llmUsage };
     } catch (err) {
