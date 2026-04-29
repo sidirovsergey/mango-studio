@@ -33,6 +33,12 @@ export function classifyLLMError(err: unknown): LLMProviderError {
   if (name === 'AI_NoObjectGeneratedError' || name === 'AI_TypeValidationError') {
     return new LLMProviderError('invalid_json', 'Модель вернула невалидный объект.', err);
   }
+  if (name === 'ZodError') {
+    return new LLMProviderError('invalid_json', 'Модель вернула JSON не той структуры.', err);
+  }
+  if (name === 'SyntaxError' && msg.includes('json')) {
+    return new LLMProviderError('invalid_json', 'Модель вернула невалидный JSON.', err);
+  }
   if (name === 'AI_RetryError') {
     const cause = (err as { cause?: unknown })?.cause;
     return classifyLLMError(cause ?? err);

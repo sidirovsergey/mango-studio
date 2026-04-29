@@ -48,7 +48,9 @@ export class OpenRouterLLMProvider implements LLMProvider {
           openrouter: { response_format: { type: 'json_object' } },
         },
       });
-      const object = ScriptGenSchema.parse(JSON.parse(text));
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new SyntaxError('No JSON object found in LLM response');
+      const object = ScriptGenSchema.parse(JSON.parse(jsonMatch[0]));
       const llmUsage = await this.buildUsage(params.model, usage, start);
       return { output: object, usage: llmUsage };
     } catch (err) {
