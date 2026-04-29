@@ -9,7 +9,7 @@ import {
 } from '@/server/actions/scripts';
 import type { LLMProviderError, ScriptGenOutput } from '@mango/core';
 import type { Database } from '@mango/db/types';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import { StageHead } from '../shared/StageHead';
 
@@ -38,12 +38,55 @@ export function StageScript({ project, script }: Props) {
   const [activeBeatInstruction, setActiveBeatInstruction] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  // Chat tools (refine_script / regen_script / refine_beat) mutate the script
-  // server-side and trigger router.refresh(). When the parent receives a new
-  // script prop, sync it into local state so the beats list reflects the
-  // actual content.
+  // Animation state for Director-Agent updates.
+  const prevScriptRef = useRef<ScriptGenOutput | null>(script);
+  const [pulsingBeatIds, setPulsingBeatIds] = useState<Set<string>>(new Set());
+  const [summaryPulseKey, setSummaryPulseKey] = useState(0);
+  const [beatsRenderKey, setBeatsRenderKey] = useState(0);
+
   useEffect(() => {
+    const prev = prevScriptRef.current;
     setCurrentScript(script);
+
+    if (!script) {
+      prevScriptRef.current = null;
+      return;
+    }
+    if (!prev) {
+      prevScriptRef.current = script;
+      return;
+    }
+
+    const titleChanged = prev.title !== script.title;
+    const sceneIdsChanged =
+      prev.scenes.length !== script.scenes.length ||
+      prev.scenes.some((s, i) => s.scene_id !== script.scenes[i]?.scene_id);
+    const isFullRegen = titleChanged && sceneIdsChanged;
+
+    if (isFullRegen) {
+      setBeatsRenderKey((k) => k + 1);
+      setSummaryPulseKey((k) => k + 1);
+      prevScriptRef.current = script;
+      return;
+    }
+
+    const changedDescriptions = new Set<string>();
+    for (const scene of script.scenes) {
+      const oldScene = prev.scenes.find((s) => s.scene_id === scene.scene_id);
+      if (oldScene && oldScene.description !== scene.description) {
+        changedDescriptions.add(scene.scene_id);
+      }
+    }
+    if (changedDescriptions.size > 0) {
+      setPulsingBeatIds(changedDescriptions);
+      const timer = setTimeout(() => setPulsingBeatIds(new Set()), 850);
+      prevScriptRef.current = script;
+      return () => clearTimeout(timer);
+    }
+    if (titleChanged) {
+      setSummaryPulseKey((k) => k + 1);
+    }
+    prevScriptRef.current = script;
   }, [script]);
 
   const handleError = (err: unknown) => {
@@ -205,33 +248,40 @@ export function StageScript({ project, script }: Props) {
               <ThinkingShimmer active />
             </div>
           )}
-          <div className="script-summary" id="scriptSummary">
+          <div
+            className={`script-summary${summaryPulseKey > 0 ? ' hl-pulse' : ''}`}
+            id="scriptSummary"
+            key={`summary-${summaryPulseKey}`}
+          >
             {currentScript.title}
           </div>
-          <div className="beats-list" id="beatsList">
-            {currentScript.scenes.map((scene, idx) => (
-              <button
-                key={scene.scene_id}
-                type="button"
-                className="beat"
-                data-beat={idx + 1}
-                onClick={() => setActiveBeatId(scene.scene_id)}
-                style={{
-                  animation: 'fadeInUp 0.4s ease-out both',
-                  animationDelay: `${idx * 0.08}s`,
-                }}
-              >
-                <span className="beat-num">{String(idx + 1).padStart(2, '0')}</span>
-                <span className="beat-duration">{scene.duration_sec} сек</span>
-                <span className="beat-arrow">→</span>
-                <span className="beat-text" data-beat-text>
-                  {scene.description}
-                </span>
-                <svg className="i beat-act" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M3 21l3-9 9-9 6 6-9 9-9 3z" />
-                </svg>
-              </button>
-            ))}
+          <div className="beats-list" id="beatsList" key={`beats-${beatsRenderKey}`}>
+            {currentScript.scenes.map((scene, idx) => {
+              const isPulsing = pulsingBeatIds.has(scene.scene_id);
+              return (
+                <button
+                  key={isPulsing ? `${scene.scene_id}-pulse` : scene.scene_id}
+                  type="button"
+                  className={`beat${isPulsing ? ' hl-pulse' : ''}`}
+                  data-beat={idx + 1}
+                  onClick={() => setActiveBeatId(scene.scene_id)}
+                  style={{
+                    animation: 'fadeInUp 0.4s ease-out both',
+                    animationDelay: `${idx * 0.08}s`,
+                  }}
+                >
+                  <span className="beat-num">{String(idx + 1).padStart(2, '0')}</span>
+                  <span className="beat-duration">{scene.duration_sec} сек</span>
+                  <span className="beat-arrow">→</span>
+                  <span className="beat-text" data-beat-text>
+                    {scene.description}
+                  </span>
+                  <svg className="i beat-act" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 21l3-9 9-9 6 6-9 9-9 3z" />
+                  </svg>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

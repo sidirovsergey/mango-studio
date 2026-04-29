@@ -196,6 +196,16 @@
   cursor: not-allowed;
 }
 
+/* Highlight pulse on Director-Agent updates — ripple on summary card,
+   background tint on individual beats (which live inside overflow:hidden
+   .beats-list and would have box-shadow clipped). */
+.script-summary.hl-pulse {
+  animation: hlPulse 800ms ease-out;
+}
+.beat.hl-pulse {
+  animation: hlPulseBg 800ms ease-out;
+}
+
 /* Shimmer overlay sits over stage body only, never over .stage-head */
 .stage-body-relative {
   position: relative;

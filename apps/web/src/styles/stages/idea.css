@@ -33,6 +33,13 @@
   outline: 2px solid var(--mango-400);
   outline-offset: 2px;
 }
+.meta-tile.hl-pulse {
+  animation: hlPulse 800ms ease-out;
+}
+.idea-text.hl-pulse {
+  animation: hlPulse 800ms ease-out;
+  border-radius: 8px;
+}
 .meta-tile .key {
   font-size: 10px;
   letter-spacing: 0.08em;

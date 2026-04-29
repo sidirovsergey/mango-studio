@@ -30,6 +30,14 @@
   100% { box-shadow: 0 0 0 12px rgba(245, 118, 0, 0); }
 }
 
+/* Background-tint pulse — for elements inside an overflow:hidden parent
+   where hlPulse's box-shadow would be clipped (e.g. .beat in .beats-list). */
+@keyframes hlPulseBg {
+  0% { background-color: rgba(245, 118, 0, 0.18); }
+  60% { background-color: rgba(245, 118, 0, 0.10); }
+  100% { background-color: transparent; }
+}
+
 @keyframes orb-pulse {
   0%, 100% { box-shadow: 0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 3px rgba(255, 144, 38, 0.10), 0 8px 16px -6px rgba(245, 118, 0, 0.4); }
   50% { box-shadow: 0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 6px rgba(255, 144, 38, 0.18), 0 12px 24px -8px rgba(245, 118, 0, 0.6); }

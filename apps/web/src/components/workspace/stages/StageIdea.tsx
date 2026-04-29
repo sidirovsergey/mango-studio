@@ -2,7 +2,7 @@
 
 import { updateIdeaAction, updateProjectMetaAction } from '@/server/actions/projects';
 import type { Database } from '@mango/db/types';
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { StageHead } from '../shared/StageHead';
 
 type ProjectRow = Database['public']['Tables']['projects']['Row'];
@@ -40,6 +40,26 @@ export function StageIdea({ project }: Props) {
   const [draftIdea, setDraftIdea] = useState(project.idea ?? '');
   const [isPending, startTransition] = useTransition();
 
+  // Pulse the meta-tile that just changed (e.g. via Director Agent
+  // update_project_meta tool). Compare prev → current and bump a key
+  // per field; the rendered key forces re-mount so hlPulse animation re-fires.
+  const prevProjectRef = useRef(project);
+  const [pulseKeys, setPulseKeys] = useState({ duration: 0, format: 0, style: 0 });
+  useEffect(() => {
+    const prev = prevProjectRef.current;
+    const durChanged = prev.target_duration_sec !== project.target_duration_sec;
+    const fmtChanged = prev.format !== project.format;
+    const styChanged = prev.style !== project.style;
+    if (durChanged || fmtChanged || styChanged) {
+      setPulseKeys((p) => ({
+        duration: p.duration + (durChanged ? 1 : 0),
+        format: p.format + (fmtChanged ? 1 : 0),
+        style: p.style + (styChanged ? 1 : 0),
+      }));
+    }
+    prevProjectRef.current = project;
+  }, [project]);
+
   const toggleField = (field: 'duration' | 'format' | 'style') =>
     setEditingField((prev) => (prev === field ? null : field));
 
@@ -75,10 +95,10 @@ export function StageIdea({ project }: Props) {
 
       <div className="idea-summary">
         {/* Duration */}
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative' }} key={`dur-${pulseKeys.duration}`}>
           <button
             type="button"
-            className="meta-tile"
+            className={`meta-tile${pulseKeys.duration > 0 ? ' hl-pulse' : ''}`}
             onClick={() => toggleField('duration')}
             disabled={isPending}
           >
@@ -104,10 +124,10 @@ export function StageIdea({ project }: Props) {
         </div>
 
         {/* Format */}
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative' }} key={`fmt-${pulseKeys.format}`}>
           <button
             type="button"
-            className="meta-tile"
+            className={`meta-tile${pulseKeys.format > 0 ? ' hl-pulse' : ''}`}
             onClick={() => toggleField('format')}
             disabled={isPending}
           >
@@ -133,10 +153,10 @@ export function StageIdea({ project }: Props) {
         </div>
 
         {/* Style */}
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative' }} key={`sty-${pulseKeys.style}`}>
           <button
             type="button"
-            className="meta-tile"
+            className={`meta-tile${pulseKeys.style > 0 ? ' hl-pulse' : ''}`}
             onClick={() => toggleField('style')}
             disabled={isPending}
           >
