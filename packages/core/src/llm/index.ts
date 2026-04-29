@@ -21,6 +21,7 @@ export type {
 export { LLMProviderError, classifyLLMError } from './errors';
 export { getModelParams } from './config';
 export type { LLMTask, ModelParams } from './config';
+export { buildDirectorSystemPrompt } from './prompts';
 
 export function getLLMProvider(): LLMProvider {
   const providerName = process.env.LLM_PROVIDER ?? 'mock';

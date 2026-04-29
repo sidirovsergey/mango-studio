@@ -32,12 +32,18 @@ importers:
       '@mango/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@openrouter/ai-sdk-provider':
+        specifier: ^2.8.1
+        version: 2.8.1(ai@6.0.168(zod@4.3.6))(zod@4.3.6)
       '@supabase/ssr':
         specifier: ^0.10.2
         version: 0.10.2(@supabase/supabase-js@2.104.1)
       '@supabase/supabase-js':
         specifier: ^2.104.1
         version: 2.104.1
+      ai:
+        specifier: ^6.0.168
+        version: 6.0.168(zod@4.3.6)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
