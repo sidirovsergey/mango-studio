@@ -23,6 +23,40 @@ import type {
 } from './provider';
 import { ScriptGenSchema } from './schemas';
 
+type ErrLike = {
+  name?: string;
+  message?: string;
+  statusCode?: number;
+  status?: number;
+  url?: string;
+  responseBody?: unknown;
+  cause?: unknown;
+  errors?: unknown;
+};
+
+function summarizeErr(e: ErrLike | undefined | null) {
+  if (!e || typeof e !== 'object') return e;
+  const body = typeof e.responseBody === 'string' ? e.responseBody.slice(0, 500) : e.responseBody;
+  return {
+    name: e.name,
+    message: typeof e.message === 'string' ? e.message.slice(0, 300) : e.message,
+    statusCode: e.statusCode ?? e.status,
+    url: e.url,
+    responseBody: body,
+  };
+}
+
+function logLLMError(stage: string, model: string, err: unknown): void {
+  const e = err as ErrLike;
+  const errorsArr = Array.isArray(e?.errors) ? (e.errors as ErrLike[]) : undefined;
+  console.error(`[ORL.${stage}] FAIL model=${model}`, {
+    top: summarizeErr(e),
+    cause: summarizeErr(e?.cause as ErrLike),
+    causeOfCause: summarizeErr((e?.cause as ErrLike)?.cause as ErrLike),
+    attempts: errorsArr?.map(summarizeErr),
+  });
+}
+
 export class OpenRouterLLMProvider implements LLMProvider {
   private readonly openrouter: ReturnType<typeof createOpenRouter>;
 
@@ -44,6 +78,7 @@ export class OpenRouterLLMProvider implements LLMProvider {
         prompt: buildScriptUserPrompt(input),
         temperature: params.temperature,
         maxOutputTokens: params.max_tokens,
+        maxRetries: 0,
         providerOptions: {
           openrouter: { response_format: { type: 'json_object' } },
         },
@@ -54,9 +89,7 @@ export class OpenRouterLLMProvider implements LLMProvider {
       const llmUsage = await this.buildUsage(params.model, usage, start);
       return { output: object, usage: llmUsage };
     } catch (err) {
-      const e = err as { name?: string; message?: string; statusCode?: number; responseBody?: string };
-      const body = (e?.responseBody ?? e?.message ?? '').slice(0, 60);
-      console.error(`s=${e?.statusCode} ${e?.name} ${body}`, err);
+      logLLMError('script', params.model, err);
       throw classifyLLMError(err);
     }
   }
