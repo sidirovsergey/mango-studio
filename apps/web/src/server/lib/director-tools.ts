@@ -1,13 +1,12 @@
 import 'server-only';
+import { updateProjectMetaAction } from '@/server/actions/projects';
 import {
   addSceneAction,
   deleteSceneAction,
-  generateScriptAction,
   refineBeatAction,
   refineScriptAction,
   regenScriptAction,
 } from '@/server/actions/scripts';
-import { updateProjectMetaAction } from '@/server/actions/projects';
 import { tool } from 'ai';
 import type { ToolSet } from 'ai';
 import { z } from 'zod';

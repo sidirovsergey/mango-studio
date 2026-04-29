@@ -60,8 +60,7 @@ export function StageScript({ project, script }: Props) {
     const titleChanged = prev.title !== script.title;
     const countChanged = prev.scenes.length !== script.scenes.length;
     const sceneIdsChanged =
-      countChanged ||
-      prev.scenes.some((s, i) => s.scene_id !== script.scenes[i]?.scene_id);
+      countChanged || prev.scenes.some((s, i) => s.scene_id !== script.scenes[i]?.scene_id);
     const isFullRegen = titleChanged && sceneIdsChanged;
 
     if (isFullRegen) {
