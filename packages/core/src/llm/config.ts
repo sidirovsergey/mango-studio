@@ -8,7 +8,7 @@ export interface ModelParams {
   max_tokens: number;
 }
 
-const DEFAULT_MODEL = 'deepseek/deepseek-chat';
+const DEFAULT_MODEL = 'x-ai/grok-4.1-fast';
 
 export const MODEL_PARAMS: Record<LLMTask, ModelParams> = {
   script: {

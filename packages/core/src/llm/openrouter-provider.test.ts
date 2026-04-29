@@ -3,7 +3,6 @@ import { LLMProviderError } from './errors';
 import { OpenRouterLLMProvider } from './openrouter-provider';
 
 vi.mock('ai', () => ({
-  generateObject: vi.fn(),
   generateText: vi.fn(),
 }));
 
@@ -16,14 +15,12 @@ vi.mock('./pricing', async () => {
   return { ...actual, calculateCost: vi.fn(async () => 0.000123) };
 });
 
-import { generateObject, generateText } from 'ai';
+import { generateText } from 'ai';
 
-const mockGenerateObject = vi.mocked(generateObject);
 const mockGenerateText = vi.mocked(generateText);
 
 beforeEach(() => {
   process.env.OPENROUTER_API_KEY = 'test-key';
-  mockGenerateObject.mockReset();
   mockGenerateText.mockReset();
 });
 
@@ -32,16 +29,17 @@ afterEach(() => {
 });
 
 describe('OpenRouterLLMProvider', () => {
-  it('generateScript calls generateObject with ScriptGenSchema, returns {output, usage}', async () => {
-    mockGenerateObject.mockResolvedValueOnce({
-      object: {
-        title: 'Денни ищет работу',
-        scenes: [
-          { scene_id: 's1', description: 'Денни плывёт к доске', duration_sec: 8 },
-          { scene_id: 's2', description: 'Краб листает резюме', duration_sec: 6 },
-        ],
-        characters: [{ name: 'Денни', description: 'Дельфин-оптимист' }],
-      },
+  it('generateScript parses JSON from generateText output via ScriptGenSchema', async () => {
+    const scriptObj = {
+      title: 'Денни ищет работу',
+      scenes: [
+        { scene_id: 's1', description: 'Денни плывёт к доске', duration_sec: 8 },
+        { scene_id: 's2', description: 'Краб листает резюме', duration_sec: 6 },
+      ],
+      characters: [{ name: 'Денни', description: 'Дельфин-оптимист' }],
+    };
+    mockGenerateText.mockResolvedValueOnce({
+      text: `Here is the script:\n${JSON.stringify(scriptObj)}`,
       usage: { inputTokens: 250, outputTokens: 320 },
     } as never);
 
@@ -58,9 +56,9 @@ describe('OpenRouterLLMProvider', () => {
     expect(result.usage.prompt_tokens).toBe(250);
     expect(result.usage.completion_tokens).toBe(320);
     expect(result.usage.cost_usd).toBe(0.000123);
-    expect(result.usage.model).toBe('deepseek/deepseek-chat');
+    expect(result.usage.model).toBe('x-ai/grok-4.1-fast');
     expect(result.usage.latency_ms).toBeGreaterThanOrEqual(0);
-    expect(mockGenerateObject).toHaveBeenCalledOnce();
+    expect(mockGenerateText).toHaveBeenCalledOnce();
   });
 
   it('refineScene calls generateText, returns updated_description', async () => {
@@ -103,7 +101,7 @@ describe('OpenRouterLLMProvider', () => {
 
   it('classifies rate-limit errors via LLMProviderError', async () => {
     const httpErr = Object.assign(new Error('rate limit exceeded'), { status: 429 });
-    mockGenerateObject.mockRejectedValueOnce(httpErr);
+    mockGenerateText.mockRejectedValueOnce(httpErr);
 
     const p = new OpenRouterLLMProvider();
     await expect(
