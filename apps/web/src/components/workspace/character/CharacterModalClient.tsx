@@ -1,51 +1,57 @@
-'use client'
+'use client';
 
-import { useState, useTransition } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import type { Character } from '@mango/core'
-import { updateCharacterFieldAction } from '@/server/actions/updateCharacterFieldAction'
-import { generateCharacterDossierAction } from '@/server/actions/generateCharacterDossierAction'
-import { ReferenceImagesPanel } from './ReferenceImagesPanel'
+import { generateCharacterDossierAction } from '@/server/actions/generateCharacterDossierAction';
+import { updateCharacterFieldAction } from '@/server/actions/updateCharacterFieldAction';
+import type { Character } from '@mango/core';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useTransition } from 'react';
+import { ReferenceImagesPanel } from './ReferenceImagesPanel';
 
 interface Props {
-  projectId: string
-  character: Character
-  initialTab: 'main' | 'refs'
-  referenceUrls: string[]
+  projectId: string;
+  character: Character;
+  initialTab: 'main' | 'refs';
+  referenceUrls: string[];
 }
 
 type Patch = {
-  name?: string
-  description?: string
-  full_prompt?: string
-  voice?: { description?: string; tts_provider?: 'grok' | 'elevenlabs' }
-}
+  name?: string;
+  description?: string;
+  full_prompt?: string;
+  voice?: { description?: string; tts_provider?: 'grok' | 'elevenlabs' };
+};
 
 export function CharacterModalClient({ projectId, character, initialTab, referenceUrls }: Props) {
-  const router = useRouter()
-  const params = useSearchParams()
-  const [isPending, startTransition] = useTransition()
+  const router = useRouter();
+  const params = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
-  const [name, setName] = useState(character.name)
-  const [description, setDescription] = useState(character.description)
-  const [fullPrompt, setFullPrompt] = useState(character.full_prompt)
-  const [voiceDesc, setVoiceDesc] = useState(character.voice.description ?? '')
-  const [ttsProvider, setTtsProvider] = useState<'grok' | 'elevenlabs'>(character.voice.tts_provider ?? 'elevenlabs')
+  const [name, setName] = useState(character.name);
+  const [description, setDescription] = useState(character.description);
+  const [fullPrompt, setFullPrompt] = useState(character.full_prompt);
+  const [voiceDesc, setVoiceDesc] = useState(character.voice.description ?? '');
+  const [ttsProvider, setTtsProvider] = useState<'grok' | 'elevenlabs'>(
+    character.voice.tts_provider ?? 'elevenlabs',
+  );
 
   const close = () => {
-    const next = new URLSearchParams(params.toString())
-    next.delete('char')
-    next.delete('tab')
-    const qs = next.toString()
-    router.push(qs ? `?${qs}` : '?', { scroll: false })
-  }
+    const next = new URLSearchParams(params.toString());
+    next.delete('char');
+    next.delete('tab');
+    const qs = next.toString();
+    router.push(qs ? `?${qs}` : '?', { scroll: false });
+  };
 
   const saveField = (patch: Patch) => {
     startTransition(async () => {
-      await updateCharacterFieldAction({ project_id: projectId, character_id: character.id, patch })
-      router.refresh()
-    })
-  }
+      await updateCharacterFieldAction({
+        project_id: projectId,
+        character_id: character.id,
+        patch,
+      });
+      router.refresh();
+    });
+  };
 
   const handleGenerate = () => {
     startTransition(async () => {
@@ -53,14 +59,16 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
         project_id: projectId,
         character_id: character.id,
         custom_prompt: fullPrompt || undefined,
-      })
-      router.refresh()
-    })
-  }
+      });
+      router.refresh();
+    });
+  };
 
   return (
     <div className="char-modal-body">
-      <button className="char-modal-close" onClick={close} aria-label="Закрыть">×</button>
+      <button type="button" className="char-modal-close" onClick={close} aria-label="Закрыть">
+        ×
+      </button>
 
       <section className="char-modal-section">
         <input
@@ -80,17 +88,25 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
       </section>
 
       <section className="char-modal-section">
-        <div className="char-modal-section-title">Полный промпт (отправляется в генератор как есть)</div>
+        <div className="char-modal-section-title">
+          Полный промпт (отправляется в генератор как есть)
+        </div>
         <textarea
           className="full-prompt-input"
           value={fullPrompt}
           onChange={(e) => setFullPrompt(e.target.value)}
-          onBlur={() => fullPrompt !== character.full_prompt && saveField({ full_prompt: fullPrompt })}
+          onBlur={() =>
+            fullPrompt !== character.full_prompt && saveField({ full_prompt: fullPrompt })
+          }
           rows={8}
         />
         <div className="char-modal-section-actions">
-          <button onClick={handleGenerate} disabled={isPending} className="primary">
-            {isPending ? 'Генерирую...' : character.dossier ? 'Перегенерировать досье' : 'Generate Dossier'}
+          <button type="button" onClick={handleGenerate} disabled={isPending} className="primary">
+            {isPending
+              ? 'Генерирую...'
+              : character.dossier
+                ? 'Перегенерировать досье'
+                : 'Generate Dossier'}
           </button>
         </div>
       </section>
@@ -101,16 +117,35 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
           className="voice-input"
           value={voiceDesc}
           onChange={(e) => setVoiceDesc(e.target.value)}
-          onBlur={() => voiceDesc !== (character.voice.description ?? '') && saveField({ voice: { description: voiceDesc, tts_provider: ttsProvider } })}
+          onBlur={() =>
+            voiceDesc !== (character.voice.description ?? '') &&
+            saveField({ voice: { description: voiceDesc, tts_provider: ttsProvider } })
+          }
           placeholder="например: warm baritone, calm authority"
         />
         <div className="tts-provider-toggle">
           <label>
-            <input type="radio" name="tts" checked={ttsProvider === 'grok'} onChange={() => { setTtsProvider('grok'); saveField({ voice: { description: voiceDesc, tts_provider: 'grok' } }) }} />
+            <input
+              type="radio"
+              name="tts"
+              checked={ttsProvider === 'grok'}
+              onChange={() => {
+                setTtsProvider('grok');
+                saveField({ voice: { description: voiceDesc, tts_provider: 'grok' } });
+              }}
+            />
             Grok
           </label>
           <label>
-            <input type="radio" name="tts" checked={ttsProvider === 'elevenlabs'} onChange={() => { setTtsProvider('elevenlabs'); saveField({ voice: { description: voiceDesc, tts_provider: 'elevenlabs' } }) }} />
+            <input
+              type="radio"
+              name="tts"
+              checked={ttsProvider === 'elevenlabs'}
+              onChange={() => {
+                setTtsProvider('elevenlabs');
+                saveField({ voice: { description: voiceDesc, tts_provider: 'elevenlabs' } });
+              }}
+            />
             ElevenLabs
           </label>
           <span className="tts-note">(генерация TTS будет в Phase 1.3)</span>
@@ -126,5 +161,5 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
         />
       </section>
     </div>
-  )
+  );
 }

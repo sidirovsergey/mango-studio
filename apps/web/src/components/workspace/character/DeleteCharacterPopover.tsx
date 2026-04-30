@@ -1,36 +1,39 @@
-'use client'
+'use client';
 
-import { useTransition, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { deleteCharacterAction } from '@/server/actions/deleteCharacterAction'
+import { deleteCharacterAction } from '@/server/actions/deleteCharacterAction';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useTransition } from 'react';
 
 interface Props {
-  projectId: string
-  characterId: string
-  characterName: string
-  onClose(): void
+  projectId: string;
+  characterId: string;
+  characterName: string;
+  onClose(): void;
 }
 
 export function DeleteCharacterPopover({ projectId, characterId, characterName, onClose }: Props) {
-  const [isPending, startTransition] = useTransition()
-  const router = useRouter()
-  const ref = useRef<HTMLDivElement>(null)
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
-    }
-    const t = setTimeout(() => document.addEventListener('mousedown', onClick), 0)
-    return () => { clearTimeout(t); document.removeEventListener('mousedown', onClick) }
-  }, [onClose])
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    const t = setTimeout(() => document.addEventListener('mousedown', onClick), 0);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener('mousedown', onClick);
+    };
+  }, [onClose]);
 
   const confirm = () => {
     startTransition(async () => {
-      await deleteCharacterAction({ project_id: projectId, character_id: characterId })
-      router.refresh()
-      onClose()
-    })
-  }
+      await deleteCharacterAction({ project_id: projectId, character_id: characterId });
+      router.refresh();
+      onClose();
+    });
+  };
 
   return (
     <div className="delete-popover" ref={ref}>
@@ -39,11 +42,13 @@ export function DeleteCharacterPopover({ projectId, characterId, characterName, 
         Storage. Действие необратимо.
       </div>
       <div className="popover-actions">
-        <button onClick={onClose} disabled={isPending}>Отмена</button>
-        <button onClick={confirm} disabled={isPending} className="danger">
+        <button type="button" onClick={onClose} disabled={isPending}>
+          Отмена
+        </button>
+        <button type="button" onClick={confirm} disabled={isPending} className="danger">
           {isPending ? 'Удаляю...' : 'Удалить'}
         </button>
       </div>
     </div>
-  )
+  );
 }

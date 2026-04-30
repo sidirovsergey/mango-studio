@@ -1,16 +1,16 @@
-import type { Character } from '@mango/core'
-import Link from 'next/link'
-import { DossierImage } from './DossierImage'
-import { CharacterCardActions } from './CharacterCardActions'
+import type { Character } from '@mango/core';
+import Link from 'next/link';
+import { CharacterCardActions } from './CharacterCardActions';
+import { DossierImage } from './DossierImage';
 
 interface Props {
-  projectId: string
-  character: Character
-  generating?: boolean
+  projectId: string;
+  character: Character;
+  generating?: boolean;
 }
 
 export function CharacterCard({ projectId, character, generating }: Props) {
-  const className = `char-card${generating ? ' generating' : ''}`
+  const className = `char-card${generating ? ' generating' : ''}`;
   return (
     <div className={className} data-character-id={character.id}>
       <Link href={`?char=${character.id}`} scroll={false} className="char-card-clickable">
@@ -33,5 +33,5 @@ export function CharacterCard({ projectId, character, generating }: Props) {
       </Link>
       <CharacterCardActions projectId={projectId} character={character} />
     </div>
-  )
+  );
 }

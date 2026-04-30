@@ -1,9 +1,5 @@
 import 'server-only';
-import {
-  FalCdnPassthroughStorage,
-  SupabaseStorage,
-  type StorageProvider,
-} from '@mango/core';
+import { FalCdnPassthroughStorage, type StorageProvider, SupabaseStorage } from '@mango/core';
 import { getServiceRoleSupabase } from '@mango/db/server';
 
 export function getStorageProvider(): StorageProvider {

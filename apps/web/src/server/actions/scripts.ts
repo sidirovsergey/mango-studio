@@ -5,7 +5,6 @@ import { logLLMCall } from '@/server/lib/log-llm-call';
 import {
   type Character,
   type PersistedScript,
-  type ScriptGenOutput,
   applyCharacterActions,
   classifyLLMError,
   getLLMProvider,
@@ -45,10 +44,10 @@ async function persistScript(projectId: string, script: PersistedScript) {
 
 /** Extract active Character[] from a persisted script stored in the DB */
 function getExistingCharacters(rawScript: unknown): Character[] {
-  if (!rawScript || typeof rawScript !== 'object') return []
-  const s = rawScript as { characters?: unknown }
-  if (!Array.isArray(s.characters)) return []
-  return (s.characters as Character[]).filter(c => !c.archived)
+  if (!rawScript || typeof rawScript !== 'object') return [];
+  const s = rawScript as { characters?: unknown };
+  if (!Array.isArray(s.characters)) return [];
+  return (s.characters as Character[]).filter((c) => !c.archived);
 }
 
 export async function generateScriptAction(
@@ -69,12 +68,12 @@ export async function generateScriptAction(
       existingCharacters: [],
     });
     // Apply diff-merge: all actions are 'add' on first gen
-    const mergedCharacters = applyCharacterActions([], result.output.characters)
+    const mergedCharacters = applyCharacterActions([], result.output.characters);
     const newScript: PersistedScript = {
       title: result.output.title,
       scenes: result.output.scenes,
       characters: mergedCharacters,
-    }
+    };
     await persistScript(project_id, newScript);
     await logLLMCall({
       user_id: userId,
@@ -107,12 +106,12 @@ export async function regenScriptAction(
   const project = await loadProjectForGeneration(project_id);
   const llm = getLLMProvider();
 
-  const existingCharacters = getExistingCharacters(project.script)
-  const existingForPrompt = existingCharacters.map(c => ({
+  const existingCharacters = getExistingCharacters(project.script);
+  const existingForPrompt = existingCharacters.map((c) => ({
     id: c.id,
     name: c.name,
     description: c.description,
-  }))
+  }));
 
   try {
     const result = await llm.generateScript({
@@ -122,12 +121,12 @@ export async function regenScriptAction(
       style: project.style as '3d_pixar' | '2d_drawn' | 'clay_art',
       existingCharacters: existingForPrompt,
     });
-    const mergedCharacters = applyCharacterActions(existingCharacters, result.output.characters)
+    const mergedCharacters = applyCharacterActions(existingCharacters, result.output.characters);
     const newScript: PersistedScript = {
       title: result.output.title,
       scenes: result.output.scenes,
       characters: mergedCharacters,
-    }
+    };
     await persistScript(project_id, newScript);
     await logLLMCall({
       user_id: userId,
@@ -165,12 +164,12 @@ export async function refineScriptAction(
   const project = await loadProjectForGeneration(project_id);
   const llm = getLLMProvider();
 
-  const existingCharacters = getExistingCharacters(project.script)
-  const existingForPrompt = existingCharacters.map(c => ({
+  const existingCharacters = getExistingCharacters(project.script);
+  const existingForPrompt = existingCharacters.map((c) => ({
     id: c.id,
     name: c.name,
     description: c.description,
-  }))
+  }));
 
   // Pass existing scenes context so the LLM can preserve good findings
   // (character names, plot beats, comedic moments) rather than regenerating blank.
@@ -193,12 +192,12 @@ export async function refineScriptAction(
       style: project.style as '3d_pixar' | '2d_drawn' | 'clay_art',
       existingCharacters: existingForPrompt,
     });
-    const mergedCharacters = applyCharacterActions(existingCharacters, result.output.characters)
+    const mergedCharacters = applyCharacterActions(existingCharacters, result.output.characters);
     const newScript: PersistedScript = {
       title: result.output.title,
       scenes: result.output.scenes,
       characters: mergedCharacters,
-    }
+    };
     await persistScript(project_id, newScript);
     await logLLMCall({
       user_id: userId,

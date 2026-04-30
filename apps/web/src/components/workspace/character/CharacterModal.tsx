@@ -1,22 +1,27 @@
-import type { Character } from '@mango/core'
-import { DossierImage } from './DossierImage'
-import { CharacterModalClient } from './CharacterModalClient'
-import { getDisplayUrl } from '@/server/lib/storage-display-url'
+import { getDisplayUrl } from '@/server/lib/storage-display-url';
+import type { Character } from '@mango/core';
+import { CharacterModalClient } from './CharacterModalClient';
+import { DossierImage } from './DossierImage';
 
 interface Props {
-  projectId: string
-  character: Character
-  initialTab?: 'main' | 'refs'
+  projectId: string;
+  character: Character;
+  initialTab?: 'main' | 'refs';
 }
 
 export async function CharacterModal({ projectId, character, initialTab = 'main' }: Props) {
   const refUrls = await Promise.all(
-    character.reference_images.map(r => getDisplayUrl(r.storage, 'character-references'))
-  )
+    character.reference_images.map((r) => getDisplayUrl(r.storage, 'character-references')),
+  );
 
   return (
     <div className="char-modal-backdrop" data-modal-open>
-      <div className="char-modal" role="dialog" aria-label={`Редактирование ${character.name}`}>
+      <div
+        className="char-modal"
+        role="dialog"
+        aria-label={`Редактирование ${character.name}`}
+        aria-modal="true"
+      >
         {character.dossier ? (
           <div className="char-modal-hero">
             <DossierImage
@@ -38,5 +43,5 @@ export async function CharacterModal({ projectId, character, initialTab = 'main'
         />
       </div>
     </div>
-  )
+  );
 }
