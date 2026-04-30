@@ -16,7 +16,7 @@ export default async function ProjectPage({ params }: Props) {
     supabase
       .from('projects')
       .select(
-        'id, idea, style, format, target_duration_sec, script, title, status, auto_mode, user_id, created_at, updated_at',
+        'id, idea, style, format, target_duration_sec, script, title, status, auto_mode, user_id, created_at, updated_at, tier',
       )
       .eq('id', id)
       .single(),
