@@ -10,11 +10,14 @@ export type {
 } from './prompt/types';
 
 export type {
-  CharacterSheetInput,
-  CharacterSheetOutput,
   MediaProvider,
-  SceneGenInput,
-  SceneGenOutput,
+  GenerateCharacterDossierInput,
+  GenerateCharacterDossierResult,
+  DossierFormat,
+  DossierQuality,
+  AssetContext,
+  StoredAsset,
+  StorageProvider,
 } from './media';
 export { getMediaProvider } from './media';
 
