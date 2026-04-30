@@ -21,11 +21,11 @@ export function ReferenceImagesPanel({ projectId, character, initialFocus, refer
   const [isPending, startTransition] = useTransition()
   const [aiPrompt, setAiPrompt] = useState('')
   const [aiOpen, setAiOpen] = useState(false)
-  const sb = createBrowserClient()
 
   const handleUploadClick = () => fileInput.current?.click()
 
   const handleFile = async (file: File) => {
+    const sb = createBrowserClient()
     const userId = (await sb.auth.getUser()).data.user?.id
     if (!userId) return
     const ext = file.name.split('.').pop() ?? 'png'
