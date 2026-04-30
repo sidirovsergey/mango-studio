@@ -65,5 +65,6 @@ export {
   getModelParams,
   buildDirectorSystemPrompt,
   CharacterSchema,
+  AppearanceSchema,
 } from './llm';
 export type { LLMTask, ModelParams } from './llm';
