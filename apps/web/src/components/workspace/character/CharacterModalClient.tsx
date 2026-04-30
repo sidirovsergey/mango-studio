@@ -2,7 +2,7 @@
 
 import { generateCharacterDossierAction } from '@/server/actions/generateCharacterDossierAction';
 import { updateCharacterFieldAction } from '@/server/actions/updateCharacterFieldAction';
-import type { Character } from '@mango/core';
+import { buildDossierPrompt, type Character } from '@mango/core';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { ReferenceImagesPanel } from './ReferenceImagesPanel';
@@ -12,6 +12,7 @@ interface Props {
   character: Character;
   initialTab: 'main' | 'refs';
   referenceUrls: string[];
+  style?: '3d_pixar' | '2d_drawn' | 'clay_art';
 }
 
 type Patch = {
@@ -21,14 +22,24 @@ type Patch = {
   voice?: { description?: string; tts_provider?: 'grok' | 'elevenlabs' };
 };
 
-export function CharacterModalClient({ projectId, character, initialTab, referenceUrls }: Props) {
+export function CharacterModalClient({ projectId, character, initialTab, referenceUrls, style = '3d_pixar' }: Props) {
   const router = useRouter();
   const params = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
   const [name, setName] = useState(character.name);
   const [description, setDescription] = useState(character.description);
-  const [fullPrompt, setFullPrompt] = useState(character.full_prompt);
+  const initialFullPrompt = character.full_prompt || buildDossierPrompt(
+    {
+      name: character.name,
+      description: character.description,
+      appearance: character.appearance,
+      personality: character.personality,
+    },
+    style,
+  );
+  const [fullPrompt, setFullPrompt] = useState(initialFullPrompt);
+  const [genError, setGenError] = useState<string | null>(null);
   const [voiceDesc, setVoiceDesc] = useState(character.voice.description ?? '');
   const [ttsProvider, setTtsProvider] = useState<'grok' | 'elevenlabs'>(
     character.voice.tts_provider ?? 'elevenlabs',
@@ -54,12 +65,18 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
   };
 
   const handleGenerate = () => {
+    setGenError(null);
     startTransition(async () => {
-      await generateCharacterDossierAction({
+      const r = await generateCharacterDossierAction({
         project_id: projectId,
         character_id: character.id,
         custom_prompt: fullPrompt || undefined,
       });
+      if (!r.ok) {
+        setGenError(r.error);
+        console.error('[generateDossier]', r.error, r);
+        return;
+      }
       router.refresh();
     });
   };
@@ -106,9 +123,10 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
               ? 'Генерирую...'
               : character.dossier
                 ? 'Перегенерировать досье'
-                : 'Generate Dossier'}
+                : 'Сгенерировать досье'}
           </button>
         </div>
+        {genError && <div className="char-modal-error">⚠ {genError}</div>}
       </section>
 
       <section className="char-modal-section">
@@ -121,7 +139,7 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
             voiceDesc !== (character.voice.description ?? '') &&
             saveField({ voice: { description: voiceDesc, tts_provider: ttsProvider } })
           }
-          placeholder="например: warm baritone, calm authority"
+          placeholder="например: тёплый баритон, спокойная уверенность"
         />
         <div className="tts-provider-toggle">
           <label>

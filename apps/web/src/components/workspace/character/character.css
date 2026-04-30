@@ -155,6 +155,17 @@
 
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
 
+/* ── Generate Dossier error ───────────────────────────────────────────── */
+
+.char-modal-error {
+  color: #d92d20;
+  font-size: 13px;
+  padding: 8px 12px;
+  background: rgba(217, 45, 32, 0.08);
+  border-radius: 8px;
+  border: 1px solid rgba(217, 45, 32, 0.2);
+}
+
 /* ── TierToggle ───────────────────────────────────────────────────────── */
 
 .tier-toggle {

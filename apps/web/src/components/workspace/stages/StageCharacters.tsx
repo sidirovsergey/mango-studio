@@ -12,6 +12,7 @@ interface Props {
   tier: Tier;
   expandedCharacterId?: string;
   modalTab?: 'main' | 'refs';
+  style?: '3d_pixar' | '2d_drawn' | 'clay_art';
 }
 
 export async function StageCharacters({
@@ -20,6 +21,7 @@ export async function StageCharacters({
   tier,
   expandedCharacterId,
   modalTab,
+  style,
 }: Props) {
   const characters = script?.characters;
   const { active } = getCharactersForUI(characters);
@@ -50,6 +52,7 @@ export async function StageCharacters({
           projectId={projectId}
           character={expanded}
           initialTab={modalTab ?? 'main'}
+          style={style}
         />
       )}
     </section>

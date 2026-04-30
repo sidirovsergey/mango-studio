@@ -55,8 +55,8 @@ export async function generateCharacterDossierAction(
     | 'clay_art';
 
   const prompt =
-    input.custom_prompt ??
-    character.full_prompt ??
+    input.custom_prompt ||
+    character.full_prompt ||
     buildDossierPrompt(
       {
         name: character.name,

@@ -46,6 +46,7 @@ export default async function ProjectPage({ params, searchParams }: Props) {
       tier={project.tier as Tier}
       expandedCharacterId={expandedCharacterId}
       modalTab={modalTab}
+      style={(project.style as '3d_pixar' | '2d_drawn' | 'clay_art' | null) ?? '3d_pixar'}
     />
   );
 

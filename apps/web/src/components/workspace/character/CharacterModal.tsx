@@ -7,9 +7,10 @@ interface Props {
   projectId: string;
   character: Character;
   initialTab?: 'main' | 'refs';
+  style?: '3d_pixar' | '2d_drawn' | 'clay_art';
 }
 
-export async function CharacterModal({ projectId, character, initialTab = 'main' }: Props) {
+export async function CharacterModal({ projectId, character, initialTab = 'main', style }: Props) {
   const refUrls = await Promise.all(
     character.reference_images.map((r) => getDisplayUrl(r.storage, 'character-references')),
   );
@@ -40,6 +41,7 @@ export async function CharacterModal({ projectId, character, initialTab = 'main'
           character={character}
           initialTab={initialTab}
           referenceUrls={refUrls}
+          style={style}
         />
       </div>
     </div>
