@@ -19,6 +19,7 @@ export type {
   StoredAsset,
   StorageProvider,
   MediaErrorCode,
+  SupabaseStorageOptions,
 } from './media';
 export {
   getMediaProvider,
@@ -32,6 +33,8 @@ export {
   buildDossierPrompt,
   MediaProviderError,
   classifyMediaError,
+  FalCdnPassthroughStorage,
+  SupabaseStorage,
 } from './media';
 
 export type {

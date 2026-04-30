@@ -14,6 +14,8 @@ export type {
 export { MockMediaProvider } from './mock-provider';
 
 export type { StoredAsset, StorageProvider } from './storage/StorageProvider';
+export { FalCdnPassthroughStorage } from './storage/FalCdnPassthroughStorage';
+export { SupabaseStorage, type SupabaseStorageOptions } from './storage/SupabaseStorage';
 
 export {
   ECONOMY_MODELS,
