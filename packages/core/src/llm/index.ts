@@ -10,6 +10,7 @@ export type {
   ChatResult,
   LLMProvider,
   LLMUsage,
+  PersistedScript,
   RefineSceneInput,
   RefineSceneOutput,
   RefineSceneResult,

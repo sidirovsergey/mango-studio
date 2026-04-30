@@ -7,7 +7,7 @@ import {
   refineScriptAction,
   regenScriptAction,
 } from '@/server/actions/scripts';
-import type { LLMProviderError, ScriptGenOutput } from '@mango/core';
+import type { LLMProviderError, PersistedScript } from '@mango/core';
 import type { Database } from '@mango/db/types';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
@@ -17,7 +17,7 @@ type ProjectRow = Database['public']['Tables']['projects']['Row'];
 
 interface Props {
   project: ProjectRow;
-  script: ScriptGenOutput | null;
+  script: PersistedScript | null;
 }
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -30,7 +30,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 export function StageScript({ project, script }: Props) {
-  const [currentScript, setCurrentScript] = useState<ScriptGenOutput | null>(script);
+  const [currentScript, setCurrentScript] = useState<PersistedScript | null>(script);
   const [isPending, startTransition] = useTransition();
   const [refineFormOpen, setRefineFormOpen] = useState(false);
   const [refineInstruction, setRefineInstruction] = useState('');
@@ -39,7 +39,7 @@ export function StageScript({ project, script }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   // Animation state for Director-Agent updates.
-  const prevScriptRef = useRef<ScriptGenOutput | null>(script);
+  const prevScriptRef = useRef<PersistedScript | null>(script);
   const [pulsingBeatIds, setPulsingBeatIds] = useState<Set<string>>(new Set());
   const [summaryPulseKey, setSummaryPulseKey] = useState(0);
   const [beatsRenderKey, setBeatsRenderKey] = useState(0);

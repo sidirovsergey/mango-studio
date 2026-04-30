@@ -3,7 +3,10 @@
 import { getCurrentUserId } from '@/lib/auth/get-user';
 import { logLLMCall } from '@/server/lib/log-llm-call';
 import {
+  type Character,
+  type PersistedScript,
   type ScriptGenOutput,
+  applyCharacterActions,
   classifyLLMError,
   getLLMProvider,
   getModelParams,
@@ -28,7 +31,7 @@ async function loadProjectForGeneration(projectId: string) {
   return data;
 }
 
-async function persistScript(projectId: string, script: ScriptGenOutput) {
+async function persistScript(projectId: string, script: PersistedScript) {
   const supabase = await getServerSupabase();
   const { error } = await supabase
     .from('projects')
@@ -40,9 +43,17 @@ async function persistScript(projectId: string, script: ScriptGenOutput) {
   if (error) throw new Error(`persistScript: ${error.message}`);
 }
 
+/** Extract active Character[] from a persisted script stored in the DB */
+function getExistingCharacters(rawScript: unknown): Character[] {
+  if (!rawScript || typeof rawScript !== 'object') return []
+  const s = rawScript as { characters?: unknown }
+  if (!Array.isArray(s.characters)) return []
+  return (s.characters as Character[]).filter(c => !c.archived)
+}
+
 export async function generateScriptAction(
   input: z.infer<typeof ProjectIdSchema>,
-): Promise<ScriptGenOutput> {
+): Promise<PersistedScript> {
   const { project_id } = ProjectIdSchema.parse(input);
   const userId = await getCurrentUserId();
   const project = await loadProjectForGeneration(project_id);
@@ -54,8 +65,17 @@ export async function generateScriptAction(
       format: project.format as '9:16' | '16:9' | '1:1',
       duration_sec: project.target_duration_sec,
       style: project.style as '3d_pixar' | '2d_drawn' | 'clay_art',
+      // First generation — no existing characters
+      existingCharacters: [],
     });
-    await persistScript(project_id, result.output);
+    // Apply diff-merge: all actions are 'add' on first gen
+    const mergedCharacters = applyCharacterActions([], result.output.characters)
+    const newScript: PersistedScript = {
+      title: result.output.title,
+      scenes: result.output.scenes,
+      characters: mergedCharacters,
+    }
+    await persistScript(project_id, newScript);
     await logLLMCall({
       user_id: userId,
       project_id,
@@ -64,7 +84,7 @@ export async function generateScriptAction(
       usage: result.usage,
     });
     revalidatePath(`/projects/${project_id}`);
-    return result.output;
+    return newScript;
   } catch (err) {
     const llmErr = classifyLLMError(err);
     await logLLMCall({
@@ -81,8 +101,55 @@ export async function generateScriptAction(
 
 export async function regenScriptAction(
   input: z.infer<typeof ProjectIdSchema>,
-): Promise<ScriptGenOutput> {
-  return generateScriptAction(input);
+): Promise<PersistedScript> {
+  const { project_id } = ProjectIdSchema.parse(input);
+  const userId = await getCurrentUserId();
+  const project = await loadProjectForGeneration(project_id);
+  const llm = getLLMProvider();
+
+  const existingCharacters = getExistingCharacters(project.script)
+  const existingForPrompt = existingCharacters.map(c => ({
+    id: c.id,
+    name: c.name,
+    description: c.description,
+  }))
+
+  try {
+    const result = await llm.generateScript({
+      user_prompt: project.idea,
+      format: project.format as '9:16' | '16:9' | '1:1',
+      duration_sec: project.target_duration_sec,
+      style: project.style as '3d_pixar' | '2d_drawn' | 'clay_art',
+      existingCharacters: existingForPrompt,
+    });
+    const mergedCharacters = applyCharacterActions(existingCharacters, result.output.characters)
+    const newScript: PersistedScript = {
+      title: result.output.title,
+      scenes: result.output.scenes,
+      characters: mergedCharacters,
+    }
+    await persistScript(project_id, newScript);
+    await logLLMCall({
+      user_id: userId,
+      project_id,
+      method: 'generateScript',
+      status: 'success',
+      usage: result.usage,
+    });
+    revalidatePath(`/projects/${project_id}`);
+    return newScript;
+  } catch (err) {
+    const llmErr = classifyLLMError(err);
+    await logLLMCall({
+      user_id: userId,
+      project_id,
+      method: 'generateScript',
+      status: 'error',
+      error_code: llmErr.code,
+      model: getModelParams('script').model,
+    });
+    throw llmErr;
+  }
 }
 
 const RefineScriptSchema = z.object({
@@ -92,20 +159,24 @@ const RefineScriptSchema = z.object({
 
 export async function refineScriptAction(
   input: z.infer<typeof RefineScriptSchema>,
-): Promise<ScriptGenOutput> {
+): Promise<PersistedScript> {
   const { project_id, instruction } = RefineScriptSchema.parse(input);
   const userId = await getCurrentUserId();
   const project = await loadProjectForGeneration(project_id);
   const llm = getLLMProvider();
 
-  // Pass the existing script as context so the LLM can preserve good
-  // findings (character names, plot beats, comedic moments) rather than
-  // regenerating blank from idea+instruction. Without this, "сделай весь
-  // сценарий веселее" emits a wholly different script — losing whatever
-  // user already liked.
+  const existingCharacters = getExistingCharacters(project.script)
+  const existingForPrompt = existingCharacters.map(c => ({
+    id: c.id,
+    name: c.name,
+    description: c.description,
+  }))
+
+  // Pass existing scenes context so the LLM can preserve good findings
+  // (character names, plot beats, comedic moments) rather than regenerating blank.
   const currentScenesContext = project.script
     ? (() => {
-        const existing = project.script as unknown as ScriptGenOutput;
+        const existing = project.script as unknown as PersistedScript;
         const sceneList = existing.scenes
           .map((s, i) => `${i + 1}. (${s.duration_sec} сек) ${s.description}`)
           .join('\n\n');
@@ -120,8 +191,15 @@ export async function refineScriptAction(
       format: project.format as '9:16' | '16:9' | '1:1',
       duration_sec: project.target_duration_sec,
       style: project.style as '3d_pixar' | '2d_drawn' | 'clay_art',
+      existingCharacters: existingForPrompt,
     });
-    await persistScript(project_id, result.output);
+    const mergedCharacters = applyCharacterActions(existingCharacters, result.output.characters)
+    const newScript: PersistedScript = {
+      title: result.output.title,
+      scenes: result.output.scenes,
+      characters: mergedCharacters,
+    }
+    await persistScript(project_id, newScript);
     await logLLMCall({
       user_id: userId,
       project_id,
@@ -130,7 +208,7 @@ export async function refineScriptAction(
       usage: result.usage,
     });
     revalidatePath(`/projects/${project_id}`);
-    return result.output;
+    return newScript;
   } catch (err) {
     const llmErr = classifyLLMError(err);
     await logLLMCall({
@@ -152,12 +230,12 @@ const AddSceneSchema = z.object({
 
 export async function addSceneAction(
   input: z.infer<typeof AddSceneSchema>,
-): Promise<ScriptGenOutput> {
+): Promise<PersistedScript> {
   const { project_id, instruction } = AddSceneSchema.parse(input);
   const userId = await getCurrentUserId();
   const project = await loadProjectForGeneration(project_id);
   if (!project.script) throw new Error('addScene: project has no script yet');
-  const script = project.script as unknown as ScriptGenOutput;
+  const script = project.script as unknown as PersistedScript;
 
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('OPENROUTER_API_KEY is not set');
@@ -236,7 +314,7 @@ ${script.scenes.map((s, i) => `${i + 1}. (${s.duration_sec} сек) ${s.descript
         : {}),
     };
 
-    const updated: ScriptGenOutput = {
+    const updated: PersistedScript = {
       ...script,
       scenes: [...script.scenes, newScene],
     };
@@ -279,12 +357,12 @@ const DeleteSceneSchema = z.object({
 
 export async function deleteSceneAction(
   input: z.infer<typeof DeleteSceneSchema>,
-): Promise<ScriptGenOutput> {
+): Promise<PersistedScript> {
   const { project_id, scene_id } = DeleteSceneSchema.parse(input);
   await getCurrentUserId();
   const project = await loadProjectForGeneration(project_id);
   if (!project.script) throw new Error('deleteScene: project has no script yet');
-  const script = project.script as unknown as ScriptGenOutput;
+  const script = project.script as unknown as PersistedScript;
   const remaining = script.scenes.filter((s) => s.scene_id !== scene_id);
   if (remaining.length === script.scenes.length) {
     throw new Error(`deleteScene: scene_id ${scene_id} not found`);
@@ -292,7 +370,7 @@ export async function deleteSceneAction(
   if (remaining.length < 2) {
     throw new Error('deleteScene: cannot leave script with fewer than 2 scenes');
   }
-  const updated: ScriptGenOutput = { ...script, scenes: remaining };
+  const updated: PersistedScript = { ...script, scenes: remaining };
   await persistScript(project_id, updated);
   revalidatePath(`/projects/${project_id}`);
   return updated;
@@ -312,7 +390,7 @@ export async function refineBeatAction(
   const project = await loadProjectForGeneration(project_id);
 
   if (!project.script) throw new Error('refineBeat: project has no script yet');
-  const script = project.script as unknown as ScriptGenOutput;
+  const script = project.script as unknown as PersistedScript;
   const targetScene = script.scenes.find((s) => s.scene_id === scene_id);
   if (!targetScene) throw new Error(`refineBeat: scene_id ${scene_id} not found`);
 
@@ -324,7 +402,7 @@ export async function refineBeatAction(
       instruction,
     });
 
-    const updatedScript: ScriptGenOutput = {
+    const updatedScript: PersistedScript = {
       ...script,
       scenes: script.scenes.map((s) =>
         s.scene_id === scene_id ? { ...s, description: result.output.updated_description } : s,

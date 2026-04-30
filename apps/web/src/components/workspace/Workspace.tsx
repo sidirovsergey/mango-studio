@@ -1,7 +1,7 @@
 'use client';
 
 import { Chat } from '@/components/chat/Chat';
-import type { ScriptGenOutput } from '@mango/core';
+import type { PersistedScript } from '@mango/core';
 import type { Database } from '@mango/db/types';
 import { TopBar } from './TopBar';
 import { WorkspaceScroll } from './WorkspaceScroll';
@@ -20,7 +20,7 @@ interface WorkspaceProps {
 }
 
 export function Workspace({ project, initialChatMessages }: WorkspaceProps) {
-  const script = project.script as ScriptGenOutput | null;
+  const script = project.script as PersistedScript | null;
   const status = project.status;
 
   return (

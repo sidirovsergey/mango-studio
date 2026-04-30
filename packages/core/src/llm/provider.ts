@@ -1,5 +1,6 @@
 import 'server-only';
 import type { AspectRatio, StyleName } from '../prompt/types';
+import type { Character } from './types';
 
 export interface LLMUsage {
   prompt_tokens: number;
@@ -14,6 +15,8 @@ export interface ScriptGenInput {
   format: AspectRatio;
   duration_sec: number;
   style: StyleName;
+  /** Existing active characters to pass as context for character-aware generation */
+  existingCharacters?: Array<{ id: string; name: string; description: string }>;
 }
 
 export interface ScriptGenOutput {
@@ -52,6 +55,21 @@ export interface ChatInput {
 
 export interface ChatOutput {
   reply: string;
+}
+
+/**
+ * The shape stored in DB after diff-merge has been applied.
+ * characters is a full Character[] (not ScriptCharacterAction[]).
+ */
+export interface PersistedScript {
+  title: string;
+  scenes: Array<{
+    scene_id: string;
+    description: string;
+    duration_sec: number;
+    voiceover?: string;
+  }>;
+  characters: Character[];
 }
 
 export interface ScriptGenResult {
