@@ -18,8 +18,21 @@ export type {
   AssetContext,
   StoredAsset,
   StorageProvider,
+  MediaErrorCode,
 } from './media';
-export { getMediaProvider } from './media';
+export {
+  getMediaProvider,
+  MockMediaProvider,
+  ECONOMY_MODELS,
+  PREMIUM_MODELS,
+  getDefaultModel,
+  getActiveModels,
+  getEditModel,
+  isModelInTier,
+  buildDossierPrompt,
+  MediaProviderError,
+  classifyMediaError,
+} from './media';
 
 export type {
   ChatInput,
