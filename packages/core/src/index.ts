@@ -64,7 +64,8 @@ export {
   classifyLLMError,
   getModelParams,
   buildDirectorSystemPrompt,
+  buildScriptPrompt,
   CharacterSchema,
   AppearanceSchema,
 } from './llm';
-export type { LLMTask, ModelParams } from './llm';
+export type { LLMTask, ModelParams, BuildScriptPromptContext } from './llm';

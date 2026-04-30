@@ -1,5 +1,6 @@
 import 'server-only';
 import type { ChatMessage, RefineSceneInput, ScriptGenInput } from './provider';
+import type { Character } from './types';
 
 const FORMAT_LABEL: Record<ScriptGenInput['format'], string> = {
   '9:16': 'вертикальное (TikTok/Reels/Shorts)',
@@ -52,6 +53,35 @@ export function buildScriptUserPrompt(input: ScriptGenInput): string {
 - Визуальный стиль: ${STYLE_LABEL[input.style]}
 
 Сгенерируй сценарий по этой идее, соблюдая параметры. Верни JSON по схеме.`;
+}
+
+export interface BuildScriptPromptContext {
+  existingCharacters?: Pick<Character, 'id' | 'name' | 'description'>[];
+}
+
+export function buildScriptPrompt(input: ScriptGenInput, ctx: BuildScriptPromptContext = {}): string {
+  const existingBlock = ctx.existingCharacters?.length
+    ? `
+
+СУЩЕСТВУЮЩИЕ ПЕРСОНАЖИ (id + имя + описание) — сохраняй их id'ы при перегенерации, не пересоздавай:
+${ctx.existingCharacters.map(c => `- ${c.id}: ${c.name} (${c.description})`).join('\n')}
+
+В output поле "characters" — массив discriminated union действий:
+- Для каждого существующего, который остаётся — { "action": "keep", "id": "<тот же uuid>" }.
+- Для нового — { "action": "add", "name": ..., "description": ..., "appearance": {...}, "personality"?: ... } (id сгенерируется на сервере).
+- Для удаления — { "action": "remove", "id": "<uuid существующего>" }.
+
+Удаляй персонажей ТОЛЬКО если сюжет фундаментально не требует их. Малые правки тона / описания НЕ требуют add/remove — используй keep.
+`
+    : `
+
+В output поле "characters" — массив действий для первой генерации:
+[{ "action": "add", "name": "Имя", "description": "описание", "appearance": {} }]
+`;
+
+  return `${SCRIPT_SYSTEM_PROMPT}${existingBlock}
+
+${buildScriptUserPrompt(input)}`;
 }
 
 export const REFINE_SYSTEM_PROMPT = `Ты — Mango, AI-режиссёр.

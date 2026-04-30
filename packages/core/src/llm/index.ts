@@ -21,7 +21,8 @@ export type {
 export { LLMProviderError, classifyLLMError } from './errors';
 export { getModelParams } from './config';
 export type { LLMTask, ModelParams } from './config';
-export { buildDirectorSystemPrompt } from './prompts';
+export { buildDirectorSystemPrompt, buildScriptPrompt } from './prompts';
+export type { BuildScriptPromptContext } from './prompts';
 export { CharacterSchema, AppearanceSchema } from './types';
 export type { Character, Dossier, ReferenceImage, ScriptCharacterAction, StoredAssetParsed } from './types';
 
