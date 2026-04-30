@@ -14,6 +14,12 @@ describe('classifyMediaError', () => {
   it('429 → rate_limit', () => {
     expect(classifyMediaError({ status: 429, message: 'rate' })).toBe('rate_limit')
   })
+  it('403 → forbidden', () => {
+    expect(classifyMediaError({ status: 403, message: 'Forbidden' })).toBe('forbidden')
+  })
+  it('401 → forbidden', () => {
+    expect(classifyMediaError({ status: 401, message: 'Unauthorized' })).toBe('forbidden')
+  })
   it('400 → invalid_input', () => {
     expect(classifyMediaError({ status: 400, message: 'bad input' })).toBe('invalid_input')
   })

@@ -2,6 +2,7 @@
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { logMediaCall } from '@/server/lib/log-media-call';
+import { friendlyMediaError } from '@/server/lib/media-error-message';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { getStorageProvider } from '@/server/lib/storage-provider-factory';
 import {
@@ -136,7 +137,7 @@ export async function generateCharacterDossierAction(
         status: 'error',
         error_code: e.code,
       });
-      return { ok: false, error: e.message, error_code: e.code };
+      return { ok: false, error: friendlyMediaError(e.code, e.message), error_code: e.code };
     }
     console.error('[generateCharacterDossierAction]', e);
     return { ok: false, error: 'unexpected error' };

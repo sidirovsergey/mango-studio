@@ -15,10 +15,10 @@ const baseChar = {
 describe('buildDossierPrompt', () => {
   it('включает фиксированные правила model-sheet pattern', () => {
     const out = buildDossierPrompt(baseChar, '3d_pixar')
-    expect(out).toContain('PURE WHITE background')
-    expect(out).toContain('Multiple facial expressions')
-    expect(out).toContain('Multiple body poses')
-    expect(out).toContain('widescreen 16:9')
+    expect(out).toContain('ЧИСТО БЕЛОМ фоне')
+    expect(out).toContain('Несколько выражений лица')
+    expect(out).toContain('Несколько поз тела')
+    expect(out).toContain('16:9')
   })
   it('инжектит description, appearance и name', () => {
     const out = buildDossierPrompt(baseChar, '3d_pixar')
@@ -33,14 +33,14 @@ describe('buildDossierPrompt', () => {
   })
   it('применяет 2d_drawn style preamble', () => {
     const out = buildDossierPrompt(baseChar, '2d_drawn')
-    expect(out).toMatch(/2D hand-drawn/i)
+    expect(out).toMatch(/2D рисованная/i)
   })
   it('применяет clay_art style preamble', () => {
     const out = buildDossierPrompt(baseChar, 'clay_art')
-    expect(out).toMatch(/Clay stop-motion/i)
+    expect(out).toMatch(/пластилина/i)
   })
   it('опускает personality секцию если её нет', () => {
     const out = buildDossierPrompt({ ...baseChar, personality: undefined }, '3d_pixar')
-    expect(out).not.toMatch(/Personality:/)
+    expect(out).not.toMatch(/Характер:/)
   })
 })
