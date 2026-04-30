@@ -35,3 +35,5 @@ export function getMediaProvider(): MediaProvider {
   // Phase 1.2+: switch по env MEDIA_PROVIDER === 'fal'
   return new MockMediaProvider();
 }
+
+export { FalMediaProvider, type FalMediaProviderOptions } from './FalMediaProvider'
