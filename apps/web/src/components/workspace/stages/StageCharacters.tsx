@@ -4,28 +4,17 @@ import { getDefaultModel } from '@mango/core';
 import type { Tier } from '@mango/core';
 import { AddCharacterCard } from '../character/AddCharacterCard';
 import { CharacterCard } from '../character/CharacterCard';
-import { CharacterModal } from '../character/CharacterModal';
 
 interface Props {
   projectId: string;
   script: PersistedScript | null;
   tier: Tier;
-  expandedCharacterId?: string;
-  modalTab?: 'main' | 'refs';
   style?: '3d_pixar' | '2d_drawn' | 'clay_art';
 }
 
-export async function StageCharacters({
-  projectId,
-  script,
-  tier,
-  expandedCharacterId,
-  modalTab,
-  style,
-}: Props) {
+export async function StageCharacters({ projectId, script, tier, style: _style }: Props) {
   const characters = script?.characters;
   const { active } = getCharactersForUI(characters);
-  const expanded = expandedCharacterId ? active.find((c) => c.id === expandedCharacterId) : null;
 
   return (
     <section className="stage" id="charactersStage" data-stage>
@@ -46,15 +35,6 @@ export async function StageCharacters({
         ))}
         <AddCharacterCard projectId={projectId} />
       </div>
-
-      {expanded && (
-        <CharacterModal
-          projectId={projectId}
-          character={expanded}
-          initialTab={modalTab ?? 'main'}
-          style={style}
-        />
-      )}
     </section>
   );
 }
