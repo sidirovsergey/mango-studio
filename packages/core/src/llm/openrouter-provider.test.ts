@@ -36,7 +36,7 @@ describe('OpenRouterLLMProvider', () => {
         { scene_id: 's1', description: 'Денни плывёт к доске', duration_sec: 8 },
         { scene_id: 's2', description: 'Краб листает резюме', duration_sec: 6 },
       ],
-      characters: [{ name: 'Денни', description: 'Дельфин-оптимист' }],
+      characters: [{ action: 'add', name: 'Денни', description: 'Дельфин-оптимист' }],
     };
     mockGenerateText.mockResolvedValueOnce({
       text: `Here is the script:\n${JSON.stringify(scriptObj)}`,

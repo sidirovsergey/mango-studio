@@ -63,3 +63,17 @@ export type Character = z.infer<typeof CharacterSchema>;
 export type StoredAssetParsed = z.infer<typeof StoredAssetSchema>;
 export type Dossier = z.infer<typeof DossierSchema>;
 export type ReferenceImage = z.infer<typeof ReferenceImageSchema>;
+
+export const ScriptCharacterActionSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('keep'), id: z.string().uuid() }),
+  z.object({
+    action: z.literal('add'),
+    name: z.string().min(1),
+    description: z.string(),
+    appearance: AppearanceSchema.optional(),
+    personality: z.string().optional(),
+  }),
+  z.object({ action: z.literal('remove'), id: z.string().uuid() }),
+]);
+
+export type ScriptCharacterAction = z.infer<typeof ScriptCharacterActionSchema>;

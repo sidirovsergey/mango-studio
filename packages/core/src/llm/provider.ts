@@ -24,7 +24,11 @@ export interface ScriptGenOutput {
     duration_sec: number;
     voiceover?: string;
   }>;
-  characters: Array<{ name: string; description: string }>;
+  characters: Array<
+    | { action: 'keep'; id: string }
+    | { action: 'add'; name: string; description: string; appearance?: Record<string, unknown>; personality?: string }
+    | { action: 'remove'; id: string }
+  >;
 }
 
 export interface RefineSceneInput {
