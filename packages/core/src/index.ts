@@ -65,6 +65,7 @@ export {
   getModelParams,
   buildDirectorSystemPrompt,
   buildScriptPrompt,
+  applyCharacterActions,
   CharacterSchema,
   AppearanceSchema,
 } from './llm';
