@@ -1,16 +1,19 @@
 'use client';
 
 import { setAutoModeAction } from '@/server/actions/projects';
+import type { Tier } from '@mango/core';
 import Link from 'next/link';
 import { useTransition } from 'react';
+import { TierToggle } from './TierToggle';
 
 interface Props {
   projectId: string;
   autoMode: boolean;
   format: '9:16' | '16:9' | '1:1';
+  tier: Tier;
 }
 
-export function TopBar({ projectId, autoMode, format }: Props) {
+export function TopBar({ projectId, autoMode, format, tier }: Props) {
   const [isPending, startTransition] = useTransition();
 
   const onAutoToggle = () => {
@@ -41,6 +44,7 @@ export function TopBar({ projectId, autoMode, format }: Props) {
             </button>
           ))}
         </div>
+        <TierToggle projectId={projectId} tier={tier} />
         <label
           className="auto-mode-toggle"
           style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}

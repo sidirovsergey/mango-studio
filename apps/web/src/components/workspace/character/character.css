@@ -154,3 +154,19 @@
 .ai-prompt-row input { flex: 1; padding: 6px 10px; border: 1px solid var(--ink-200); border-radius: 8px; }
 
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+/* ── TierToggle ───────────────────────────────────────────────────────── */
+
+.tier-toggle {
+  display: inline-flex; gap: 0;
+  background: var(--ink-100); border-radius: 999px; padding: 2px;
+}
+.tier-toggle button {
+  padding: 4px 12px; font-size: 12px; border-radius: 999px;
+  color: var(--ink-600);
+  background: transparent;
+  cursor: pointer;
+}
+.tier-toggle button.active {
+  background: var(--mango-500); color: white; font-weight: 600;
+}
