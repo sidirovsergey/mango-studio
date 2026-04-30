@@ -22,6 +22,8 @@ export { LLMProviderError, classifyLLMError } from './errors';
 export { getModelParams } from './config';
 export type { LLMTask, ModelParams } from './config';
 export { buildDirectorSystemPrompt } from './prompts';
+export { CharacterSchema } from './types';
+export type { Character, Dossier, ReferenceImage, ScriptCharacterAction, StoredAssetParsed } from './types';
 
 export function getLLMProvider(): LLMProvider {
   const providerName = process.env.LLM_PROVIDER ?? 'mock';

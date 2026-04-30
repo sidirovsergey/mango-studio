@@ -52,6 +52,11 @@ export type {
   ScriptGenInput,
   ScriptGenOutput,
   ScriptGenResult,
+  Character,
+  Dossier,
+  ReferenceImage,
+  ScriptCharacterAction,
+  StoredAssetParsed,
 } from './llm';
 export {
   getLLMProvider,
@@ -59,5 +64,6 @@ export {
   classifyLLMError,
   getModelParams,
   buildDirectorSystemPrompt,
+  CharacterSchema,
 } from './llm';
 export type { LLMTask, ModelParams } from './llm';
