@@ -22,8 +22,6 @@ export type {
   SupabaseStorageOptions,
 } from './media';
 export {
-  getMediaProvider,
-  MockMediaProvider,
   ECONOMY_MODELS,
   PREMIUM_MODELS,
   getDefaultModel,
@@ -35,9 +33,7 @@ export {
   classifyMediaError,
   FalCdnPassthroughStorage,
   SupabaseStorage,
-  FalMediaProvider,
 } from './media';
-export type { FalMediaProviderOptions } from './media';
 
 export type {
   ChatInput,
@@ -60,7 +56,6 @@ export type {
   StoredAssetParsed,
 } from './llm';
 export {
-  getLLMProvider,
   LLMProviderError,
   classifyLLMError,
   getModelParams,

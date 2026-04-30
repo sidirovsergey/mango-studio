@@ -1,5 +1,3 @@
-import 'server-only';
-
 export type LLMTask = 'script' | 'refine' | 'chat';
 
 export interface ModelParams {

@@ -1,5 +1,6 @@
 import 'server-only';
-import { FalMediaProvider, type MediaProvider, type StoredAsset } from '@mango/core';
+import type { MediaProvider, StoredAsset } from '@mango/core';
+import { FalMediaProvider } from '@mango/core/media/factory';
 import { getDisplayUrl } from './storage-display-url';
 
 export function getMediaProvider(): MediaProvider {

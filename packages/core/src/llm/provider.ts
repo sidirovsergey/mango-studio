@@ -1,4 +1,3 @@
-import 'server-only';
 import type { AspectRatio, StyleName } from '../prompt/types';
 import type { Character } from './types';
 

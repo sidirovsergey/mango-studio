@@ -7,9 +7,9 @@ import {
   type PersistedScript,
   applyCharacterActions,
   classifyLLMError,
-  getLLMProvider,
   getModelParams,
 } from '@mango/core';
+import { getLLMProvider } from '@mango/core/llm/factory';
 import type { Database } from '@mango/db';
 import { getServerSupabase } from '@mango/db/server';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';

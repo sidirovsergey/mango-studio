@@ -1,4 +1,3 @@
-import 'server-only';
 import type { ChatMessage, RefineSceneInput, ScriptGenInput } from './provider';
 import type { Character } from './types';
 

@@ -7,7 +7,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./media": "./src/media/index.ts",
+    "./media/factory": "./src/media/factory.ts",
     "./llm": "./src/llm/index.ts",
+    "./llm/factory": "./src/llm/factory.ts",
     "./prompt": "./src/prompt/types.ts",
     "./tier": "./src/tier/types.ts",
     "./fixtures": "./src/fixtures/index.ts"
