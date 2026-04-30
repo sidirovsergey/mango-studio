@@ -8,6 +8,7 @@
 @import '../styles/stages/final.css';
 @import '../styles/chat.css';
 @import '../styles/morph.css';
+@import '../components/workspace/character/character.css';
 
 html,
 body {
