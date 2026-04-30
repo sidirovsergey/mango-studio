@@ -35,7 +35,9 @@ export {
   classifyMediaError,
   FalCdnPassthroughStorage,
   SupabaseStorage,
+  FalMediaProvider,
 } from './media';
+export type { FalMediaProviderOptions } from './media';
 
 export type {
   ChatInput,
