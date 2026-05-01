@@ -148,9 +148,7 @@ function renderActiveCharactersBlock(chars: DirectorActiveCharacter[]): string {
 
 function renderArchivedCharactersBlock(chars: DirectorArchivedCharacter[]): string {
   if (chars.length === 0) return '';
-  const lines = chars
-    .map((c) => `- ${c.name} (id: ${c.id}): ${c.description || '—'}`)
-    .join('\n');
+  const lines = chars.map((c) => `- ${c.name} (id: ${c.id}): ${c.description || '—'}`).join('\n');
   return `\n\nУДАЛЁННЫЕ ПЕРСОНАЖИ (можно вернуть через unarchive_character):\n${lines}`;
 }
 

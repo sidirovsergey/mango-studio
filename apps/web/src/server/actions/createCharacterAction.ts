@@ -1,12 +1,7 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/get-user';
-import {
-  AppearanceSchema,
-  type Character,
-  CharacterSchema,
-  buildDossierPrompt,
-} from '@mango/core';
+import { AppearanceSchema, type Character, CharacterSchema, buildDossierPrompt } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { generateObject } from 'ai';
@@ -54,7 +49,11 @@ export async function createCharacterAction(rawInput: unknown): Promise<
   const script = (project.script ?? { characters: [] }) as { characters?: Character[] };
 
   // Структурируем поля если задан instruction (путь из чата). Иначе — старое поведение.
-  let structured: { description: string; appearance: Character['appearance']; personality?: string } | null = null;
+  let structured: {
+    description: string;
+    appearance: Character['appearance'];
+    personality?: string;
+  } | null = null;
   let partial = false;
 
   if (input.instruction) {
@@ -86,7 +85,10 @@ export async function createCharacterAction(rawInput: unknown): Promise<
         personality: object.personality,
       };
     } catch (err) {
-      console.error('[createCharacterAction] structured-add LLM-pass failed (fallback to plain create)', err);
+      console.error(
+        '[createCharacterAction] structured-add LLM-pass failed (fallback to plain create)',
+        err,
+      );
       partial = true;
       // Stash raw instruction so user has something to edit instead of empty card
       structured = {

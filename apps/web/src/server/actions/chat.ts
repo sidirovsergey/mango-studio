@@ -60,7 +60,8 @@ export async function sendChatMessageAction(
   const params = getModelParams('chat');
 
   // Извлекаем active/archived characters из script для Director context
-  const scriptCharacters = ((project.script ?? {}) as { characters?: Character[] }).characters ?? [];
+  const scriptCharacters =
+    ((project.script ?? {}) as { characters?: Character[] }).characters ?? [];
   const activeCharacters = scriptCharacters
     .filter((c) => !c.archived)
     .map((c) => ({

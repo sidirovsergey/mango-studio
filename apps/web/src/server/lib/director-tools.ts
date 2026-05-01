@@ -1,9 +1,8 @@
 import 'server-only';
 import { createCharacterAction } from '@/server/actions/createCharacterAction';
 import { generateCharacterDossierAction } from '@/server/actions/generateCharacterDossierAction';
-import { refineCharacterAction } from '@/server/actions/refineCharacterAction';
-import { unarchiveCharacterAction } from '@/server/actions/unarchiveCharacterAction';
 import { updateProjectMetaAction } from '@/server/actions/projects';
+import { refineCharacterAction } from '@/server/actions/refineCharacterAction';
 import {
   addSceneAction,
   deleteSceneAction,
@@ -11,6 +10,7 @@ import {
   refineScriptAction,
   regenScriptAction,
 } from '@/server/actions/scripts';
+import { unarchiveCharacterAction } from '@/server/actions/unarchiveCharacterAction';
 import { tool } from 'ai';
 import type { ToolSet } from 'ai';
 import { z } from 'zod';
