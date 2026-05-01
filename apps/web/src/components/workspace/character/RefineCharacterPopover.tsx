@@ -80,9 +80,12 @@ export function RefineCharacterPopover({ projectId, characterId, onClose }: Prop
           onChange={(e) => setText(e.target.value)}
           placeholder="например: сделай очки круглыми вместо квадратных"
           rows={3}
-          autoFocus
         />
-        {error && <div className="char-modal-error" style={{ marginTop: 8 }}>⚠ {error}</div>}
+        {error && (
+          <div className="char-modal-error" style={{ marginTop: 8 }}>
+            ⚠ {error}
+          </div>
+        )}
         <div className="popover-actions">
           <button type="button" onClick={onClose} disabled={isPending}>
             Отмена
@@ -105,20 +108,19 @@ export function RefineCharacterPopover({ projectId, characterId, onClose }: Prop
   return (
     <div className="refine-popover" ref={ref}>
       <div className="popover-text">
-        Изменения сохранены. Перегенерировать досье с учётом новых правок? Это займёт ~30 секунд
-        и будет тарифицировано.
+        Изменения сохранены. Перегенерировать досье с учётом новых правок? Это займёт ~30 секунд и
+        будет тарифицировано.
       </div>
-      {error && <div className="char-modal-error" style={{ marginTop: 8 }}>⚠ {error}</div>}
+      {error && (
+        <div className="char-modal-error" style={{ marginTop: 8 }}>
+          ⚠ {error}
+        </div>
+      )}
       <div className="popover-actions">
         <button type="button" onClick={skipRegen} disabled={isPending}>
           Не сейчас
         </button>
-        <button
-          type="button"
-          onClick={doRegen}
-          disabled={isPending}
-          className="primary"
-        >
+        <button type="button" onClick={doRegen} disabled={isPending} className="primary">
           {regenLabel}
         </button>
       </div>

@@ -58,12 +58,15 @@ export interface BuildScriptPromptContext {
   existingCharacters?: Pick<Character, 'id' | 'name' | 'description'>[];
 }
 
-export function buildScriptPrompt(input: ScriptGenInput, ctx: BuildScriptPromptContext = {}): string {
+export function buildScriptPrompt(
+  input: ScriptGenInput,
+  ctx: BuildScriptPromptContext = {},
+): string {
   const existingBlock = ctx.existingCharacters?.length
     ? `
 
 СУЩЕСТВУЮЩИЕ ПЕРСОНАЖИ (id + имя + описание) — сохраняй их id'ы при перегенерации, не пересоздавай:
-${ctx.existingCharacters.map(c => `- ${c.id}: ${c.name} (${c.description})`).join('\n')}
+${ctx.existingCharacters.map((c) => `- ${c.id}: ${c.name} (${c.description})`).join('\n')}
 
 В output поле "characters" — массив discriminated union действий:
 - Для каждого существующего, который остаётся — { "action": "keep", "id": "<тот же uuid>" }.

@@ -28,7 +28,13 @@ export interface ScriptGenOutput {
   }>;
   characters: Array<
     | { action: 'keep'; id: string }
-    | { action: 'add'; name: string; description: string; appearance?: Record<string, unknown>; personality?: string }
+    | {
+        action: 'add';
+        name: string;
+        description: string;
+        appearance?: Record<string, unknown>;
+        personality?: string;
+      }
     | { action: 'remove'; id: string }
   >;
 }

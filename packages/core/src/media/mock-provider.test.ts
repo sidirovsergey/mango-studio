@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MockMediaProvider } from './mock-provider';
-import type { GenerateCharacterDossierInput, AssetContext } from './provider';
+import type { AssetContext, GenerateCharacterDossierInput } from './provider';
 
 const ctx: AssetContext = {
   user_id: 'u1',

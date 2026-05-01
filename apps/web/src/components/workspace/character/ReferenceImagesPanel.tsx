@@ -123,7 +123,9 @@ export function ReferenceImagesPanel({ projectId, character, initialFocus, refer
           onClick={() => {
             setRefError(null);
             if (!character.dossier) {
-              setRefError('Сначала сгенерируй основное досье — оно используется как seed для AI-вариантов');
+              setRefError(
+                'Сначала сгенерируй основное досье — оно используется как seed для AI-вариантов',
+              );
               return;
             }
             setAiOpen(true);
@@ -161,7 +163,6 @@ export function ReferenceImagesPanel({ projectId, character, initialFocus, refer
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}
             placeholder="опционально: подсказка для variation"
-            autoFocus
           />
           <button type="button" onClick={generateAi} disabled={isPending} className="primary">
             {isPending ? 'Генерирую...' : 'Сгенерировать'}

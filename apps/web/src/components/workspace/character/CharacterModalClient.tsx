@@ -2,7 +2,7 @@
 
 import { generateCharacterDossierAction } from '@/server/actions/generateCharacterDossierAction';
 import { updateCharacterFieldAction } from '@/server/actions/updateCharacterFieldAction';
-import { buildDossierPrompt, type Character } from '@mango/core';
+import { type Character, buildDossierPrompt } from '@mango/core';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { ReferenceImagesPanel } from './ReferenceImagesPanel';
@@ -22,7 +22,13 @@ type Patch = {
   voice?: { description?: string; tts_provider?: 'grok' | 'elevenlabs' };
 };
 
-export function CharacterModalClient({ projectId, character, initialTab, referenceUrls, style = '3d_pixar' }: Props) {
+export function CharacterModalClient({
+  projectId,
+  character,
+  initialTab,
+  referenceUrls,
+  style = '3d_pixar',
+}: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -30,15 +36,17 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
 
   const [name, setName] = useState(character.name);
   const [description, setDescription] = useState(character.description);
-  const initialFullPrompt = character.full_prompt || buildDossierPrompt(
-    {
-      name: character.name,
-      description: character.description,
-      appearance: character.appearance,
-      personality: character.personality,
-    },
-    style,
-  );
+  const initialFullPrompt =
+    character.full_prompt ||
+    buildDossierPrompt(
+      {
+        name: character.name,
+        description: character.description,
+        appearance: character.appearance,
+        personality: character.personality,
+      },
+      style,
+    );
   const [fullPrompt, setFullPrompt] = useState(initialFullPrompt);
   const [promptSynced, setPromptSynced] = useState(false);
   const [regenSuggested, setRegenSuggested] = useState(false);
@@ -93,7 +101,9 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
       // the Generate button explicitly).
       if (
         character.dossier &&
-        (patch.description !== undefined || patch.full_prompt !== undefined || patch.name !== undefined)
+        (patch.description !== undefined ||
+          patch.full_prompt !== undefined ||
+          patch.name !== undefined)
       ) {
         setRegenSuggested(true);
       }
@@ -146,7 +156,9 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
       <section className="char-modal-section">
         <div className="char-modal-section-title">
           Полный промпт (отправляется в генератор как есть)
-          {promptSynced && <span className="prompt-synced-hint"> · обновлён под новое описание</span>}
+          {promptSynced && (
+            <span className="prompt-synced-hint"> · обновлён под новое описание</span>
+          )}
         </div>
         <textarea
           className="full-prompt-input"
@@ -163,11 +175,7 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
               Промпт изменён. Перегенерировать досье с учётом правок?
             </span>
             <div className="regen-suggest-actions">
-              <button
-                type="button"
-                onClick={() => setRegenSuggested(false)}
-                disabled={isPending}
-              >
+              <button type="button" onClick={() => setRegenSuggested(false)} disabled={isPending}>
                 Не сейчас
               </button>
               <button

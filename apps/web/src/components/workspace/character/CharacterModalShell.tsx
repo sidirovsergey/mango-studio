@@ -55,11 +55,16 @@ export function CharacterModalShell({ children }: Props) {
     if (e.target === e.currentTarget) close();
   };
 
+  // Backdrop scrim — keyboard close is provided by the Escape listener above;
+  // satisfy biome's useKeyWithClickEvents with a no-op keyboard handler.
+  const noopKey = () => {};
+
   return (
     <div
       className="char-modal-backdrop"
       data-modal-open
       onClick={onBackdropClick}
+      onKeyDown={noopKey}
       role="presentation"
     >
       {children}

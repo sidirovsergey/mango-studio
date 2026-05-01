@@ -21,4 +21,10 @@ export { buildDirectorSystemPrompt, buildScriptPrompt } from './prompts';
 export type { BuildScriptPromptContext } from './prompts';
 export { applyCharacterActions } from './character-diff-merge';
 export { CharacterSchema, AppearanceSchema } from './types';
-export type { Character, Dossier, ReferenceImage, ScriptCharacterAction, StoredAssetParsed } from './types';
+export type {
+  Character,
+  Dossier,
+  ReferenceImage,
+  ScriptCharacterAction,
+  StoredAssetParsed,
+} from './types';

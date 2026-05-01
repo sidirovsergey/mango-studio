@@ -1,5 +1,5 @@
-import { CharacterModal } from '@/components/workspace/character/CharacterModal';
 import { Workspace } from '@/components/workspace/Workspace';
+import { CharacterModal } from '@/components/workspace/character/CharacterModal';
 import { StageCharacters } from '@/components/workspace/stages/StageCharacters';
 import { getCurrentUserId } from '@/lib/auth/get-user';
 import { getCharactersForUI } from '@/server/lib/get-characters-for-ui';

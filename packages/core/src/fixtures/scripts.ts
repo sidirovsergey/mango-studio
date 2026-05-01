@@ -36,11 +36,27 @@ export const demoScripts: Record<string, ScriptGenOutput> = {
       },
     ],
     characters: [
-      { action: 'add', name: 'Дэнни', description: 'Оптимистичный дельфин, ищет работу. С новыми очками.' },
-      { action: 'add', name: 'Джек', description: 'Сердитый менеджер по найму. Сидит за столом из коралла.' },
-      { action: 'add', name: 'Лили', description: 'Секретарь. Печатает восемью щупальцами одновременно.' },
+      {
+        action: 'add',
+        name: 'Дэнни',
+        description: 'Оптимистичный дельфин, ищет работу. С новыми очками.',
+      },
+      {
+        action: 'add',
+        name: 'Джек',
+        description: 'Сердитый менеджер по найму. Сидит за столом из коралла.',
+      },
+      {
+        action: 'add',
+        name: 'Лили',
+        description: 'Секретарь. Печатает восемью щупальцами одновременно.',
+      },
       { action: 'add', name: 'Грейс', description: 'Хитрая лиса-рекрутер, читает тебя на сквозь.' },
-      { action: 'add', name: 'Тэдди', description: 'Уютный CEO-медведь, любит совещания у камина.' },
+      {
+        action: 'add',
+        name: 'Тэдди',
+        description: 'Уютный CEO-медведь, любит совещания у камина.',
+      },
     ],
   },
 };
