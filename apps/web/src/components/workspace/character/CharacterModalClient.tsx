@@ -39,6 +39,7 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
     style,
   );
   const [fullPrompt, setFullPrompt] = useState(initialFullPrompt);
+  const [promptSynced, setPromptSynced] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [voiceDesc, setVoiceDesc] = useState(character.voice.description ?? '');
   const [ttsProvider, setTtsProvider] = useState<'grok' | 'elevenlabs'>(
@@ -60,6 +61,30 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
         character_id: character.id,
         patch,
       });
+
+      // Auto-resync full_prompt when source fields change
+      if (patch.name !== undefined || patch.description !== undefined) {
+        const nextName = patch.name ?? character.name;
+        const nextDesc = patch.description ?? character.description;
+        const rebuilt = buildDossierPrompt(
+          {
+            name: nextName,
+            description: nextDesc,
+            appearance: character.appearance,
+            personality: character.personality,
+          },
+          style,
+        );
+        setFullPrompt(rebuilt);
+        setPromptSynced(true);
+        setTimeout(() => setPromptSynced(false), 3000);
+        await updateCharacterFieldAction({
+          project_id: projectId,
+          character_id: character.id,
+          patch: { full_prompt: rebuilt },
+        });
+      }
+
       router.refresh();
     });
   };
@@ -107,6 +132,7 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
       <section className="char-modal-section">
         <div className="char-modal-section-title">
           Полный промпт (отправляется в генератор как есть)
+          {promptSynced && <span className="prompt-synced-hint"> · обновлён под новое описание</span>}
         </div>
         <textarea
           className="full-prompt-input"
