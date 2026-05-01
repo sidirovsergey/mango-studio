@@ -84,7 +84,7 @@ describe('buildDirectorSystemPrompt — characters context', () => {
     expect(out).toContain('unarchive_character');
   });
 
-  it('содержит описания 4 новых tools', () => {
+  it('содержит описания всех 6 character tools (1.2.5 + 1.2.6)', () => {
     const out = buildDirectorSystemPrompt({
       ...baseCtx,
       activeCharacters: [],
@@ -94,6 +94,9 @@ describe('buildDirectorSystemPrompt — characters context', () => {
     expect(out).toContain('generate_character');
     expect(out).toContain('refine_character');
     expect(out).toContain('unarchive_character');
+    // Phase 1.2.6
+    expect(out).toContain('archive_character');
+    expect(out).toContain('delete_character');
   });
 
   it('убран старый fallback про "пока не умею восстанавливать"', () => {
@@ -105,21 +108,51 @@ describe('buildDirectorSystemPrompt — characters context', () => {
     expect(out).not.toMatch(/пока не умею восстанавливать/);
   });
 
-  it('содержит правило про confirmation перед regen generate_character', () => {
+  it('Phase 1.2.6: regen и refine confirms делает система, не Director текстом', () => {
     const out = buildDirectorSystemPrompt({
       ...baseCtx,
       activeCharacters: [],
       archivedCharacters: [],
     });
-    expect(out).toMatch(/has_dossier.*подтверд|подтвержд.*has_dossier/i);
+    // Старые «текстовый confirm» подсказки должны быть удалены
+    expect(out).not.toMatch(/сначала текстовый confirm/i);
+    expect(out).not.toMatch(/«У X уже есть досье/);
+    // Новый rule: «не спрашивай в чате, просто вызови tool»
+    expect(out).toMatch(/НЕ ДЕЛАЙ|просто вызови tool/i);
   });
 
-  it('содержит правило про hard-delete через корзину Stage 02', () => {
+  it('Phase 1.2.6: НЕ упоминает hard-delete через корзину Stage 02', () => {
     const out = buildDirectorSystemPrompt({
       ...baseCtx,
       activeCharacters: [],
       archivedCharacters: [],
     });
-    expect(out).toMatch(/корзин|Stage 02/i);
+    expect(out).not.toMatch(/корзин/i);
+    expect(out).not.toMatch(/Stage 02/i);
+  });
+
+  it('Phase 1.2.6: содержит блок ПРАВИЛА с 5+ пунктами', () => {
+    const out = buildDirectorSystemPrompt({
+      ...baseCtx,
+      activeCharacters: [],
+      archivedCharacters: [],
+    });
+    expect(out).toContain('ПРАВИЛА:');
+    expect(out).toContain('Текстовые подтверждения — НЕ ДЕЛАЙ');
+    expect(out).toContain('Словарь удаления');
+    expect(out).toContain('Не комментируй UI');
+    expect(out).toContain('Sync сценария — НЕ ПРЕДЛАГАЙ текстом');
+  });
+
+  it('Phase 1.2.6: словарь удаления различает archive vs delete', () => {
+    const out = buildDirectorSystemPrompt({
+      ...baseCtx,
+      activeCharacters: [],
+      archivedCharacters: [],
+    });
+    // archive triggers
+    expect(out).toMatch(/удали X.*archive_character|archive_character.*удали/i);
+    // delete triggers
+    expect(out).toMatch(/удали навсегда|удали окончательно|удали полностью|насовсем/i);
   });
 });

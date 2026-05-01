@@ -7,6 +7,9 @@ export interface ModelParams {
 }
 
 const DEFAULT_MODEL = 'x-ai/grok-4.1-fast';
+// Phase 1.2.6 — chat нуждается в более сильной tool-discipline чем Grok.
+// Sonnet 4.6 — баланс цена/качество для tool calling.
+const DEFAULT_CHAT_MODEL = 'anthropic/claude-sonnet-4-6';
 
 export const MODEL_PARAMS: Record<LLMTask, ModelParams> = {
   script: {
@@ -20,7 +23,7 @@ export const MODEL_PARAMS: Record<LLMTask, ModelParams> = {
     max_tokens: 800,
   },
   chat: {
-    model: process.env.LLM_MODEL_CHAT ?? DEFAULT_MODEL,
+    model: process.env.LLM_MODEL_CHAT ?? DEFAULT_CHAT_MODEL,
     temperature: 0.6,
     max_tokens: 1500,
   },
