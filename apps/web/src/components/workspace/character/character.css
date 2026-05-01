@@ -202,6 +202,43 @@
   border: 1px solid rgba(217, 45, 32, 0.2);
 }
 
+/* ── Regen suggestion bar (after prompt-affecting field change) ─────── */
+
+.regen-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(245, 118, 0, 0.08);
+  border: 1px solid rgba(245, 118, 0, 0.24);
+  border-radius: 10px;
+}
+.regen-suggest-text {
+  font-size: 13px;
+  color: var(--mango-700);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.regen-suggest-actions { display: flex; gap: 8px; }
+.regen-suggest-actions button {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1px solid var(--ink-200);
+  background: var(--paper);
+  color: var(--ink-700);
+  cursor: pointer;
+}
+.regen-suggest-actions button.primary {
+  background: var(--mango-500);
+  color: white;
+  border-color: transparent;
+  font-weight: 600;
+}
+.regen-suggest-actions button:disabled { opacity: 0.6; cursor: not-allowed; }
+
 /* ── TierToggle ───────────────────────────────────────────────────────── */
 
 .tier-toggle {

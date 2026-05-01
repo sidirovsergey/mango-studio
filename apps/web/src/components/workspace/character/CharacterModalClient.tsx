@@ -40,6 +40,7 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
   );
   const [fullPrompt, setFullPrompt] = useState(initialFullPrompt);
   const [promptSynced, setPromptSynced] = useState(false);
+  const [regenSuggested, setRegenSuggested] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [voiceDesc, setVoiceDesc] = useState(character.voice.description ?? '');
   const [ttsProvider, setTtsProvider] = useState<'grok' | 'elevenlabs'>(
@@ -85,6 +86,16 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
         });
       }
 
+      // Suggest regen if a prompt-affecting field changed (only meaningful
+      // when dossier already exists — first-time generation user clicks
+      // the Generate button explicitly).
+      if (
+        character.dossier &&
+        (patch.description !== undefined || patch.full_prompt !== undefined || patch.name !== undefined)
+      ) {
+        setRegenSuggested(true);
+      }
+
       router.refresh();
     });
   };
@@ -102,6 +113,7 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
         console.error('[generateDossier]', r.error, r);
         return;
       }
+      setRegenSuggested(false);
       router.refresh();
     });
   };
@@ -143,6 +155,30 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
           }
           rows={8}
         />
+        {regenSuggested && (
+          <div className="regen-suggest">
+            <span className="regen-suggest-text">
+              Промпт изменён. Перегенерировать досье с учётом правок?
+            </span>
+            <div className="regen-suggest-actions">
+              <button
+                type="button"
+                onClick={() => setRegenSuggested(false)}
+                disabled={isPending}
+              >
+                Не сейчас
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={isPending}
+                className="primary"
+              >
+                {isPending ? 'Генерирую...' : 'Перегенерировать'}
+              </button>
+            </div>
+          </div>
+        )}
         <div className="char-modal-section-actions">
           <button type="button" onClick={handleGenerate} disabled={isPending} className="primary">
             {isPending
