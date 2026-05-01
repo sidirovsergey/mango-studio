@@ -97,12 +97,16 @@
 .char-modal-hero {
   background: var(--ink-100);
   overflow: hidden;
+  flex-shrink: 0;        /* don't let flex column squash the hero */
+  width: 100%;
 }
 .char-modal-hero img {
   display: block;
   width: 100%;
   height: auto;
-  object-fit: contain;
+  /* No object-fit / no fixed height — img dictates hero height via aspect.
+     Modal itself scrolls (.char-modal max-height + overflow auto) if total
+     content exceeds 92vh. */
 }
 
 /* Avatar uses a dedicated 1:1 portrait — cover fills the circle cleanly */
