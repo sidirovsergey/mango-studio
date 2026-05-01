@@ -13,22 +13,28 @@ export type Database = {
           content: string;
           created_at: string;
           id: string;
+          pending_action: Json | null;
           project_id: string;
           role: string;
+          tool_chips: Json | null;
         };
         Insert: {
           content: string;
           created_at?: string;
           id?: string;
+          pending_action?: Json | null;
           project_id: string;
           role: string;
+          tool_chips?: Json | null;
         };
         Update: {
           content?: string;
           created_at?: string;
           id?: string;
+          pending_action?: Json | null;
           project_id?: string;
           role?: string;
+          tool_chips?: Json | null;
         };
         Relationships: [
           {
