@@ -60,6 +60,9 @@ Personality: ${current.personality ?? '—'}
 Инструкция от пользователя: ${input.instruction}
 
 Верни обновлённые поля.`,
+    providerOptions: {
+      openrouter: { provider: { ignore: ['DeepInfra'] } },
+    },
   });
 
   const style = (project.style ?? '3d_pixar') as '3d_pixar' | '2d_drawn' | 'clay_art';

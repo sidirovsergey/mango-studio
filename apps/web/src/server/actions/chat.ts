@@ -4,6 +4,7 @@ import { getCurrentUserId } from '@/lib/auth/get-user';
 import { buildDirectorTools } from '@/server/lib/director-tools';
 import { logLLMCall } from '@/server/lib/log-llm-call';
 import {
+  type Character,
   type ChatMessage,
   buildDirectorSystemPrompt,
   classifyLLMError,
@@ -58,12 +59,33 @@ export async function sendChatMessageAction(
   const openrouter = createOpenRouter({ apiKey });
   const params = getModelParams('chat');
 
+  // Извлекаем active/archived characters из script для Director context
+  const scriptCharacters =
+    ((project.script ?? {}) as { characters?: Character[] }).characters ?? [];
+  const activeCharacters = scriptCharacters
+    .filter((c) => !c.archived)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+      has_dossier: c.dossier != null,
+    }));
+  const archivedCharacters = scriptCharacters
+    .filter((c) => c.archived)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+    }));
+
   const systemPrompt = buildDirectorSystemPrompt({
     idea: project.idea,
     duration_sec: project.target_duration_sec,
     format: project.format ?? '9:16',
     style: project.style ?? '3d_pixar',
     script: project.script,
+    activeCharacters,
+    archivedCharacters,
   });
   const tools = buildDirectorTools({ project_id });
 
