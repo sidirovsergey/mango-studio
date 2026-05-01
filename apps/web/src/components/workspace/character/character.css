@@ -186,8 +186,38 @@
   font-size: 11px; color: var(--ink-500);
   background: transparent; cursor: pointer;
 }
-.ai-prompt-row { display: flex; gap: 8px; margin-top: 12px; }
-.ai-prompt-row input { flex: 1; padding: 6px 10px; border: 1px solid var(--ink-200); border-radius: 8px; }
+.ai-prompt-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  align-items: center;
+}
+.ai-prompt-row input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--ink-200);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.ai-prompt-row button {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid var(--ink-200);
+  background: var(--paper);
+  color: var(--ink-700);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ai-prompt-row button.primary {
+  background: var(--mango-500);
+  color: white;
+  border-color: transparent;
+  font-weight: 600;
+}
+.ai-prompt-row button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
 
