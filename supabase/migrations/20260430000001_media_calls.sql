@@ -15,7 +15,7 @@ create table media_calls (
   fal_request_id text,
   status text not null check (status in ('ok','error')),
   error_code text check (error_code in (
-    'rate_limit','invalid_input','model_unavailable','timeout','budget_exceeded','unknown'
+    'rate_limit','invalid_input','model_unavailable','forbidden','timeout','budget_exceeded','unknown'
   ) or error_code is null),
   created_at timestamptz not null default now(),
   constraint media_calls_status_error_xor check (
