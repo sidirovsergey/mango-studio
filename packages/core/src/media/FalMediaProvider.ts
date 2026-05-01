@@ -62,16 +62,22 @@ export class FalMediaProvider implements MediaProvider {
       }
     }
 
+    // nano-banana edit endpoint expects image_urls (array). Other edit
+     // models (flux/kontext, seedream/edit) also use image_urls. Send singular
+     // image_url only as a defensive fallback for legacy schemas.
+    const editPayload = useEdit && firstImageUrl
+      ? { image_urls: [firstImageUrl], image_url: firstImageUrl }
+      : {}
+
+    const requestInput = {
+      prompt: input.prompt,
+      ...editPayload,
+      aspect_ratio: formatAspectFor(modelToUse, input.format),
+    }
+
     const startedAt = Date.now()
     try {
-      const resp = await fal.subscribe(modelToUse, {
-        input: {
-          prompt: input.prompt,
-          ...(firstImageUrl ? { image_url: firstImageUrl } : {}),
-          aspect_ratio: formatAspectFor(modelToUse, input.format),
-        },
-        logs: false,
-      })
+      const resp = await fal.subscribe(modelToUse, { input: requestInput, logs: false })
 
       const latency_ms = Date.now() - startedAt
       const data = (resp as { data?: { images?: Array<{ url: string }> } }).data
@@ -90,8 +96,21 @@ export class FalMediaProvider implements MediaProvider {
     } catch (raw) {
       if (raw instanceof MediaProviderError) throw raw
       const code = classifyMediaError(raw)
-      const msg = (raw as { message?: string })?.message ?? 'fal call failed'
-      throw new MediaProviderError(code, msg)
+      const status = (raw as { status?: number })?.status
+      const message = (raw as { message?: string })?.message
+      const body = (raw as { body?: unknown })?.body
+      // Surface fal's actual response so we can diagnose 422 / 4xx classes.
+      console.error(
+        '[FalMediaProvider]',
+        modelToUse,
+        'failed',
+        JSON.stringify({ status, message, body, requestInputKeys: Object.keys(requestInput) }),
+      )
+      const detail =
+        body && typeof body === 'object' && 'detail' in body
+          ? JSON.stringify((body as { detail: unknown }).detail).slice(0, 200)
+          : message ?? 'fal call failed'
+      throw new MediaProviderError(code, detail)
     }
   }
 }
