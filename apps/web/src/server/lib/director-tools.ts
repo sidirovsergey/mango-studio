@@ -1,4 +1,8 @@
 import 'server-only';
+import { createCharacterAction } from '@/server/actions/createCharacterAction';
+import { generateCharacterDossierAction } from '@/server/actions/generateCharacterDossierAction';
+import { refineCharacterAction } from '@/server/actions/refineCharacterAction';
+import { unarchiveCharacterAction } from '@/server/actions/unarchiveCharacterAction';
 import { updateProjectMetaAction } from '@/server/actions/projects';
 import {
   addSceneAction,
@@ -159,8 +163,96 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
       },
     }),
 
-    // Helper for the LLM to fall back when user message is ambiguous (forces text reply).
-    // No-op — present so model has an explicit "do nothing" option besides the destructive tools.
-    // Not strictly needed, but reduces accidental tool calls on chit-chat.
+    // ===== Character tools (Phase 1.2.5) =====
+
+    add_character: tool({
+      description:
+        'Добавить нового персонажа в проект. Используй когда пользователь говорит «добавь героя X», «введи персонажа Y». Создаёт карточку с структурированным описанием (description, appearance, personality), но БЕЗ картинки. Чтобы нарисовать — отдельный generate_character.',
+      inputSchema: z.object({
+        name: z.string().min(1).max(80).describe('Имя персонажа, как его назвал пользователь'),
+        instruction: z
+          .string()
+          .min(1)
+          .max(500)
+          .describe(
+            'Описание персонажа от пользователя — всё что юзер сказал про внешность/характер целиком, не сокращая',
+          ),
+      }),
+      execute: async ({ name, instruction }) => {
+        try {
+          const result = await createCharacterAction({ project_id, name, instruction });
+          if (!result.ok) return { ok: false, error: result.error };
+          return {
+            ok: true,
+            character_id: result.character_id,
+            name,
+            ...(result.partial ? { partial: true } : {}),
+          };
+        } catch (err) {
+          return { ok: false, error: shortError(err) };
+        }
+      },
+    }),
+
+    generate_character: tool({
+      description:
+        'Сгенерировать визуальное досье (картинку) существующего персонажа через fal.ai. character_id бери из блока АКТИВНЫЕ ПЕРСОНАЖИ в системном контексте. ВАЖНО: если has_dossier=true — НЕ вызывай tool сразу, сначала спроси подтверждения текстом. Перегенерация заменит существующую картинку.',
+      inputSchema: z.object({
+        character_id: z
+          .string()
+          .uuid()
+          .describe('uuid существующего персонажа из блока АКТИВНЫЕ ПЕРСОНАЖИ'),
+      }),
+      execute: async ({ character_id }) => {
+        try {
+          const result = await generateCharacterDossierAction({ project_id, character_id });
+          if (!result.ok) {
+            return { ok: false, error: result.error, error_code: result.error_code };
+          }
+          return { ok: true, character_id };
+        } catch (err) {
+          return { ok: false, error: shortError(err) };
+        }
+      },
+    }),
+
+    refine_character: tool({
+      description:
+        'Обновить описание существующего персонажа по инструкции пользователя. Меняет description / appearance / personality, НО НЕ перегенерирует картинку (если уже есть — отдельный generate_character). character_id бери из блока АКТИВНЫЕ ПЕРСОНАЖИ.',
+      inputSchema: z.object({
+        character_id: z.string().uuid(),
+        instruction: z
+          .string()
+          .min(1)
+          .max(500)
+          .describe('Что изменить в персонаже, в одно-два предложения'),
+      }),
+      execute: async ({ character_id, instruction }) => {
+        try {
+          const result = await refineCharacterAction({ project_id, character_id, instruction });
+          if (!result.ok) return { ok: false, error: result.error };
+          return { ok: true, character_id };
+        } catch (err) {
+          return { ok: false, error: shortError(err) };
+        }
+      },
+    }),
+
+    unarchive_character: tool({
+      description:
+        'Восстановить ранее удалённого (archived) персонажа. character_id бери из блока УДАЛЁННЫЕ ПЕРСОНАЖИ в системном контексте. Используй когда пользователь говорит «верни X», «восстанови Y». Если имени нет среди archived — НЕ вызывай tool, ответь текстом.',
+      inputSchema: z.object({
+        character_id: z.string().uuid(),
+      }),
+      execute: async ({ character_id }) => {
+        try {
+          const result = await unarchiveCharacterAction({ project_id, character_id });
+          if (!result.ok) return { ok: false, error: result.error };
+          return { ok: true, character_id };
+        } catch (err) {
+          return { ok: false, error: shortError(err) };
+        }
+      },
+    }),
   } satisfies ToolSet;
 }
