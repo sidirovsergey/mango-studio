@@ -2,8 +2,8 @@
 // Substring-match character name across scene descriptions.
 // Pure logic, no Supabase deps.
 
-import type { Character } from './types';
 import type { SyncHint } from './chat-types';
+import type { Character } from './types';
 
 export type SyncHintKind = 'refine' | 'archive' | 'unarchive';
 

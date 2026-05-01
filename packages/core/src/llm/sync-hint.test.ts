@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectSyncHint, type SyncHintScene } from './sync-hint';
+import { type SyncHintScene, detectSyncHint } from './sync-hint';
 
 const ch = (name: string, description = '') => ({ name, description });
 const scene = (description: string): SyncHintScene => ({ description });

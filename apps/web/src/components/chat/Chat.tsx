@@ -36,6 +36,8 @@ export function Chat({ projectId, initialMessages }: Props) {
       role: 'user',
       content: text,
       created_at: new Date().toISOString(),
+      tool_chips: null,
+      pending_action: null,
     };
     setMessages((prev) => [...prev, optimisticUser]);
 
@@ -48,6 +50,8 @@ export function Chat({ projectId, initialMessages }: Props) {
           role: 'assistant',
           content: reply,
           created_at: new Date().toISOString(),
+          tool_chips: null,
+          pending_action: null,
         };
         setMessages((prev) => [...prev, assistantMsg]);
         // Director Agent tools may have mutated project state (script/meta).
