@@ -1,7 +1,7 @@
 import type { StoredAsset, AssetContext } from './storage/StorageProvider'
 export type { AssetContext } from './storage/StorageProvider'
 
-export type DossierFormat = '16:9'
+export type DossierFormat = '16:9' | '1:1'
 export type DossierQuality = '720p' | '1080p' | '2k'
 
 export interface GenerateCharacterDossierInput {

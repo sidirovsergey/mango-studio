@@ -7,6 +7,7 @@ export const StoredAssetSchema = z.discriminatedUnion('kind', [
 
 export const DossierSchema = z.object({
   storage: StoredAssetSchema,
+  avatar: StoredAssetSchema.optional(),
   model: z.string().min(1),
   format: z.literal('16:9'),
   quality: z.enum(['720p', '1080p', '2k']),

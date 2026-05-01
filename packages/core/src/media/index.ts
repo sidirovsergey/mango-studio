@@ -21,7 +21,7 @@ export {
 } from './model-registry';
 export type { Tier } from './model-registry';
 
-export { buildDossierPrompt } from './prompts';
+export { buildDossierPrompt, buildAvatarPrompt } from './prompts';
 
 export { MediaProviderError, classifyMediaError } from './errors';
 export type { MediaErrorCode } from './errors';

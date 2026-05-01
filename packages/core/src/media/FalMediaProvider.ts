@@ -5,6 +5,7 @@ import type {
   GenerateCharacterDossierInput,
   GenerateCharacterDossierResult,
   AssetContext,
+  DossierFormat,
 } from './provider'
 import { MediaProviderError, classifyMediaError } from './errors'
 import { getEditModel } from './model-registry'
@@ -13,6 +14,11 @@ export interface FalMediaProviderOptions {
   apiKey: string
   resolveImageUrl?: (refUrl: { kind: 'fal_passthrough'; url: string } | { kind: 'supabase'; path: string }) => Promise<string>
   timeoutMs?: number
+}
+
+const ASPECT_MAP: Record<DossierFormat, string> = {
+  '16:9': 'landscape_16_9',
+  '1:1': 'square_hd',
 }
 
 export class FalMediaProvider implements MediaProvider {
@@ -53,7 +59,7 @@ export class FalMediaProvider implements MediaProvider {
         input: {
           prompt: input.prompt,
           ...(firstImageUrl ? { image_url: firstImageUrl } : {}),
-          aspect_ratio: input.format,
+          aspect_ratio: ASPECT_MAP[input.format] ?? input.format,
         },
         logs: false,
       })

@@ -15,12 +15,11 @@ export function CharacterCard({ projectId, character, generating }: Props) {
     <div className={className} data-character-id={character.id}>
       <Link href={`?char=${character.id}`} scroll={false} className="char-card-clickable">
         <div className="char-avatar">
-          {character.dossier ? (
+          {character.dossier?.avatar ? (
             <DossierImage
-              storage={character.dossier.storage}
+              storage={character.dossier.avatar}
               bucket="character-dossiers"
               alt={character.name}
-              faceCrop
             />
           ) : (
             <span aria-hidden="true">{character.name.slice(0, 1).toUpperCase()}</span>

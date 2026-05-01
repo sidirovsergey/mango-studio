@@ -8,7 +8,9 @@ import { getStorageProvider } from '@/server/lib/storage-provider-factory';
 import {
   type Character,
   MediaProviderError,
+  type StoredAsset,
   type Tier,
+  buildAvatarPrompt,
   buildDossierPrompt,
   getDefaultModel,
   isModelInTier,
@@ -100,11 +102,51 @@ export async function generateCharacterDossierAction(
     const storage = getStorageProvider();
     const stored = await storage.persist(result.fal_url, ctx);
 
+    // --- Avatar (1:1 portrait) — non-fatal enhancement ---
+    let avatarStored: StoredAsset | undefined;
+    try {
+      const avatarPrompt = buildAvatarPrompt(
+        {
+          name: character.name,
+          description: character.description,
+          appearance: character.appearance,
+          personality: character.personality,
+        },
+        style,
+      );
+      const avatarResult = await provider.generateCharacterDossier(
+        {
+          prompt: avatarPrompt,
+          model,
+          format: '1:1',
+          quality,
+          image_refs: [],
+        },
+        ctx,
+      );
+      await logMediaCall({
+        user_id: user.id,
+        project_id: input.project_id,
+        model: avatarResult.model_used,
+        method: 'generateCharacterDossier',
+        character_id: character.id,
+        cost_usd: avatarResult.cost_usd,
+        latency_ms: avatarResult.latency_ms,
+        fal_request_id: avatarResult.fal_request_id,
+        status: 'ok',
+      });
+      avatarStored = await storage.persist(avatarResult.fal_url, ctx);
+    } catch (avatarErr) {
+      console.error('[generateCharacterDossierAction] avatar gen failed (non-fatal)', avatarErr);
+      // continue — main dossier already persisted
+    }
+
     const updated: Character = {
       ...character,
       full_prompt: prompt,
       dossier: {
         storage: stored,
+        avatar: avatarStored,
         model: result.model_used,
         format: '16:9',
         quality,

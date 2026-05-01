@@ -29,6 +29,7 @@ export {
   getEditModel,
   isModelInTier,
   buildDossierPrompt,
+  buildAvatarPrompt,
   MediaProviderError,
   classifyMediaError,
   FalCdnPassthroughStorage,

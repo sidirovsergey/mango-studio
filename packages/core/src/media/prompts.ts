@@ -36,6 +36,32 @@ function compileAppearance(a: CharacterForPrompt['appearance']): string {
   return parts.join(', ')
 }
 
+export function buildAvatarPrompt(char: CharacterForPrompt, style: Style): string {
+  const appearance = compileAppearance(char.appearance)
+  const personalityBlock = char.personality ? `\nХарактер: ${char.personality}.` : ''
+
+  return `Жёсткое правило: стиль — ${STYLE_NAME[style]}.
+
+Портрет персонажа на ЧИСТО БЕЛОМ фоне, качество профессиональной анимационной студии.
+Один персонаж крупным планом:
+- Голова и плечи, лицо занимает центр кадра
+- Выразительное нейтральное или слегка улыбающееся выражение
+- Взгляд немного в сторону от камеры (3/4 поворот)
+- Максимум деталей лица: глаза, нос, рот, характерные черты
+
+Персонаж: ${char.name}.
+Описание: ${char.description}.
+Внешность: ${appearance}.${personalityBlock}
+
+Стиль (применяется только к персонажу, НЕ к фону):
+${STYLE_PREAMBLE[style]}
+
+Фон: чистый белый #FFFFFF, без окружения, без теней на фоне.
+Свет на персонаже: ровный, профессиональный студийный свет, мягкий ключевой источник.
+
+Формат: квадратное изображение 1:1, один субъект, без текста, без подписей, без аннотаций.`
+}
+
 export function buildDossierPrompt(char: CharacterForPrompt, style: Style): string {
   const appearance = compileAppearance(char.appearance)
   const personalityBlock = char.personality ? `\nХарактер: ${char.personality}.` : ''

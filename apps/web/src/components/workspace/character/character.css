@@ -95,30 +95,26 @@
   position: relative;
 }
 .char-modal-hero {
-  aspect-ratio: 16 / 9;
   background: var(--ink-100);
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 .char-modal-hero img {
   display: block;
   width: 100%;
-  height: 100%;
+  height: auto;
   object-fit: contain;
 }
 
-/* Avatar inside CharacterCard — crop to show one character's face from
-   the model-sheet (multiple poses arranged on widescreen). Top-left
-   bias targets the first pose's head area; scale-up tightens the crop. */
+/* Avatar uses a dedicated 1:1 portrait — cover fills the circle cleanly */
 .char-avatar { overflow: hidden; }
 .char-avatar img {
   width: 100%;
   height: 100%;
+  object-fit: cover;
   border-radius: inherit;
 }
 .char-modal-hero.placeholder {
+  aspect-ratio: 16 / 9;
   display: flex; align-items: center; justify-content: center;
   color: var(--ink-500);
   background: linear-gradient(135deg, var(--cream), var(--ink-100));
