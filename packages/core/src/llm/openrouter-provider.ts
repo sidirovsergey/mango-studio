@@ -6,9 +6,8 @@ import { LLMProviderError, classifyLLMError } from './errors';
 import { calculateCost } from './pricing';
 import {
   REFINE_SYSTEM_PROMPT,
-  SCRIPT_SYSTEM_PROMPT,
   buildRefineUserPrompt,
-  buildScriptUserPrompt,
+  buildScriptPrompt,
   chatMessagesWithSystem,
 } from './prompts';
 import type {
@@ -78,11 +77,13 @@ export class OpenRouterLLMProvider implements LLMProvider {
   async generateScript(input: ScriptGenInput): Promise<ScriptGenResult> {
     const params = getModelParams('script');
     const start = Date.now();
+    const fullPrompt = buildScriptPrompt(input, {
+      existingCharacters: input.existingCharacters,
+    });
     try {
       const { text, usage } = await generateText({
         model: this.openrouter(params.model),
-        system: SCRIPT_SYSTEM_PROMPT,
-        prompt: buildScriptUserPrompt(input),
+        prompt: fullPrompt,
         temperature: params.temperature,
         maxOutputTokens: params.max_tokens,
         providerOptions: {

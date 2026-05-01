@@ -1,5 +1,5 @@
-import 'server-only';
 import type { ChatMessage, RefineSceneInput, ScriptGenInput } from './provider';
+import type { Character } from './types';
 
 const FORMAT_LABEL: Record<ScriptGenInput['format'], string> = {
   '9:16': 'вертикальное (TikTok/Reels/Shorts)',
@@ -52,6 +52,38 @@ export function buildScriptUserPrompt(input: ScriptGenInput): string {
 - Визуальный стиль: ${STYLE_LABEL[input.style]}
 
 Сгенерируй сценарий по этой идее, соблюдая параметры. Верни JSON по схеме.`;
+}
+
+export interface BuildScriptPromptContext {
+  existingCharacters?: Pick<Character, 'id' | 'name' | 'description'>[];
+}
+
+export function buildScriptPrompt(
+  input: ScriptGenInput,
+  ctx: BuildScriptPromptContext = {},
+): string {
+  const existingBlock = ctx.existingCharacters?.length
+    ? `
+
+СУЩЕСТВУЮЩИЕ ПЕРСОНАЖИ (id + имя + описание) — сохраняй их id'ы при перегенерации, не пересоздавай:
+${ctx.existingCharacters.map((c) => `- ${c.id}: ${c.name} (${c.description})`).join('\n')}
+
+В output поле "characters" — массив discriminated union действий:
+- Для каждого существующего, который остаётся — { "action": "keep", "id": "<тот же uuid>" }.
+- Для нового — { "action": "add", "name": ..., "description": ..., "appearance": {...}, "personality"?: ... } (id сгенерируется на сервере).
+- Для удаления — { "action": "remove", "id": "<uuid существующего>" }.
+
+Удаляй персонажей ТОЛЬКО если сюжет фундаментально не требует их. Малые правки тона / описания НЕ требуют add/remove — используй keep.
+`
+    : `
+
+В output поле "characters" — массив действий для первой генерации:
+[{ "action": "add", "name": "Имя", "description": "описание", "appearance": {} }]
+`;
+
+  return `${SCRIPT_SYSTEM_PROMPT}${existingBlock}
+
+${buildScriptUserPrompt(input)}`;
 }
 
 export const REFINE_SYSTEM_PROMPT = `Ты — Mango, AI-режиссёр.
@@ -116,9 +148,24 @@ export function buildDirectorSystemPrompt(ctx: DirectorContext): string {
 - add_scene = было N сцен, стало N+1, существующие НЕ ТРОНУТЫ
 - refine_script = переписывает весь сценарий, количество сцен может не измениться
 
+ПРАВИЛА ДЛЯ ИЗМЕНЕНИЙ ПЕРСОНАЖЕЙ:
+
+Когда пользователь просит существенно изменить состав персонажей (добавить нового, удалить
+существующего, заменить одного на другого) — НЕ вызывай refine_script сразу. Сначала ответь
+текстом в чате: «Я понял что ты хочешь сделать [короткое summary]. Это удалит/добавит [персонаж X].
+Подтверждаешь?» Дождись подтверждения юзера, затем вызывай refine_script.
+
+Малые изменения (тон, описания сцен, длительность) — применяй refine_script сразу, без
+подтверждения.
+
+Если пользователь сказал «верни [имя]» — это запрос на unarchive (для archived characters).
+В Phase 1.2 этого tool ещё нет, поэтому ответь «пока не умею восстанавливать удалённых
+персонажей через чат — будет в следующем обновлении. Можешь восстановить вручную в Stage 02».
+
 КОГДА НЕ ВЫЗЫВАТЬ ИНСТРУМЕНТ:
 - Общий разговор, идеи, обсуждение, советы → текстовый ответ
 - Вопрос о возможностях ("что ты умеешь?") → текстовый ответ
+- Ожидание подтверждения character-изменения (см. выше)
 
 ПОСЛЕ ВЫЗОВА ИНСТРУМЕНТА:
 - Скажи коротко (одно предложение) что сделал, по-русски, тёплым тоном

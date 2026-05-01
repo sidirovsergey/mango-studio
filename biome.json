@@ -46,6 +46,9 @@
       },
       "complexity": {
         "noForEach": "off"
+      },
+      "a11y": {
+        "useSemanticElements": "off"
       }
     }
   },

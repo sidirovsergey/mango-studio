@@ -93,6 +93,59 @@ export type Database = {
           },
         ];
       };
+      media_calls: {
+        Row: {
+          character_id: string | null;
+          cost_usd: number | null;
+          created_at: string;
+          error_code: string | null;
+          fal_request_id: string | null;
+          id: string;
+          latency_ms: number | null;
+          method: string;
+          model: string;
+          project_id: string | null;
+          status: string;
+          user_id: string;
+        };
+        Insert: {
+          character_id?: string | null;
+          cost_usd?: number | null;
+          created_at?: string;
+          error_code?: string | null;
+          fal_request_id?: string | null;
+          id?: string;
+          latency_ms?: number | null;
+          method: string;
+          model: string;
+          project_id?: string | null;
+          status: string;
+          user_id: string;
+        };
+        Update: {
+          character_id?: string | null;
+          cost_usd?: number | null;
+          created_at?: string;
+          error_code?: string | null;
+          fal_request_id?: string | null;
+          id?: string;
+          latency_ms?: number | null;
+          method?: string;
+          model?: string;
+          project_id?: string | null;
+          status?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'media_calls_project_id_fkey';
+            columns: ['project_id'];
+            isOneToOne: false;
+            referencedRelation: 'projects';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       projects: {
         Row: {
           auto_mode: boolean;
@@ -104,6 +157,7 @@ export type Database = {
           status: string;
           style: string;
           target_duration_sec: number;
+          tier: string;
           title: string | null;
           updated_at: string;
           user_id: string;
@@ -118,6 +172,7 @@ export type Database = {
           status?: string;
           style: string;
           target_duration_sec: number;
+          tier?: string;
           title?: string | null;
           updated_at?: string;
           user_id: string;
@@ -132,6 +187,7 @@ export type Database = {
           status?: string;
           style?: string;
           target_duration_sec?: number;
+          tier?: string;
           title?: string | null;
           updated_at?: string;
           user_id?: string;

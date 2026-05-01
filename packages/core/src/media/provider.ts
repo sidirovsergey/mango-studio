@@ -1,35 +1,28 @@
-import 'server-only';
-import type { CharacterDescriptor, ProjectBible, SceneIntent } from '../prompt/types';
-import type { Tier } from '../tier/types';
+import type { AssetContext, StoredAsset } from './storage/StorageProvider';
+export type { AssetContext } from './storage/StorageProvider';
 
-export interface CharacterSheetInput {
-  character: CharacterDescriptor;
-  bible: ProjectBible;
-  tier: Tier;
+export type DossierFormat = '16:9' | '1:1';
+export type DossierQuality = '720p' | '1080p' | '2k';
+
+export interface GenerateCharacterDossierInput {
+  prompt: string;
+  model: string;
+  format: DossierFormat;
+  quality: DossierQuality;
+  image_refs?: StoredAsset[];
 }
 
-export interface CharacterSheetOutput {
-  reference_image_urls: string[];
-  cost_usd: number;
+export interface GenerateCharacterDossierResult {
+  fal_url: string;
+  cost_usd: number | null;
   latency_ms: number;
-}
-
-export interface SceneGenInput {
-  intent: SceneIntent;
-  bible: ProjectBible;
-  tier: Tier;
-}
-
-export interface SceneGenOutput {
-  video_url: string;
-  poster_url: string;
-  end_frame_url: string;
-  duration_sec: number;
-  cost_usd: number;
-  latency_ms: number;
+  fal_request_id: string;
+  model_used: string;
 }
 
 export interface MediaProvider {
-  generateCharacterSheet(input: CharacterSheetInput): Promise<CharacterSheetOutput>;
-  generateScene(input: SceneGenInput): Promise<SceneGenOutput>;
+  generateCharacterDossier(
+    input: GenerateCharacterDossierInput,
+    ctx: AssetContext,
+  ): Promise<GenerateCharacterDossierResult>;
 }

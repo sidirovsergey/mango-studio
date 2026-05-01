@@ -1,6 +1,7 @@
 import 'server-only';
 import { z } from 'zod';
 import type { ScriptGenOutput } from './provider';
+import { ScriptCharacterActionSchema } from './types';
 
 export const SceneSchema = z.object({
   scene_id: z.string().min(1).describe('Уникальный id сцены, например s1, s2'),
@@ -12,11 +13,6 @@ export const SceneSchema = z.object({
   voiceover: z.string().optional().describe('Реплика/закадровый голос для этой сцены'),
 });
 
-export const CharacterSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().min(1),
-});
-
 export const ScriptGenSchema = z.object({
   title: z.string().min(1).max(120).describe('Короткий цепляющий заголовок мультика'),
   scenes: z
@@ -25,10 +21,10 @@ export const ScriptGenSchema = z.object({
     .max(8)
     .describe('2-8 сцен, в сумме укладывающихся в target_duration_sec'),
   characters: z
-    .array(CharacterSchema)
+    .array(ScriptCharacterActionSchema)
     .min(1)
     .max(5)
-    .describe('Главные персонажи, фигурирующие в сценах'),
+    .describe('Персонажи: keep/add/remove действия для diff-merge'),
 });
 
 type _SchemaMatchesType = z.infer<typeof ScriptGenSchema> extends ScriptGenOutput

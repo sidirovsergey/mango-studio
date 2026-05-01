@@ -1,9 +1,13 @@
-import type { SceneGenOutput } from '../media/provider';
-
-export interface DemoScene extends SceneGenOutput {
+export interface DemoScene {
   scene_id: string;
   title: string;
   description: string;
+  video_url: string;
+  poster_url: string;
+  end_frame_url: string;
+  duration_sec: number;
+  cost_usd: number;
+  latency_ms: number;
 }
 
 const s1: DemoScene = {

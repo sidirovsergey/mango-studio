@@ -1,75 +1,38 @@
 import { describe, expect, it } from 'vitest';
-import type { CharacterDescriptor, ProjectBible, SceneIntent } from '../prompt/types';
 import { MockMediaProvider } from './mock-provider';
+import type { AssetContext, GenerateCharacterDossierInput } from './provider';
 
-const bible: ProjectBible = {
+const ctx: AssetContext = {
+  user_id: 'u1',
   project_id: 'p1',
-  style: { name: '3d_pixar', descriptor: '', palette_hex: [], lighting: '', camera_language: '' },
-  world: { setting: '', mood: '' },
-  characters: {},
+  character_id: 'c1',
 };
 
-const character: CharacterDescriptor = {
-  char_id: 'default',
-  name: 'Test',
-  canonical_description: 'desc',
-  short_tag: 'tag',
-  reference_image_urls: [],
-};
-
-const intent: SceneIntent = {
-  scene_id: 'default',
-  shot_number: 1,
-  duration_sec: 5,
-  aspect_ratio: '16:9',
-  subject_char_ids: ['default'],
-  action: 'test',
-  emotion: 'neutral',
-  camera: { shot_type: 'medium', movement: 'static', angle: 'eye_level' },
-  sound_cues: [],
-  transition_in: 'cut',
-  transition_out: 'cut',
+const input: GenerateCharacterDossierInput = {
+  prompt: 'A brave hero',
+  model: 'fal-ai/flux/dev',
+  format: '16:9',
+  quality: '1080p',
 };
 
 describe('MockMediaProvider', () => {
-  it('generateCharacterSheet returns reference URLs from fixtures', async () => {
+  it('generateCharacterDossier returns a fal_url', async () => {
     const p = new MockMediaProvider();
-    const result = await p.generateCharacterSheet({ character, bible, tier: 'economy' });
-    expect(result.reference_image_urls).toBeInstanceOf(Array);
-    expect(result.reference_image_urls.length).toBeGreaterThan(0);
+    const result = await p.generateCharacterDossier(input, ctx);
+    expect(result.fal_url).toContain('mock-dossier');
     expect(result.cost_usd).toBe(0);
+    expect(result.latency_ms).toBe(1);
   });
 
-  it('generateScene returns video URL from fixtures', async () => {
+  it('model_used matches input.model', async () => {
     const p = new MockMediaProvider();
-    const result = await p.generateScene({ intent, bible, tier: 'economy' });
-    expect(result.video_url).toBeTruthy();
-    expect(result.poster_url).toBeTruthy();
-    expect(result.end_frame_url).toBeTruthy();
-    expect(result.duration_sec).toBe(5);
+    const result = await p.generateCharacterDossier(input, ctx);
+    expect(result.model_used).toBe(input.model);
   });
 
-  it('premium tier has higher latency than economy', async () => {
+  it('fal_request_id is set', async () => {
     const p = new MockMediaProvider();
-    const start1 = Date.now();
-    await p.generateScene({ intent, bible, tier: 'economy' });
-    const economyMs = Date.now() - start1;
-
-    const start2 = Date.now();
-    await p.generateScene({ intent, bible, tier: 'premium' });
-    const premiumMs = Date.now() - start2;
-
-    expect(premiumMs).toBeGreaterThan(economyMs);
-  }, 15000);
-
-  it('falls back to default fixture for unknown character/scene IDs', async () => {
-    const p = new MockMediaProvider();
-    const unknownChar = { ...character, char_id: 'nonexistent' };
-    const result = await p.generateCharacterSheet({
-      character: unknownChar,
-      bible,
-      tier: 'economy',
-    });
-    expect(result.reference_image_urls).toBeInstanceOf(Array);
+    const result = await p.generateCharacterDossier(input, ctx);
+    expect(result.fal_request_id).toBeTruthy();
   });
 });

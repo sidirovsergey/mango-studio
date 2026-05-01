@@ -1,0 +1,301 @@
+/*
+ * character.css — popover-only styles for CharacterCard component.
+ * Grid/card/avatar/info/actions base styles live in styles/stages/characters.css.
+ */
+
+/* stages/characters.css .char-actions lacks position:relative, which popovers need */
+.char-actions { position: relative; }
+
+/* Wrapper link inside CharacterCard (avatar + info) */
+.char-card-clickable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+  width: 100%;
+}
+
+/* ── Popovers ─────────────────────────────────────────────────────────── */
+
+.refine-popover, .model-popover, .delete-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  background: var(--paper);
+  border: 1px solid rgba(26, 18, 7, 0.08);
+  border-radius: 12px;
+  padding: 12px;
+  min-width: 240px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 8px 24px -6px rgba(26, 18, 7, 0.18);
+  z-index: 20;
+}
+.refine-popover textarea {
+  width: 100%;
+  border: 1px solid var(--ink-200);
+  border-radius: 8px;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+.popover-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.popover-actions button { padding: 6px 12px; border-radius: 8px; font-size: 13px; }
+.popover-actions .primary { background: var(--mango-500); color: white; }
+
+.model-popover ul { list-style: none; padding: 0; margin: 0; }
+.model-popover li button {
+  display: block; width: 100%; text-align: left;
+  padding: 6px 8px; border-radius: 6px; font-size: 12px;
+  font-family: monospace;
+}
+.model-popover li button:hover { background: var(--ink-100); }
+.model-popover li button.selected { color: var(--mango-600); font-weight: 600; }
+.popover-title { font-size: 11px; color: var(--ink-500); margin-bottom: 6px; text-transform: uppercase; }
+
+.delete-popover { min-width: 280px; }
+.popover-text { font-size: 13px; line-height: 1.5; }
+.popover-actions .danger { background: #d92d20; color: white; }
+
+/* ── Error badge (regen failure) ─────────────────────────────────────── */
+
+.regen-error {
+  position: absolute; top: -6px; right: -6px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #d92d20; color: white;
+  font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ── CharacterModal overlay ───────────────────────────────────────────── */
+
+.char-modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(26, 18, 7, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  animation: fadeIn 200ms;
+}
+.char-modal {
+  background: var(--paper);
+  border: 1px solid rgba(26, 18, 7, 0.08);
+  border-radius: 24px;
+  width: min(720px, 92vw);
+  max-height: 92vh;
+  overflow: auto;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 24px 64px -12px rgba(26, 18, 7, 0.32);
+  display: flex; flex-direction: column;
+  position: relative;
+}
+.char-modal-hero {
+  background: var(--ink-100);
+  overflow: hidden;
+  flex-shrink: 0;        /* don't let flex column squash the hero */
+  width: 100%;
+}
+.char-modal-hero img {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* No object-fit / no fixed height — img dictates hero height via aspect.
+     Modal itself scrolls (.char-modal max-height + overflow auto) if total
+     content exceeds 92vh. */
+}
+
+/* Avatar uses a dedicated 1:1 portrait — cover fills the circle cleanly */
+.char-avatar { overflow: hidden; }
+.char-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.char-modal-hero.placeholder {
+  aspect-ratio: 16 / 9;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-500);
+  background: linear-gradient(135deg, var(--cream), var(--ink-100));
+}
+.char-modal-body { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+.char-modal-section { display: flex; flex-direction: column; gap: 8px; }
+.char-modal-section-title {
+  font-size: 11px; text-transform: uppercase; color: var(--ink-500); letter-spacing: 0.5px;
+}
+.prompt-synced-hint {
+  color: var(--mango-600);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 4px;
+}
+.char-modal-bottom-bar {
+  position: sticky; bottom: 0;
+  background: var(--paper);
+  border-top: 1px solid var(--ink-200);
+  padding: 12px 24px;
+  display: flex; gap: 12px; justify-content: space-between; align-items: center;
+}
+.char-modal-close {
+  position: absolute; top: 16px; right: 16px;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(26, 18, 7, 0.06);
+  border: 1px solid rgba(26, 18, 7, 0.08);
+  color: var(--ink-700);
+  font-size: 22px; line-height: 1;
+  cursor: pointer;
+  z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 140ms;
+}
+.char-modal-close:hover { background: rgba(26, 18, 7, 0.12); color: var(--ink-900); }
+.char-name-input { font-size: 24px; font-weight: 700; border: none; background: transparent; }
+.char-desc-input, .voice-input, .full-prompt-input {
+  width: 100%; border: 1px solid var(--ink-200); border-radius: 8px;
+  padding: 8px 10px; font-family: inherit; font-size: 14px; resize: vertical;
+}
+.full-prompt-input { font-family: monospace; font-size: 12px; }
+.char-modal-section-actions { display: flex; gap: 8px; }
+.char-modal-section-actions .primary { background: var(--mango-500); color: white; padding: 8px 16px; border-radius: 8px; }
+.tts-provider-toggle { display: flex; gap: 12px; align-items: center; font-size: 13px; }
+.tts-provider-toggle .tts-note { color: var(--ink-500); font-size: 11px; }
+
+.refs-panel { display: flex; flex-direction: column; gap: 8px; }
+.refs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
+}
+.ref-thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--ink-100); }
+.ref-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.ref-remove {
+  position: absolute; top: 4px; right: 4px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(0,0,0,0.6); color: white; font-size: 14px; line-height: 1;
+  cursor: pointer;
+}
+.ref-add {
+  aspect-ratio: 1;
+  border: 2px dashed var(--ink-300);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--ink-500);
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 140ms, color 140ms, background 140ms;
+}
+.ref-add:hover:not(:disabled) {
+  border-color: var(--mango-400);
+  color: var(--mango-600);
+  background: rgba(245, 118, 0, 0.04);
+}
+.ref-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ai-prompt-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  align-items: center;
+}
+.ai-prompt-row input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--ink-200);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.ai-prompt-row button {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid var(--ink-200);
+  background: var(--paper);
+  color: var(--ink-700);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ai-prompt-row button.primary {
+  background: var(--mango-500);
+  color: white;
+  border-color: transparent;
+  font-weight: 600;
+}
+.ai-prompt-row button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+/* ── Generate Dossier error ───────────────────────────────────────────── */
+
+.char-modal-error {
+  color: #d92d20;
+  font-size: 13px;
+  padding: 8px 12px;
+  background: rgba(217, 45, 32, 0.08);
+  border-radius: 8px;
+  border: 1px solid rgba(217, 45, 32, 0.2);
+}
+
+/* ── Regen suggestion bar (after prompt-affecting field change) ─────── */
+
+.regen-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(245, 118, 0, 0.08);
+  border: 1px solid rgba(245, 118, 0, 0.24);
+  border-radius: 10px;
+}
+.regen-suggest-text {
+  font-size: 13px;
+  color: var(--mango-700);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.regen-suggest-actions { display: flex; gap: 8px; }
+.regen-suggest-actions button {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1px solid var(--ink-200);
+  background: var(--paper);
+  color: var(--ink-700);
+  cursor: pointer;
+}
+.regen-suggest-actions button.primary {
+  background: var(--mango-500);
+  color: white;
+  border-color: transparent;
+  font-weight: 600;
+}
+.regen-suggest-actions button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── TierToggle ───────────────────────────────────────────────────────── */
+
+.tier-toggle {
+  display: inline-flex; gap: 0;
+  background: var(--ink-100); border-radius: 999px; padding: 2px;
+}
+.tier-toggle button {
+  padding: 4px 12px; font-size: 12px; border-radius: 999px;
+  color: var(--ink-700);
+  background: transparent;
+  cursor: pointer;
+  border: 0;
+}
+.tier-toggle button.active {
+  background: var(--mango-500); color: white; font-weight: 600;
+}

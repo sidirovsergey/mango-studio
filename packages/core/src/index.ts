@@ -10,13 +10,31 @@ export type {
 } from './prompt/types';
 
 export type {
-  CharacterSheetInput,
-  CharacterSheetOutput,
   MediaProvider,
-  SceneGenInput,
-  SceneGenOutput,
+  GenerateCharacterDossierInput,
+  GenerateCharacterDossierResult,
+  DossierFormat,
+  DossierQuality,
+  AssetContext,
+  StoredAsset,
+  StorageProvider,
+  MediaErrorCode,
+  SupabaseStorageOptions,
 } from './media';
-export { getMediaProvider } from './media';
+export {
+  ECONOMY_MODELS,
+  PREMIUM_MODELS,
+  getDefaultModel,
+  getActiveModels,
+  getEditModel,
+  isModelInTier,
+  buildDossierPrompt,
+  buildAvatarPrompt,
+  MediaProviderError,
+  classifyMediaError,
+  FalCdnPassthroughStorage,
+  SupabaseStorage,
+} from './media';
 
 export type {
   ChatInput,
@@ -25,18 +43,27 @@ export type {
   ChatResult,
   LLMProvider,
   LLMUsage,
+  PersistedScript,
   RefineSceneInput,
   RefineSceneOutput,
   RefineSceneResult,
   ScriptGenInput,
   ScriptGenOutput,
   ScriptGenResult,
+  Character,
+  Dossier,
+  ReferenceImage,
+  ScriptCharacterAction,
+  StoredAssetParsed,
 } from './llm';
 export {
-  getLLMProvider,
   LLMProviderError,
   classifyLLMError,
   getModelParams,
   buildDirectorSystemPrompt,
+  buildScriptPrompt,
+  applyCharacterActions,
+  CharacterSchema,
+  AppearanceSchema,
 } from './llm';
-export type { LLMTask, ModelParams } from './llm';
+export type { LLMTask, ModelParams, BuildScriptPromptContext } from './llm';

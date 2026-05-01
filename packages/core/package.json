@@ -7,7 +7,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./media": "./src/media/index.ts",
+    "./media/factory": "./src/media/factory.ts",
     "./llm": "./src/llm/index.ts",
+    "./llm/factory": "./src/llm/factory.ts",
     "./prompt": "./src/prompt/types.ts",
     "./tier": "./src/tier/types.ts",
     "./fixtures": "./src/fixtures/index.ts"
@@ -24,6 +26,7 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
+    "@fal-ai/client": "^1.10.0",
     "@openrouter/ai-sdk-provider": "^2.8.1",
     "ai": "^6.0.168",
     "zod": "^4.3.6"

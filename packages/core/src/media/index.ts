@@ -1,17 +1,27 @@
-import 'server-only';
-import { MockMediaProvider } from './mock-provider';
-import type { MediaProvider } from './provider';
-
 export type {
   MediaProvider,
-  CharacterSheetInput,
-  CharacterSheetOutput,
-  SceneGenInput,
-  SceneGenOutput,
+  GenerateCharacterDossierInput,
+  GenerateCharacterDossierResult,
+  DossierFormat,
+  DossierQuality,
+  AssetContext,
 } from './provider';
 
-export function getMediaProvider(): MediaProvider {
-  // Phase 0: только Mock
-  // Phase 1: switch по env MEDIA_PROVIDER === 'fal'
-  return new MockMediaProvider();
-}
+export type { StoredAsset, StorageProvider } from './storage/StorageProvider';
+export { FalCdnPassthroughStorage } from './storage/FalCdnPassthroughStorage';
+export { SupabaseStorage, type SupabaseStorageOptions } from './storage/SupabaseStorage';
+
+export {
+  ECONOMY_MODELS,
+  PREMIUM_MODELS,
+  getDefaultModel,
+  getActiveModels,
+  getEditModel,
+  isModelInTier,
+} from './model-registry';
+export type { Tier } from './model-registry';
+
+export { buildDossierPrompt, buildAvatarPrompt } from './prompts';
+
+export { MediaProviderError, classifyMediaError } from './errors';
+export type { MediaErrorCode } from './errors';
