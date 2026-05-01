@@ -120,10 +120,22 @@ export function ReferenceImagesPanel({ projectId, character, initialFocus, refer
           + Загрузить
         </button>
         <button
-          onClick={() => setAiOpen(true)}
+          onClick={() => {
+            setRefError(null);
+            if (!character.dossier) {
+              setRefError('Сначала сгенерируй основное досье — оно используется как seed для AI-вариантов');
+              return;
+            }
+            setAiOpen(true);
+          }}
           className="ref-add"
-          disabled={isPending || !character.dossier}
+          disabled={isPending}
           type="button"
+          title={
+            character.dossier
+              ? 'Сгенерировать AI-вариацию на основе текущего досье'
+              : 'Нужно сначала сгенерировать основное досье'
+          }
         >
           ✨ AI-вариант
         </button>

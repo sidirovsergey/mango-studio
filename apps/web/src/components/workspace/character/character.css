@@ -182,9 +182,23 @@
   cursor: pointer;
 }
 .ref-add {
-  aspect-ratio: 1; border: 2px dashed var(--ink-300); border-radius: 8px;
-  font-size: 11px; color: var(--ink-500);
-  background: transparent; cursor: pointer;
+  aspect-ratio: 1;
+  border: 2px dashed var(--ink-300);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--ink-500);
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 140ms, color 140ms, background 140ms;
+}
+.ref-add:hover:not(:disabled) {
+  border-color: var(--mango-400);
+  color: var(--mango-600);
+  background: rgba(245, 118, 0, 0.04);
+}
+.ref-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .ai-prompt-row {
   display: flex;
