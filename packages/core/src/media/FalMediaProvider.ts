@@ -16,9 +16,18 @@ export interface FalMediaProviderOptions {
   timeoutMs?: number
 }
 
-const ASPECT_MAP: Record<DossierFormat, string> = {
-  '16:9': 'landscape_16_9',
-  '1:1': 'square_hd',
+/**
+ * Per-model aspect-ratio formatting. nano-banana family expects literal ratio
+ * strings ('16:9', '1:1'). flux family expects size identifiers
+ * ('landscape_16_9', 'square_hd'). When adding new models, extend this map.
+ * Default (nano-banana style) used for unknown models.
+ */
+function formatAspectFor(model: string, format: DossierFormat): string {
+  if (model.includes('flux') || model.includes('recraft') || model.includes('seedream')) {
+    return format === '16:9' ? 'landscape_16_9' : 'square_hd'
+  }
+  // nano-banana, default
+  return format
 }
 
 export class FalMediaProvider implements MediaProvider {
@@ -59,7 +68,7 @@ export class FalMediaProvider implements MediaProvider {
         input: {
           prompt: input.prompt,
           ...(firstImageUrl ? { image_url: firstImageUrl } : {}),
-          aspect_ratio: ASPECT_MAP[input.format] ?? input.format,
+          aspect_ratio: formatAspectFor(modelToUse, input.format),
         },
         logs: false,
       })
