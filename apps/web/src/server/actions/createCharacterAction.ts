@@ -88,6 +88,12 @@ export async function createCharacterAction(rawInput: unknown): Promise<
     } catch (err) {
       console.error('[createCharacterAction] structured-add LLM-pass failed (fallback to plain create)', err);
       partial = true;
+      // Stash raw instruction so user has something to edit instead of empty card
+      structured = {
+        description: input.instruction,
+        appearance: AppearanceSchema.parse({}),
+        personality: undefined,
+      };
     }
   }
 
