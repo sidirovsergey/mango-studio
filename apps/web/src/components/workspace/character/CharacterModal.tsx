@@ -1,6 +1,7 @@
 import { getDisplayUrl } from '@/server/lib/storage-display-url';
 import type { Character } from '@mango/core';
 import { CharacterModalClient } from './CharacterModalClient';
+import { CharacterModalShell } from './CharacterModalShell';
 import { DossierImage } from './DossierImage';
 
 interface Props {
@@ -16,7 +17,7 @@ export async function CharacterModal({ projectId, character, initialTab = 'main'
   );
 
   return (
-    <div className="char-modal-backdrop" data-modal-open>
+    <CharacterModalShell>
       <div
         className="char-modal"
         role="dialog"
@@ -44,6 +45,6 @@ export async function CharacterModal({ projectId, character, initialTab = 'main'
           style={style}
         />
       </div>
-    </div>
+    </CharacterModalShell>
   );
 }

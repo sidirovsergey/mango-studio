@@ -3,7 +3,7 @@
 import { generateCharacterDossierAction } from '@/server/actions/generateCharacterDossierAction';
 import { updateCharacterFieldAction } from '@/server/actions/updateCharacterFieldAction';
 import { buildDossierPrompt, type Character } from '@mango/core';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { ReferenceImagesPanel } from './ReferenceImagesPanel';
 
@@ -24,6 +24,7 @@ type Patch = {
 
 export function CharacterModalClient({ projectId, character, initialTab, referenceUrls, style = '3d_pixar' }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const params = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
@@ -52,7 +53,8 @@ export function CharacterModalClient({ projectId, character, initialTab, referen
     next.delete('char');
     next.delete('tab');
     const qs = next.toString();
-    router.push(qs ? `?${qs}` : '?', { scroll: false });
+    const target = qs ? `${pathname}?${qs}` : pathname;
+    router.replace(target, { scroll: false });
   };
 
   const saveField = (patch: Patch) => {
