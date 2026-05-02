@@ -1,4 +1,12 @@
 import type { AspectRatio, StyleName } from '../prompt/types';
+import type {
+  Dialogue,
+  FirstFrameSource,
+  MasterClip,
+  SceneAsset,
+  SceneVideoAsset,
+  VoiceAsset,
+} from '../media/scene-types';
 import type { Character } from './types';
 
 export interface LLMUsage {
@@ -18,14 +26,29 @@ export interface ScriptGenInput {
   existingCharacters?: Array<{ id: string; name: string; description: string }>;
 }
 
+export interface Scene {
+  scene_id: string;
+  description: string;
+  duration_sec: number;
+  dialogue: Dialogue | null;
+  character_ids: string[];
+  composition_hint?: string;
+  first_frame_source: FirstFrameSource;
+  first_frame: SceneAsset | null;
+  last_frame: SceneAsset | null;
+  video: SceneVideoAsset | null;
+  voice_audio: VoiceAsset | null;
+  final_clip: SceneAsset | null;
+}
+
+export interface NarratorVoice {
+  tts_voice_id: string;
+  description?: string;
+}
+
 export interface ScriptGenOutput {
   title: string;
-  scenes: Array<{
-    scene_id: string;
-    description: string;
-    duration_sec: number;
-    voiceover?: string;
-  }>;
+  scenes: Scene[];
   characters: Array<
     | { action: 'keep'; id: string }
     | {
@@ -37,6 +60,8 @@ export interface ScriptGenOutput {
       }
     | { action: 'remove'; id: string }
   >;
+  narrator_voice?: NarratorVoice;
+  master_clip: MasterClip | null;
 }
 
 export interface RefineSceneInput {
@@ -68,13 +93,10 @@ export interface ChatOutput {
  */
 export interface PersistedScript {
   title: string;
-  scenes: Array<{
-    scene_id: string;
-    description: string;
-    duration_sec: number;
-    voiceover?: string;
-  }>;
+  scenes: Scene[];
   characters: Character[];
+  narrator_voice?: NarratorVoice;
+  master_clip: MasterClip | null;
 }
 
 export interface ScriptGenResult {
