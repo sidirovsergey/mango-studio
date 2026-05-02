@@ -118,7 +118,9 @@ export async function generateCharacterDossierAction(
     if (e instanceof MediaProviderError) {
       return { ok: false, error: friendlyMediaError(e.code, e.message), error_code: e.code };
     }
-    console.error('[generateCharacterDossierAction]', e);
-    return { ok: false, error: 'unexpected error' };
+    const detail =
+      e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    console.error('[generateCharacterDossierAction]', detail, e);
+    return { ok: false, error: detail.slice(0, 240) };
   }
 }
