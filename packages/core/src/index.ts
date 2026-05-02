@@ -20,6 +20,16 @@ export type {
   StorageProvider,
   MediaErrorCode,
   SupabaseStorageOptions,
+  SceneAsset,
+  SceneVideoAsset,
+  VoiceAsset,
+  MasterClip,
+  Dialogue,
+  FirstFrameSource,
+  VideoModelMeta,
+  JobHandle,
+  JobResult,
+  JobStatus,
 } from './media';
 export {
   ECONOMY_MODELS,
@@ -34,6 +44,20 @@ export {
   classifyMediaError,
   FalCdnPassthroughStorage,
   SupabaseStorage,
+  VIDEO_MODELS,
+  VOICE_MODELS,
+  MUX_MODEL,
+  CONCAT_MODEL,
+  EXTRACT_LAST_FRAME_MODEL,
+  getDefaultVideoModel,
+  getActiveVideoModels,
+  getVideoModelMeta,
+  isVideoModelInTier,
+  getDefaultVoiceModel,
+  clampDurationToModel,
+  buildFirstFramePrompt,
+  buildVideoPrompt,
+  buildVoicePrompt,
 } from './media';
 
 export type {
@@ -57,8 +81,6 @@ export type {
   ReferenceImage,
   ScriptCharacterAction,
   StoredAssetParsed,
-  Dialogue,
-  FirstFrameSource,
 } from './llm';
 export { normalizeScene } from './llm';
 export {
