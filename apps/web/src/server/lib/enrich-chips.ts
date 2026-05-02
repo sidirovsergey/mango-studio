@@ -150,6 +150,51 @@ const LABELS: Partial<
     ok: () => 'Обновил параметры',
     fail: ({ error }) => `Не обновил параметры${error ? ` (${error})` : ''}`,
   },
+  // Phase 1.3 scene tools
+  regen_scene_video: {
+    ok: ({ args }) => {
+      const id = typeof args.scene_id === 'string' ? args.scene_id : null;
+      return id ? `🎬 Перегенерил видео сцены ${id}` : '🎬 Перегенерил видео сцены';
+    },
+    fail: ({ error }) => `Не перегенерил видео${error ? ` (${error})` : ''}`,
+  },
+  refine_scene_description: {
+    ok: ({ args }) => {
+      const id = typeof args.scene_id === 'string' ? args.scene_id : null;
+      return id ? `✏️ Обновил описание сцены ${id}` : '✏️ Обновил описание сцены';
+    },
+    fail: ({ error }) => `Не обновил описание сцены${error ? ` (${error})` : ''}`,
+  },
+  set_scene_duration: {
+    ok: ({ args, result }) => {
+      const id = typeof args.scene_id === 'string' ? args.scene_id : null;
+      const clamped = typeof result.clamped_to === 'number' ? result.clamped_to : null;
+      if (id && clamped !== null) return `⏱️ Сцена ${id}: ${clamped}с`;
+      if (id) return `⏱️ Обновил длительность сцены ${id}`;
+      return '⏱️ Обновил длительность сцены';
+    },
+    fail: ({ error }) => `Не обновил длительность${error ? ` (${error})` : ''}`,
+  },
+  set_scene_model: {
+    ok: ({ args }) => {
+      const id = typeof args.scene_id === 'string' ? args.scene_id : null;
+      const model = typeof args.model === 'string' ? (args.model.split('/').pop() ?? args.model) : null;
+      if (id && model) return `✏️ Сменил модель сцены ${id} на ${model}`;
+      return '✏️ Сменил модель сцены';
+    },
+    fail: ({ error }) => `Не сменил модель сцены${error ? ` (${error})` : ''}`,
+  },
+  generate_first_frame: {
+    ok: ({ args }) => {
+      const id = typeof args.scene_id === 'string' ? args.scene_id : null;
+      return id ? `✨ Нарисовал кадр сцены ${id}` : '✨ Нарисовал кадр сцены';
+    },
+    fail: ({ error }) => `Не нарисовал кадр${error ? ` (${error})` : ''}`,
+  },
+  generate_master_clip: {
+    ok: () => '🎞️ Запустил финальную склейку',
+    fail: ({ error }) => `Не запустил склейку${error ? ` (${error})` : ''}`,
+  },
 };
 
 function buildLabel(
