@@ -4,7 +4,7 @@ import { sendChatMessageAction } from '@/server/actions/chat';
 import type { LLMProviderError } from '@mango/core';
 import type { Database } from '@mango/db/types';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { ChatInput } from './ChatInput';
 import { ChatStream } from './ChatStream';
 
@@ -28,6 +28,14 @@ export function Chat({ projectId, initialMessages }: Props) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+  // Phase 1.2.6 fix: после router.refresh() initialMessages обновляется (server-side
+  // SSR пересчитан), но useState не реагирует на смену props автоматом. Без этого sync
+  // юзер видит optimistic state со старыми null-чипами вместо реальных tool_chips/
+  // pending_action из БД. Заменяем messages свежим SSR snapshot'ом каждый раз.
+  useEffect(() => {
+    setMessages(initialMessages);
+  }, [initialMessages]);
+
   const handleSend = (text: string) => {
     setError(null);
     const optimisticUser: ChatRow = {
@@ -39,25 +47,16 @@ export function Chat({ projectId, initialMessages }: Props) {
       tool_chips: null,
       pending_action: null,
     };
+    // Optimistic user — instant feedback. Реальная user-row придёт через router.refresh()
+    // (chat.ts инсёртит её первой) и заменит optimistic через useEffect выше.
     setMessages((prev) => [...prev, optimisticUser]);
 
     startTransition(async () => {
       try {
-        const { reply } = await sendChatMessageAction({ project_id: projectId, content: text });
-        const assistantMsg: ChatRow = {
-          id: `optimistic-${Date.now()}-r`,
-          project_id: projectId,
-          role: 'assistant',
-          content: reply,
-          created_at: new Date().toISOString(),
-          tool_chips: null,
-          pending_action: null,
-        };
-        setMessages((prev) => [...prev, assistantMsg]);
-        // Director Agent tools may have mutated project state (script/meta).
-        // revalidatePath in the action only invalidates the server cache —
-        // for the user's open page to re-render with fresh SSR data, the
-        // client must trigger a refresh.
+        await sendChatMessageAction({ project_id: projectId, content: text });
+        // Никаких optimistic assistant — он бы переписал реальный ассистент-row с chips/
+        // pending_action на пустую заглушку (баг до 1.2.6-fix-2). Refresh принесёт реальные
+        // данные из БД через SSR + useEffect sync.
         router.refresh();
       } catch (err) {
         const code = (err as LLMProviderError)?.code ?? 'unknown';
