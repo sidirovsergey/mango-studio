@@ -25,3 +25,21 @@ export { buildDossierPrompt, buildAvatarPrompt } from './prompts';
 
 export { MediaProviderError, classifyMediaError } from './errors';
 export type { MediaErrorCode } from './errors';
+
+export {
+  StoredAssetSchema,
+  SceneAssetSchema,
+  SceneVideoAssetSchema,
+  VoiceAssetSchema,
+  MasterClipSchema,
+  DialogueSchema,
+  FirstFrameSourceSchema,
+} from './scene-types';
+export type {
+  SceneAsset,
+  SceneVideoAsset,
+  VoiceAsset,
+  MasterClip,
+  Dialogue,
+  FirstFrameSource,
+} from './scene-types';
