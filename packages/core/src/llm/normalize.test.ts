@@ -33,7 +33,7 @@ describe('normalizeScene', () => {
     expect(result.first_frame).toBeNull();
     expect(result.video).toBeNull();
     expect(result.final_clip).toBeNull();
-    expect((result as Record<string, unknown>).voiceover).toBeUndefined();
+    expect((result as unknown as Record<string, unknown>).voiceover).toBeUndefined();
   });
 
   it('returns null dialogue when legacy has empty voiceover', () => {
