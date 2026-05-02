@@ -89,3 +89,5 @@ export type {
   SyncHintKind,
   SyncHintScene,
 } from './llm';
+
+export * from './queue';
