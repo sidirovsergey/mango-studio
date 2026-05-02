@@ -6,7 +6,7 @@ import type {
   ScriptGenOutput,
   VoiceAsset,
 } from '@mango/core';
-import { getServiceRoleSupabase } from '@mango/db/server';
+import { getServerSupabase } from '@mango/db/server';
 
 type Script = ScriptGenOutput;
 
@@ -35,7 +35,7 @@ export async function recordPendingJob(params: {
   fal_request_id: string;
   request_input: Record<string, unknown>;
 }): Promise<{ job_id: string; existing: boolean }> {
-  const sb = getServiceRoleSupabase();
+  const sb = await getServerSupabase();
   const { data, error } = await sb
     .from('media_jobs')
     .insert({
