@@ -1,9 +1,9 @@
 import { getCurrentUser } from '@/lib/auth/get-user';
-import { StoryboardClient } from './StoryboardClient';
 import { type PersistedScript, type Scene, normalizeScene } from '@mango/core';
-import { getServerSupabase } from '@mango/db/server';
 import type { Database } from '@mango/db';
+import { getServerSupabase } from '@mango/db/server';
 import { notFound } from 'next/navigation';
+import { StoryboardClient } from './StoryboardClient';
 
 type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 type SceneWithOverrides = Scene & { config_overrides?: { model?: string } };
@@ -25,11 +25,7 @@ export default async function StoryboardPage({ params }: Props) {
   const sb = await getServerSupabase();
 
   const [projectResult, jobsResult] = await Promise.all([
-    sb
-      .from('projects')
-      .select('id, user_id, script, tier, title')
-      .eq('id', id)
-      .single(),
+    sb.from('projects').select('id, user_id, script, tier, title').eq('id', id).single(),
     sb
       .from('media_jobs')
       .select('*')

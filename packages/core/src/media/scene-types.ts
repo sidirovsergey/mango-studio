@@ -56,10 +56,6 @@ export const DialogueSchema = z.object({
 
 export type Dialogue = z.infer<typeof DialogueSchema>;
 
-export const FirstFrameSourceSchema = z.enum([
-  'auto_continuity',
-  'manual_text2img',
-  'user_upload',
-]);
+export const FirstFrameSourceSchema = z.enum(['auto_continuity', 'manual_text2img', 'user_upload']);
 
 export type FirstFrameSource = z.infer<typeof FirstFrameSourceSchema>;

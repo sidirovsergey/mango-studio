@@ -7,12 +7,9 @@ vi.mock('@/server/lib/scene-helpers', () => ({ recordPendingJob: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { getServerSupabase } from '@mango/db/server';
 import { recordPendingJob } from '@/server/lib/scene-helpers';
-import {
-  generateFirstFrameAction,
-  generateAllFirstFramesAction,
-} from './generateFirstFrameAction';
+import { getServerSupabase } from '@mango/db/server';
+import { generateAllFirstFramesAction, generateFirstFrameAction } from './generateFirstFrameAction';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -37,7 +34,13 @@ const makeProject = (sceneOverrides: Record<string, unknown>[] = []) => ({
         appearance: {},
         personality: '',
         voice: {},
-        dossier: { storage: { kind: 'fal_passthrough', url: 'https://cdn.fal.ai/dossier.jpg' }, model: 'm', format: '16:9', quality: '1080p', generated_at: '2026-01-01' },
+        dossier: {
+          storage: { kind: 'fal_passthrough', url: 'https://cdn.fal.ai/dossier.jpg' },
+          model: 'm',
+          format: '16:9',
+          quality: '1080p',
+          generated_at: '2026-01-01',
+        },
         reference_images: [],
         archived: false,
       },
@@ -107,9 +110,7 @@ describe('generateFirstFrameAction', () => {
         prompt: expect.stringContaining('3D Pixar'),
         model: expect.any(String),
         aspect_ratio: '9:16',
-        image_refs: expect.arrayContaining([
-          expect.objectContaining({ kind: 'fal_passthrough' }),
-        ]),
+        image_refs: expect.arrayContaining([expect.objectContaining({ kind: 'fal_passthrough' })]),
       }),
       expect.objectContaining({ user_id: 'u1', project_id: PROJECT_ID }),
     );

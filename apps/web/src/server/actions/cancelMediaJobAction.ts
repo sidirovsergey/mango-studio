@@ -4,9 +4,9 @@ import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { getServerSupabase } from '@mango/db/server';
 
-export async function cancelMediaJobAction(
-  input: { job_id: string },
-): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function cancelMediaJobAction(input: { job_id: string }): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
   let user: { id: string };
   try {
     user = await getCurrentUser();

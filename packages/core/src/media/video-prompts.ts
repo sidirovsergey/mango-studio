@@ -25,8 +25,7 @@ export function buildFirstFramePrompt(input: FirstFramePromptInput): {
   prompt: string;
   image_refs: StoredAsset[];
 } {
-  const { scene, characters_in_scene, prev_last_frame, project_style, first_frame_source } =
-    input;
+  const { scene, characters_in_scene, prev_last_frame, project_style, first_frame_source } = input;
 
   const refs: StoredAsset[] = [];
 

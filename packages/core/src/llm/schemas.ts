@@ -1,15 +1,15 @@
 import 'server-only';
 import { z } from 'zod';
-import type { ScriptGenOutput } from './provider';
-import { ScriptCharacterActionSchema } from './types';
 import {
   DialogueSchema,
+  FirstFrameSourceSchema,
+  MasterClipSchema,
   SceneAssetSchema,
   SceneVideoAssetSchema,
   VoiceAssetSchema,
-  MasterClipSchema,
-  FirstFrameSourceSchema,
 } from '../media/scene-types';
+import type { ScriptGenOutput } from './provider';
+import { ScriptCharacterActionSchema } from './types';
 
 export const SceneSchema = z.object({
   scene_id: z.string().min(1).describe('Уникальный id сцены, например s1, s2'),

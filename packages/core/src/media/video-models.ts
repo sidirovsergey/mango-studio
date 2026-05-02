@@ -66,10 +66,7 @@ const VIDEO_MODEL_LIST: readonly VideoModelMeta[] = [
 export const VIDEO_MODELS = {
   economy: {
     default: 'fal-ai/bytedance/seedance/v1/lite/image-to-video',
-    alternatives: [
-      'fal-ai/kling-video/v2.5-turbo/standard/image-to-video',
-      'fal-ai/ltx-video',
-    ],
+    alternatives: ['fal-ai/kling-video/v2.5-turbo/standard/image-to-video', 'fal-ai/ltx-video'],
   },
   premium: {
     default: 'bytedance/seedance-2.0/image-to-video',

@@ -1,8 +1,6 @@
 'use client';
 
-import {
-  generateAllFirstFramesAction,
-} from '@/server/actions/generateFirstFrameAction';
+import { generateAllFirstFramesAction } from '@/server/actions/generateFirstFrameAction';
 import { generateMasterClipAction } from '@/server/actions/generateMasterClipAction';
 import type { MasterClip, Scene } from '@mango/core';
 import type { Database } from '@mango/db';
@@ -102,11 +100,7 @@ export function StoryboardHeader({
         </button>
 
         {masterClip ? (
-          <button
-            type="button"
-            className="master-cta master-cta--open"
-            onClick={onOpenMaster}
-          >
+          <button type="button" className="master-cta master-cta--open" onClick={onOpenMaster}>
             🎥 Открыть мастер
           </button>
         ) : (

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { runPollTick, type PollDeps } from './poll-orchestrator';
+import { describe, expect, it, vi } from 'vitest';
+import { type PollDeps, runPollTick } from './poll-orchestrator';
 
 function mkProvider(
   overrides: Partial<{
@@ -32,12 +32,8 @@ function mkDeps(overrides: Partial<PollDeps> = {}): PollDeps {
     listInflight: vi.fn().mockResolvedValue([]),
     finalizeCompleted: vi.fn().mockResolvedValue(undefined),
     finalizeError: vi.fn().mockResolvedValue(undefined),
-    recordPendingJob: vi
-      .fn()
-      .mockResolvedValue({ job_id: 'extract-job', existing: false }),
-    persistAsset: vi
-      .fn()
-      .mockResolvedValue({ kind: 'fal_passthrough', url: 'https://persisted' }),
+    recordPendingJob: vi.fn().mockResolvedValue({ job_id: 'extract-job', existing: false }),
+    persistAsset: vi.fn().mockResolvedValue({ kind: 'fal_passthrough', url: 'https://persisted' }),
     provider: mkProvider() as unknown as PollDeps['provider'],
     ...overrides,
   };
@@ -107,9 +103,11 @@ describe('runPollTick', () => {
     });
     await runPollTick({ project_id: 'p', user_id: 'u' }, deps);
     expect(
-      (deps.provider as unknown as {
-        submitLastFrameExtract: ReturnType<typeof vi.fn>;
-      }).submitLastFrameExtract,
+      (
+        deps.provider as unknown as {
+          submitLastFrameExtract: ReturnType<typeof vi.fn>;
+        }
+      ).submitLastFrameExtract,
     ).toHaveBeenCalledWith(
       { video_url: 'https://video.mp4' },
       expect.objectContaining({ user_id: 'u', project_id: 'p' }),
@@ -150,9 +148,11 @@ describe('runPollTick', () => {
     });
     await runPollTick({ project_id: 'p', user_id: 'u' }, deps);
     expect(
-      (deps.provider as unknown as {
-        submitLastFrameExtract: ReturnType<typeof vi.fn>;
-      }).submitLastFrameExtract,
+      (
+        deps.provider as unknown as {
+          submitLastFrameExtract: ReturnType<typeof vi.fn>;
+        }
+      ).submitLastFrameExtract,
     ).not.toHaveBeenCalled();
   });
 

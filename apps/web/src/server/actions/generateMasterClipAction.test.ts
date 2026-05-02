@@ -7,8 +7,8 @@ vi.mock('@/server/lib/scene-helpers', () => ({ recordPendingJob: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { getServerSupabase } from '@mango/db/server';
 import { recordPendingJob } from '@/server/lib/scene-helpers';
+import { getServerSupabase } from '@mango/db/server';
 import { generateMasterClipAction } from './generateMasterClipAction';
 
 beforeEach(() => {
@@ -53,10 +53,7 @@ const makeProject = (scenesOverride?: unknown[]) => ({
     master_clip: null,
     narrator_voice: null,
     characters: [],
-    scenes: scenesOverride ?? [
-      makeScene('s1', finalClipAsset),
-      makeScene('s2', finalClipAsset2),
-    ],
+    scenes: scenesOverride ?? [makeScene('s1', finalClipAsset), makeScene('s2', finalClipAsset2)],
   },
 });
 

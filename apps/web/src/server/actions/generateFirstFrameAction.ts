@@ -83,7 +83,7 @@ export async function generateFirstFrameAction(
 
   // Determine first_frame_source: bulk overrides to manual_text2img
   const first_frame_source =
-    input.mode === 'bulk' ? 'manual_text2img' : scene.first_frame_source ?? 'auto_continuity';
+    input.mode === 'bulk' ? 'manual_text2img' : (scene.first_frame_source ?? 'auto_continuity');
 
   const { prompt, image_refs } = buildFirstFramePrompt({
     scene: {
@@ -127,7 +127,9 @@ const BulkInputSchema = z.object({
 
 const CAP = 5;
 
-export async function generateAllFirstFramesAction(rawInput: unknown): Promise<
+export async function generateAllFirstFramesAction(
+  rawInput: unknown,
+): Promise<
   | { ok: true; job_ids: string[]; existing_count: number; capped: boolean }
   | { ok: false; error: string }
 > {
@@ -174,7 +176,11 @@ export async function generateAllFirstFramesAction(rawInput: unknown): Promise<
     ),
   );
 
-  const successful = results.filter((r) => r.ok) as Array<{ ok: true; job_id: string; existing: boolean }>;
+  const successful = results.filter((r) => r.ok) as Array<{
+    ok: true;
+    job_id: string;
+    existing: boolean;
+  }>;
   const job_ids = successful.map((r) => r.job_id);
   const existing_count = successful.filter((r) => r.existing).length;
 

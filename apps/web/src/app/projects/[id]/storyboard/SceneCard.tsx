@@ -90,9 +90,7 @@ function ModelSelector({ projectId, sceneId, currentModel, tier }: ModelSelector
     });
   };
 
-  const displayModel = currentModel
-    ? currentModel.split('/').at(-1) ?? currentModel
-    : 'авто';
+  const displayModel = currentModel ? (currentModel.split('/').at(-1) ?? currentModel) : 'авто';
 
   return (
     <div className="model-selector">
@@ -216,7 +214,12 @@ function UploadButton({ kind, projectId, sceneId, label }: UploadButtonProps) {
       >
         {isPending ? '...' : label}
       </button>
-      {error && <span className="ctrl-error" title={error}> !</span>}
+      {error && (
+        <span className="ctrl-error" title={error}>
+          {' '}
+          !
+        </span>
+      )}
       <input
         ref={inputRef}
         type="file"
@@ -240,15 +243,14 @@ export function SceneCard({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const sceneCharacters = characters.filter((c) =>
-    scene.character_ids.includes(c.id),
-  );
+  const sceneCharacters = characters.filter((c) => scene.character_ids.includes(c.id));
 
   const isActive = Boolean(activeJob && ['pending', 'running'].includes(activeJob.status));
   const hasNativeAudio = scene.video?.has_native_audio ?? false;
-  const isStale = scene.video && scene.first_frame
-    ? scene.first_frame.generated_at > scene.video.generated_at
-    : false;
+  const isStale =
+    scene.video && scene.first_frame
+      ? scene.first_frame.generated_at > scene.video.generated_at
+      : false;
 
   // Handlers
   const onGenerateFirstFrame = () => {
@@ -318,9 +320,16 @@ export function SceneCard({
             );
           })}
         </div>
-        {isStale && <span className="stale-badge" title="Видео устарело — регенерируйте">🔁</span>}
+        {isStale && (
+          <span className="stale-badge" title="Видео устарело — регенерируйте">
+            🔁
+          </span>
+        )}
         {scene.video && (
-          <span className="audio-badge" title={hasNativeAudio ? 'Есть нативное аудио' : 'Без аудио'}>
+          <span
+            className="audio-badge"
+            title={hasNativeAudio ? 'Есть нативное аудио' : 'Без аудио'}
+          >
             {hasNativeAudio ? '🎵' : '🔇'}
           </span>
         )}
@@ -342,12 +351,11 @@ export function SceneCard({
             </button>
           </div>
         ) : scene.video ? (
+          // biome-ignore lint/a11y/useMediaCaption: AI-generated scene video, no caption track yet (post-launch backlog)
           <video
             className="preview-video"
             src={
-              scene.video.storage.kind === 'fal_passthrough'
-                ? scene.video.storage.url
-                : undefined
+              scene.video.storage.kind === 'fal_passthrough' ? scene.video.storage.url : undefined
             }
             controls
             loop
@@ -451,12 +459,7 @@ export function SceneCard({
           sceneId={scene.scene_id}
           label="⬆ image"
         />
-        <UploadButton
-          kind="video"
-          projectId={projectId}
-          sceneId={scene.scene_id}
-          label="⬆ video"
-        />
+        <UploadButton kind="video" projectId={projectId} sceneId={scene.scene_id} label="⬆ video" />
       </div>
     </div>
   );

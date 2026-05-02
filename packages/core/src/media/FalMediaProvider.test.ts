@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fal } from '@fal-ai/client';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FalMediaProvider } from './FalMediaProvider';
 
 vi.mock('@fal-ai/client', () => ({
@@ -14,14 +14,16 @@ vi.mock('@fal-ai/client', () => ({
   },
 }));
 
-const queue = (fal as unknown as {
-  queue: {
-    submit: ReturnType<typeof vi.fn>;
-    status: ReturnType<typeof vi.fn>;
-    result: ReturnType<typeof vi.fn>;
-    cancel: ReturnType<typeof vi.fn>;
-  };
-}).queue;
+const queue = (
+  fal as unknown as {
+    queue: {
+      submit: ReturnType<typeof vi.fn>;
+      status: ReturnType<typeof vi.fn>;
+      result: ReturnType<typeof vi.fn>;
+      cancel: ReturnType<typeof vi.fn>;
+    };
+  }
+).queue;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -135,7 +137,11 @@ describe('FalMediaProvider.submitVoice', () => {
     queue.submit.mockResolvedValueOnce({ request_id: 'req-tts' });
     const provider = new FalMediaProvider({ apiKey: 'k' });
     await provider.submitVoice(
-      { text: 'Hello', voice_id: 'voice-x', tts_provider_model: 'fal-ai/elevenlabs/tts/multilingual-v2' },
+      {
+        text: 'Hello',
+        voice_id: 'voice-x',
+        tts_provider_model: 'fal-ai/elevenlabs/tts/multilingual-v2',
+      },
       { user_id: 'u', project_id: 'p', character_id: 'scene' },
     );
     const call = queue.submit.mock.calls[0]!;

@@ -1,4 +1,3 @@
-import type { AspectRatio, StyleName } from '../prompt/types';
 import type {
   Dialogue,
   FirstFrameSource,
@@ -7,6 +6,7 @@ import type {
   SceneVideoAsset,
   VoiceAsset,
 } from '../media/scene-types';
+import type { AspectRatio, StyleName } from '../prompt/types';
 import type { Character } from './types';
 
 export interface LLMUsage {

@@ -1,13 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  VOICE_MODELS,
-  MUX_MODEL,
   CONCAT_MODEL,
   EXTRACT_LAST_FRAME_MODEL,
+  MUX_MODEL,
+  VOICE_MODELS,
+  clampDurationToModel,
   getDefaultVideoModel,
   getVideoModelMeta,
   isVideoModelInTier,
-  clampDurationToModel,
 } from './video-models';
 
 describe('VIDEO_MODELS registry', () => {
@@ -30,12 +30,12 @@ describe('VIDEO_MODELS registry', () => {
   });
 
   it('checks if model belongs to tier', () => {
-    expect(
-      isVideoModelInTier('fal-ai/bytedance/seedance/v1/lite/image-to-video', 'economy'),
-    ).toBe(true);
-    expect(
-      isVideoModelInTier('fal-ai/bytedance/seedance/v1/lite/image-to-video', 'premium'),
-    ).toBe(false);
+    expect(isVideoModelInTier('fal-ai/bytedance/seedance/v1/lite/image-to-video', 'economy')).toBe(
+      true,
+    );
+    expect(isVideoModelInTier('fal-ai/bytedance/seedance/v1/lite/image-to-video', 'premium')).toBe(
+      false,
+    );
   });
 });
 
@@ -51,12 +51,8 @@ describe('clampDurationToModel', () => {
 
   it('snaps to nearest supported below if value falls between options', () => {
     // Seedance v1 lite supports [5, 10]
-    expect(
-      clampDurationToModel('fal-ai/bytedance/seedance/v1/lite/image-to-video', 7),
-    ).toBe(5);
-    expect(
-      clampDurationToModel('fal-ai/bytedance/seedance/v1/lite/image-to-video', 8),
-    ).toBe(10);
+    expect(clampDurationToModel('fal-ai/bytedance/seedance/v1/lite/image-to-video', 7)).toBe(5);
+    expect(clampDurationToModel('fal-ai/bytedance/seedance/v1/lite/image-to-video', 8)).toBe(10);
   });
 });
 

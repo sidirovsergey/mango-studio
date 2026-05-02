@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
+  MasterClipSchema,
   SceneAssetSchema,
   SceneVideoAssetSchema,
   VoiceAssetSchema,
-  MasterClipSchema,
 } from './scene-types';
 
 describe('SceneAssetSchema', () => {

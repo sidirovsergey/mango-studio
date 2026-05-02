@@ -19,17 +19,17 @@ function resolveUrl(clip: MasterClip): string | null {
 }
 
 function isStale(clip: MasterClip, scenes: Scene[]): boolean {
-  const currentIds = scenes.map((s) => s.scene_id).sort().join(',');
+  const currentIds = scenes
+    .map((s) => s.scene_id)
+    .sort()
+    .join(',');
   const snapshotIds = [...clip.scene_ids_snapshot].sort().join(',');
   if (currentIds !== snapshotIds) return true;
   // Also stale if any scene was modified after master gen
   const masterAt = clip.generated_at;
   return scenes.some((s) => {
     const sceneUpdatedAt =
-      s.final_clip?.generated_at ??
-      s.video?.generated_at ??
-      s.first_frame?.generated_at ??
-      null;
+      s.final_clip?.generated_at ?? s.video?.generated_at ?? s.first_frame?.generated_at ?? null;
     return sceneUpdatedAt != null && sceneUpdatedAt > masterAt;
   });
 }
@@ -53,14 +53,10 @@ export function MasterClipModal({ masterClip, scenes, onClose }: MasterClipModal
   };
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: modal backdrop scrim — Esc handled by document-level listener
     <div className="modal-backdrop" ref={backdropRef} onClick={handleBackdropClick}>
       <div className="master-modal" role="dialog" aria-modal="true" aria-label="Мастер-клип">
-        <button
-          type="button"
-          className="modal-close-btn"
-          onClick={onClose}
-          aria-label="Закрыть"
-        >
+        <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Закрыть">
           ✕
         </button>
 
@@ -74,14 +70,8 @@ export function MasterClipModal({ masterClip, scenes, onClose }: MasterClipModal
 
         <div className="master-player">
           {videoUrl ? (
-            <video
-              src={videoUrl}
-              autoPlay
-              controls
-              loop
-              playsInline
-              className="master-video"
-            />
+            // biome-ignore lint/a11y/useMediaCaption: AI-generated video, no caption track yet (post-launch backlog)
+            <video src={videoUrl} autoPlay controls loop playsInline className="master-video" />
           ) : (
             <div className="master-no-url">Видео недоступно</div>
           )}

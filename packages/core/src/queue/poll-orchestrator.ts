@@ -41,10 +41,7 @@ export interface PollDeps {
     request_input: Record<string, unknown>;
   }): Promise<{ job_id: string; existing: boolean }>;
   persistAsset(url: string, ctx: { user_id: string; project_id: string }): Promise<unknown>;
-  provider: Pick<
-    MediaProvider,
-    'getJobStatus' | 'getJobResult' | 'submitLastFrameExtract'
-  >;
+  provider: Pick<MediaProvider, 'getJobStatus' | 'getJobResult' | 'submitLastFrameExtract'>;
 }
 
 export interface PollContext {
@@ -69,11 +66,7 @@ export async function runPollTick(ctx: PollContext, deps: PollDeps): Promise<voi
   }
 }
 
-async function onComplete(
-  job: InflightJob,
-  ctx: PollContext,
-  deps: PollDeps,
-): Promise<void> {
+async function onComplete(job: InflightJob, ctx: PollContext, deps: PollDeps): Promise<void> {
   const result: JobResult = await deps.provider.getJobResult(job.fal_request_id, job.model);
   const persisted = await deps.persistAsset(result.primary_url, {
     user_id: ctx.user_id,

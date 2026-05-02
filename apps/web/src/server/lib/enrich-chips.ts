@@ -178,7 +178,8 @@ const LABELS: Partial<
   set_scene_model: {
     ok: ({ args }) => {
       const id = typeof args.scene_id === 'string' ? args.scene_id : null;
-      const model = typeof args.model === 'string' ? (args.model.split('/').pop() ?? args.model) : null;
+      const model =
+        typeof args.model === 'string' ? (args.model.split('/').pop() ?? args.model) : null;
       if (id && model) return `✏️ Сменил модель сцены ${id} на ${model}`;
       return '✏️ Сменил модель сцены';
     },

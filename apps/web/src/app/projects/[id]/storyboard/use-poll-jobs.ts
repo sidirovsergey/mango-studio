@@ -1,8 +1,8 @@
 'use client';
 
+import { subscribeMediaJobs } from '@/lib/realtime-publication';
 import { fetchProjectScriptAction } from '@/server/actions/fetchProjectScriptAction';
 import { pollMediaJobsAction } from '@/server/actions/pollMediaJobsAction';
-import { subscribeMediaJobs } from '@/lib/realtime-publication';
 import type { Database } from '@mango/db';
 import { useEffect, useRef } from 'react';
 import { useStage04 } from './Stage04Provider';

@@ -75,9 +75,7 @@ describe('setSceneDurationAction', () => {
     expect(updateFn).toHaveBeenCalledWith(
       expect.objectContaining({
         script: expect.objectContaining({
-          scenes: expect.arrayContaining([
-            expect.objectContaining({ duration_sec: 5 }),
-          ]),
+          scenes: expect.arrayContaining([expect.objectContaining({ duration_sec: 5 })]),
         }),
       }),
     );

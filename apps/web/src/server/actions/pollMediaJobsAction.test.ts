@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/auth/get-user', () => ({
   getCurrentUser: vi.fn(),
@@ -44,7 +44,10 @@ describe('pollMediaJobsAction', () => {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       single: vi.fn().mockResolvedValue({
-        data: { user_id: 'u1', script: { scenes: [], characters: [], title: 't', master_clip: null } },
+        data: {
+          user_id: 'u1',
+          script: { scenes: [], characters: [], title: 't', master_clip: null },
+        },
         error: null,
       }),
     };

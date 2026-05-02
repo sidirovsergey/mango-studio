@@ -44,11 +44,10 @@ vi.mock('@/server/actions/unarchiveCharacterAction', () => ({
 vi.mock('@/server/actions/deleteCharacterAction', () => ({ deleteCharacterAction: vi.fn() }));
 vi.mock('@/server/actions/refineCharacterAction', () => ({ refineCharacterAction: vi.fn() }));
 
-import { getServerSupabase } from '@mango/db/server';
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { regenSceneTextAction } from '@/server/actions/regenSceneTextAction';
 import { setSceneDurationAction } from '@/server/actions/setSceneDurationAction';
-import { setSceneModelAction } from '@/server/actions/setSceneModelAction';
+import { getServerSupabase } from '@mango/db/server';
 import { buildDirectorTools } from './director-tools';
 
 const PROJECT_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
@@ -87,6 +86,28 @@ function makeSupabaseSingleWith(script: unknown) {
   };
 }
 
+type ToolResultShape = {
+  ok?: boolean;
+  pending?: boolean;
+  action?: {
+    kind: string;
+    payload: Record<string, unknown>;
+    preview: { title: string; subject?: string };
+    status: string;
+  };
+  error?: string;
+  scene_id?: string;
+  job_id?: string;
+  existing?: boolean;
+  clamped_to?: number;
+  dialogue?: { speaker: string; text: string };
+};
+
+async function callTool(tool: unknown, input: Record<string, unknown>): Promise<ToolResultShape> {
+  const t = tool as { execute: (input: Record<string, unknown>) => Promise<ToolResultShape> };
+  return t.execute(input);
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -98,9 +119,7 @@ describe('regen_scene_video', () => {
     );
 
     const tools = buildDirectorTools({ project_id: PROJECT_ID });
-    const result = await (tools.regen_scene_video as { execute: Function }).execute({
-      scene_id: 's1',
-    });
+    const result = await callTool(tools.regen_scene_video, { scene_id: 's1' });
 
     expect(result).toMatchObject({
       pending: true,
@@ -110,7 +129,7 @@ describe('regen_scene_video', () => {
         status: 'pending',
       },
     });
-    expect(result.action.preview.title).toContain('s1');
+    expect(result.action?.preview.title).toContain('s1');
   });
 
   it('returns error when scene has no first_frame', async () => {
@@ -119,9 +138,7 @@ describe('regen_scene_video', () => {
     );
 
     const tools = buildDirectorTools({ project_id: PROJECT_ID });
-    const result = await (tools.regen_scene_video as { execute: Function }).execute({
-      scene_id: 's2',
-    });
+    const result = await callTool(tools.regen_scene_video, { scene_id: 's2' });
 
     expect(result).toMatchObject({ ok: false, error: expect.stringContaining('первого кадра') });
   });
@@ -135,7 +152,7 @@ describe('refine_scene_description', () => {
     });
 
     const tools = buildDirectorTools({ project_id: PROJECT_ID });
-    const result = await (tools.refine_scene_description as { execute: Function }).execute({
+    const result = await callTool(tools.refine_scene_description, {
       scene_id: 's1',
       instruction: 'сделай смешнее',
     });
@@ -156,7 +173,7 @@ describe('set_scene_duration', () => {
     });
 
     const tools = buildDirectorTools({ project_id: PROJECT_ID });
-    const result = await (tools.set_scene_duration as { execute: Function }).execute({
+    const result = await callTool(tools.set_scene_duration, {
       scene_id: 's1',
       duration_sec: 7,
     });
@@ -172,7 +189,7 @@ describe('set_scene_model', () => {
     );
 
     const tools = buildDirectorTools({ project_id: PROJECT_ID });
-    const result = await (tools.set_scene_model as { execute: Function }).execute({
+    const result = await callTool(tools.set_scene_model, {
       scene_id: 's1',
       model: 'fal-ai/veo-3/image-to-video',
     });
@@ -185,7 +202,7 @@ describe('set_scene_model', () => {
         status: 'pending',
       },
     });
-    expect(result.action.preview.subject).toBe('image-to-video');
+    expect(result.action?.preview.subject).toBe('image-to-video');
   });
 });
 
@@ -198,9 +215,7 @@ describe('generate_first_frame', () => {
     });
 
     const tools = buildDirectorTools({ project_id: PROJECT_ID });
-    const result = await (tools.generate_first_frame as { execute: Function }).execute({
-      scene_id: 's1',
-    });
+    const result = await callTool(tools.generate_first_frame, { scene_id: 's1' });
 
     expect(result).toMatchObject({ ok: true, scene_id: 's1', job_id: 'job-abc', existing: false });
   });
@@ -213,7 +228,7 @@ describe('generate_master_clip', () => {
     );
 
     const tools = buildDirectorTools({ project_id: PROJECT_ID });
-    const result = await (tools.generate_master_clip as { execute: Function }).execute({});
+    const result = await callTool(tools.generate_master_clip, {});
 
     expect(result).toMatchObject({
       pending: true,
@@ -236,7 +251,7 @@ describe('generate_master_clip', () => {
     );
 
     const tools = buildDirectorTools({ project_id: PROJECT_ID });
-    const result = await (tools.generate_master_clip as { execute: Function }).execute({});
+    const result = await callTool(tools.generate_master_clip, {});
 
     expect(result).toMatchObject({ ok: false, error: expect.stringContaining('1 из 2') });
   });

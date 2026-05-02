@@ -14,7 +14,6 @@ import {
   regenScriptAction,
 } from '@/server/actions/scripts';
 import { setSceneDurationAction } from '@/server/actions/setSceneDurationAction';
-import { setSceneModelAction } from '@/server/actions/setSceneModelAction';
 import { unarchiveCharacterAction } from '@/server/actions/unarchiveCharacterAction';
 import type { Character, PendingAction } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';

@@ -33,17 +33,11 @@ export class MockMediaProvider implements MediaProvider {
     return mockHandle(input.model, `dossier/${input.model}`);
   }
 
-  async submitFirstFrame(
-    input: GenerateFirstFrameInput,
-    _ctx: AssetContext,
-  ): Promise<JobHandle> {
+  async submitFirstFrame(input: GenerateFirstFrameInput, _ctx: AssetContext): Promise<JobHandle> {
     return mockHandle(input.model, 'first-frame');
   }
 
-  async submitSceneVideo(
-    input: GenerateSceneVideoInput,
-    _ctx: AssetContext,
-  ): Promise<JobHandle> {
+  async submitSceneVideo(input: GenerateSceneVideoInput, _ctx: AssetContext): Promise<JobHandle> {
     return mockHandle(input.model, 'scene-video');
   }
 
@@ -51,10 +45,7 @@ export class MockMediaProvider implements MediaProvider {
     return mockHandle(input.tts_provider_model, 'voice');
   }
 
-  async submitFinalClipMux(
-    _input: ComposeFinalClipInput,
-    _ctx: AssetContext,
-  ): Promise<JobHandle> {
+  async submitFinalClipMux(_input: ComposeFinalClipInput, _ctx: AssetContext): Promise<JobHandle> {
     return mockHandle('fal-ai/ffmpeg-api/merge-audio-video', 'mux');
   }
 

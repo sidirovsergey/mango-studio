@@ -4,12 +4,7 @@ import { getCurrentUser } from '@/lib/auth/get-user';
 import { friendlyMediaError } from '@/server/lib/media-error-message';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { recordPendingJob } from '@/server/lib/scene-helpers';
-import {
-  type Character,
-  MediaProviderError,
-  type Tier,
-  getDefaultModel,
-} from '@mango/core';
+import { type Character, MediaProviderError, type Tier, getDefaultModel } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';

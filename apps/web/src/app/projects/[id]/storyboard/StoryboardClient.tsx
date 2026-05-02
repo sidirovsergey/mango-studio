@@ -2,15 +2,15 @@
 
 import '@/styles/storyboard.css';
 
+import type { Character, MasterClip, Scene } from '@mango/core';
+import type { Database } from '@mango/db';
+import { useState } from 'react';
 import { MasterClipModal } from './MasterClipModal';
 import { SceneCard } from './SceneCard';
 import { Stage04Provider, useStage04 } from './Stage04Provider';
 import { StoryboardBottomBar } from './StoryboardBottomBar';
 import { StoryboardHeader } from './StoryboardHeader';
 import { usePollJobs } from './use-poll-jobs';
-import type { Character, MasterClip, Scene } from '@mango/core';
-import type { Database } from '@mango/db';
-import { useState } from 'react';
 
 type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 type SceneWithOverrides = Scene & { config_overrides?: { model?: string } };

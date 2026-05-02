@@ -3,7 +3,7 @@
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { recordPendingJob } from '@/server/lib/scene-helpers';
-import { type PersistedScript, type StoredAsset } from '@mango/core';
+import type { PersistedScript, StoredAsset } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
 

@@ -3,25 +3,20 @@
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import {
+  type MediaJobKind,
   applyAssetToScript,
   applyMasterClipToScript,
   cascadeFirstFrameStale,
-  type MediaJobKind,
   recordPendingJob,
 } from '@/server/lib/scene-helpers';
 import { getStorageProvider } from '@/server/lib/storage-provider-factory';
+import { type InflightJob, type ScriptGenOutput, type StoredAsset, runPollTick } from '@mango/core';
 import { getVideoModelMeta } from '@mango/core/media';
-import {
-  type InflightJob,
-  type ScriptGenOutput,
-  type StoredAsset,
-  runPollTick,
-} from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 
-export async function pollMediaJobsAction(
-  input: { project_id: string },
-): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function pollMediaJobsAction(input: { project_id: string }): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
   let user: { id: string };
   try {
     user = await getCurrentUser();

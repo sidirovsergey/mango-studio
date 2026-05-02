@@ -18,9 +18,10 @@ const DialogueSchema = z.object({
   text: z.string().min(1).max(500),
 });
 
-export async function regenSceneTextAction(rawInput: unknown): Promise<
-  | { ok: true; dialogue: { speaker: string; text: string } }
-  | { ok: false; error: string }
+export async function regenSceneTextAction(
+  rawInput: unknown,
+): Promise<
+  { ok: true; dialogue: { speaker: string; text: string } } | { ok: false; error: string }
 > {
   let input: z.infer<typeof InputSchema>;
   try {

@@ -39,13 +39,6 @@ describe('uploadSceneAssetAction', () => {
     };
 
     const uploadMock = vi.fn().mockResolvedValue({ error: null });
-    const updateEq = vi.fn().mockResolvedValue({ error: null });
-    const updateBuilder = {
-      update: vi.fn(() => ({
-        eq: vi.fn().mockReturnThis(),
-        // chain eq.eq for both project_id and user_id
-      })),
-    };
 
     // We need a flexible builder that handles both from('projects') calls
     // (select for ownership check) and (update for script update)

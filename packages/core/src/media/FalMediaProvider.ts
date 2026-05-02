@@ -63,10 +63,7 @@ export class FalMediaProvider implements MediaProvider {
       return { fal_request_id: request_id, model_used: model, request_input: input };
     } catch (raw) {
       if (raw instanceof MediaProviderError) throw raw;
-      throw new MediaProviderError(
-        classifyMediaError(raw),
-        String((raw as Error)?.message ?? raw),
-      );
+      throw new MediaProviderError(classifyMediaError(raw), String((raw as Error)?.message ?? raw));
     }
   }
 
@@ -95,10 +92,7 @@ export class FalMediaProvider implements MediaProvider {
     });
   }
 
-  async submitFirstFrame(
-    input: GenerateFirstFrameInput,
-    _ctx: AssetContext,
-  ): Promise<JobHandle> {
+  async submitFirstFrame(input: GenerateFirstFrameInput, _ctx: AssetContext): Promise<JobHandle> {
     let model = input.model;
     let editPayload: Record<string, unknown> = {};
     if (input.image_refs && input.image_refs.length > 0) {
@@ -120,10 +114,7 @@ export class FalMediaProvider implements MediaProvider {
     });
   }
 
-  async submitSceneVideo(
-    input: GenerateSceneVideoInput,
-    _ctx: AssetContext,
-  ): Promise<JobHandle> {
+  async submitSceneVideo(input: GenerateSceneVideoInput, _ctx: AssetContext): Promise<JobHandle> {
     if (!this.opts.resolveImageUrl) {
       throw new MediaProviderError('invalid_input', 'resolveImageUrl required for video');
     }
@@ -143,20 +134,14 @@ export class FalMediaProvider implements MediaProvider {
     });
   }
 
-  async submitFinalClipMux(
-    input: ComposeFinalClipInput,
-    _ctx: AssetContext,
-  ): Promise<JobHandle> {
+  async submitFinalClipMux(input: ComposeFinalClipInput, _ctx: AssetContext): Promise<JobHandle> {
     return this.submit(MUX_MODEL, {
       video_url: input.video_url,
       audio_url: input.audio_url,
     });
   }
 
-  async submitMasterConcat(
-    input: ConcatMasterInput,
-    _ctx: AssetContext,
-  ): Promise<JobHandle> {
+  async submitMasterConcat(input: ConcatMasterInput, _ctx: AssetContext): Promise<JobHandle> {
     return this.submit(CONCAT_MODEL, {
       video_urls: input.clip_urls,
     });
@@ -185,10 +170,7 @@ export class FalMediaProvider implements MediaProvider {
       if (raw === 'FAILED') return { status: 'error', error_code: 'fal_failed' };
       return { status: 'pending' };
     } catch (raw) {
-      throw new MediaProviderError(
-        classifyMediaError(raw),
-        String((raw as Error)?.message ?? raw),
-      );
+      throw new MediaProviderError(classifyMediaError(raw), String((raw as Error)?.message ?? raw));
     }
   }
 
@@ -199,10 +181,10 @@ export class FalMediaProvider implements MediaProvider {
       const pricing = (resp as { pricing?: { total_cost_usd?: number } }).pricing;
 
       const primary_url =
-        ((data.images as Array<{ url: string }> | undefined)?.[0]?.url) ??
-        ((data.image as { url?: string } | undefined)?.url) ??
-        ((data.video as { url?: string } | undefined)?.url) ??
-        ((data.audio as { url?: string } | undefined)?.url) ??
+        (data.images as Array<{ url: string }> | undefined)?.[0]?.url ??
+        (data.image as { url?: string } | undefined)?.url ??
+        (data.video as { url?: string } | undefined)?.url ??
+        (data.audio as { url?: string } | undefined)?.url ??
         (data.audio_url as string | undefined) ??
         (data.url as string | undefined) ??
         '';
@@ -222,10 +204,7 @@ export class FalMediaProvider implements MediaProvider {
       };
     } catch (raw) {
       if (raw instanceof MediaProviderError) throw raw;
-      throw new MediaProviderError(
-        classifyMediaError(raw),
-        String((raw as Error)?.message ?? raw),
-      );
+      throw new MediaProviderError(classifyMediaError(raw), String((raw as Error)?.message ?? raw));
     }
   }
 
@@ -233,10 +212,7 @@ export class FalMediaProvider implements MediaProvider {
     try {
       await fal.queue.cancel(model, { requestId: fal_request_id });
     } catch (raw) {
-      throw new MediaProviderError(
-        classifyMediaError(raw),
-        String((raw as Error)?.message ?? raw),
-      );
+      throw new MediaProviderError(classifyMediaError(raw), String((raw as Error)?.message ?? raw));
     }
   }
 }

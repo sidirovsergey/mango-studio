@@ -16,9 +16,9 @@ const KIND_TO_SUBMIT: Record<string, keyof MediaProvider> = {
   last_frame_extract: 'submitLastFrameExtract',
 };
 
-export async function retryMediaJobAction(
-  input: { job_id: string },
-): Promise<{ ok: true; new_job_id: string } | { ok: false; error: string }> {
+export async function retryMediaJobAction(input: { job_id: string }): Promise<
+  { ok: true; new_job_id: string } | { ok: false; error: string }
+> {
   let user: { id: string };
   try {
     user = await getCurrentUser();

@@ -7,8 +7,8 @@ vi.mock('@/server/lib/scene-helpers', () => ({ recordPendingJob: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { getServerSupabase } from '@mango/db/server';
 import { recordPendingJob } from '@/server/lib/scene-helpers';
+import { getServerSupabase } from '@mango/db/server';
 import { generateSceneVoiceAction } from './generateSceneVoiceAction';
 
 beforeEach(() => {

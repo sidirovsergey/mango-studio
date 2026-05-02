@@ -1,4 +1,4 @@
-import type { ScriptGenOutput, Scene } from '../llm/provider';
+import type { Scene, ScriptGenOutput } from '../llm/provider';
 
 function fixtureScene(
   scene_id: string,

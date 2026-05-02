@@ -26,7 +26,9 @@ export function StoryboardBottomBar({ tier }: StoryboardBottomBarProps) {
 
       <div className="bb-group">
         <span className="bb-label">Видеомодель</span>
-        <span className="bb-value" title={defaultVideoModel}>{modelSlug}</span>
+        <span className="bb-value" title={defaultVideoModel}>
+          {modelSlug}
+        </span>
       </div>
 
       <div className="bb-group">
