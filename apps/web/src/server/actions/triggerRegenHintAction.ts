@@ -87,8 +87,8 @@ export async function triggerRegenHintAction(rawInput: unknown): Promise<Result>
       preview: {
         title: 'Перерисовать досье',
         subject: hint.character_name,
-        summary: 'Описание персонажа изменилось — пересоздадим картинку под новые черты.',
-        warning: 'Прежнюю картинку восстановить нельзя.',
+        summary:
+          'Описание персонажа изменилось — пересоздадим картинку под новые черты. Стоимость ~$0.08–0.39.',
       },
       status: 'pending',
     };

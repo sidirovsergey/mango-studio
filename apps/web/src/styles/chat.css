@@ -318,84 +318,117 @@
   word-break: break-word;
 }
 
-/* Sync-hint mini-chip — secondary inline action attached under main chip */
+/* Sync-hint mini-chip — secondary inline action under main chip.
+ * Phase 1.2.6 fix-5: column layout (reason сверху, кнопки снизу) — иначе
+ * в узком чат-панеле (~280-360px) текст переноcится по слову, кнопки
+ * налезают, нечитаемо. */
 .sync-hint-chip {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
-  padding: 6px 8px 6px 10px;
+  padding: 8px 10px 10px;
   border-radius: 12px;
-  font-size: 11.5px;
-  line-height: 1.35;
-  margin-left: 12px;
-  background: rgba(255, 247, 236, 0.9);
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 4px 0 0 12px;
+  background: linear-gradient(180deg, rgba(255, 247, 236, 0.92), rgba(255, 250, 241, 0.88));
   border: 1px solid rgba(255, 144, 38, 0.22);
-  color: var(--ink-700);
+  color: var(--ink-800);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
 
+.sync-hint-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
 .sync-hint-icon {
   display: inline-flex;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: var(--mango-400);
+  background: linear-gradient(180deg, var(--mango-300), var(--mango-500));
   color: white;
-  font-style: italic;
   font-weight: 700;
-  font-size: 10px;
+  font-size: 11px;
   flex-shrink: 0;
+  margin-top: 1px;
   font-family: 'Geist Mono', ui-monospace, monospace;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.45) inset,
+    0 0 0 2px rgba(255, 144, 38, 0.16);
 }
 
 .sync-hint-reason {
   flex: 1;
   min-width: 0;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
+  line-height: 1.4;
+  color: var(--ink-700);
+}
+
+.sync-hint-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .sync-hint-action {
-  flex-shrink: 0;
+  flex: 1 1 auto;
   border: 0;
   cursor: pointer;
-  padding: 4px 10px;
-  border-radius: 999px;
+  padding: 7px 12px;
+  border-radius: 10px;
   background: linear-gradient(180deg, var(--mango-400), var(--mango-600));
   color: white;
-  font: 600 11.5px/1 inherit;
+  font: 600 12px/1 inherit;
+  white-space: nowrap;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.45) inset,
     0 4px 10px -4px rgba(245, 118, 0, 0.4);
-  transition: transform 200ms var(--spring-soft), box-shadow 200ms var(--spring-fast);
+  transition: transform 200ms var(--spring-soft), box-shadow 200ms var(--spring-fast),
+    filter 200ms;
 }
 .sync-hint-action:hover {
-  transform: translateY(-1px) scale(1.02);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset, 0 6px 14px -4px rgba(245, 118, 0, 0.5);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 6px 14px -4px rgba(245, 118, 0, 0.5);
 }
-.sync-hint-action:active { transform: scale(0.96); }
-.sync-hint-action:disabled { opacity: 0.5; cursor: progress; transform: none; }
+.sync-hint-action:active { transform: scale(0.97); }
+.sync-hint-action:disabled {
+  opacity: 0.55;
+  cursor: progress;
+  transform: none;
+  filter: grayscale(0.3);
+}
 
 .sync-hint-dismiss {
-  flex-shrink: 0;
-  border: 0;
-  cursor: pointer;
-  background: transparent;
-  color: var(--ink-300);
-  font-size: 16px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(26, 18, 7, 0.08);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--ink-500);
+  font-size: 14px;
   line-height: 1;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background 180ms, color 180ms;
+  transition: background 180ms, color 180ms, border-color 180ms;
 }
 .sync-hint-dismiss:hover {
   background: rgba(26, 18, 7, 0.06);
   color: var(--ink-700);
+  border-color: rgba(26, 18, 7, 0.14);
 }
 .sync-hint-dismiss:disabled { opacity: 0.5; cursor: progress; }
 

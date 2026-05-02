@@ -300,8 +300,7 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
           preview: {
             title: 'Перерисовать досье',
             subject: character.name,
-            summary: 'Существующая картинка будет заменена. Стоимость ~$0.08–0.39.',
-            warning: 'Прежнюю картинку восстановить нельзя.',
+            summary: 'Текущая картинка будет заменена новой. Стоимость ~$0.08–0.39.',
           },
           status: 'pending',
         };

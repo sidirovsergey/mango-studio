@@ -76,7 +76,7 @@ function SyncHintRow({ chip, chatMessageId, chipIndex }: Props) {
   };
 
   if (hint.status === 'triggered') {
-    return <div className="sync-hint-resolved triggered">Сценарий обновляется…</div>;
+    return <div className="sync-hint-resolved triggered">Сценарий обновлён ✓</div>;
   }
   if (hint.status === 'dismissed') {
     return <div className="sync-hint-resolved dismissed">Подсказка скрыта</div>;
@@ -85,27 +85,31 @@ function SyncHintRow({ chip, chatMessageId, chipIndex }: Props) {
   return (
     <>
       <div className="sync-hint-chip">
-        <span className="sync-hint-icon" aria-hidden="true">
-          i
-        </span>
-        <span className="sync-hint-reason">{hint.reason}</span>
-        <button
-          type="button"
-          className="sync-hint-action"
-          disabled={buttonsDisabled}
-          onClick={() => handle('apply')}
-        >
-          {submitting ? 'Подождите…' : 'Обновить сценарий'}
-        </button>
-        <button
-          type="button"
-          className="sync-hint-dismiss"
-          disabled={buttonsDisabled}
-          onClick={() => handle('dismiss')}
-          aria-label="Скрыть подсказку"
-        >
-          ×
-        </button>
+        <div className="sync-hint-content">
+          <span className="sync-hint-icon" aria-hidden="true">
+            i
+          </span>
+          <span className="sync-hint-reason">{hint.reason}</span>
+        </div>
+        <div className="sync-hint-actions">
+          <button
+            type="button"
+            className="sync-hint-action"
+            disabled={buttonsDisabled}
+            onClick={() => handle('apply')}
+          >
+            {submitting ? 'Подождите…' : 'Обновить сценарий'}
+          </button>
+          <button
+            type="button"
+            className="sync-hint-dismiss"
+            disabled={buttonsDisabled}
+            onClick={() => handle('dismiss')}
+            aria-label="Скрыть подсказку"
+          >
+            ×
+          </button>
+        </div>
       </div>
       {actionError && (
         <div className="sync-hint-resolved dismissed" role="alert">
@@ -142,7 +146,7 @@ function RegenHintRow({ chip, chatMessageId, chipIndex }: Props) {
   };
 
   if (hint.status === 'triggered') {
-    return <div className="sync-hint-resolved triggered">Запрос на перерисовку отправлен…</div>;
+    return <div className="sync-hint-resolved triggered">Запрос на перерисовку отправлен ✓</div>;
   }
   if (hint.status === 'dismissed') {
     return <div className="sync-hint-resolved dismissed">Подсказка скрыта</div>;
@@ -151,29 +155,33 @@ function RegenHintRow({ chip, chatMessageId, chipIndex }: Props) {
   return (
     <>
       <div className="sync-hint-chip">
-        <span className="sync-hint-icon" aria-hidden="true">
-          ✎
-        </span>
-        <span className="sync-hint-reason">
-          Описание «{hint.character_name}» изменилось — досье устарело
-        </span>
-        <button
-          type="button"
-          className="sync-hint-action"
-          disabled={buttonsDisabled}
-          onClick={() => handle('apply')}
-        >
-          {submitting ? 'Подождите…' : 'Перерисовать досье'}
-        </button>
-        <button
-          type="button"
-          className="sync-hint-dismiss"
-          disabled={buttonsDisabled}
-          onClick={() => handle('dismiss')}
-          aria-label="Скрыть подсказку"
-        >
-          ×
-        </button>
+        <div className="sync-hint-content">
+          <span className="sync-hint-icon" aria-hidden="true">
+            ✎
+          </span>
+          <span className="sync-hint-reason">
+            Описание «{hint.character_name}» изменилось — досье устарело
+          </span>
+        </div>
+        <div className="sync-hint-actions">
+          <button
+            type="button"
+            className="sync-hint-action"
+            disabled={buttonsDisabled}
+            onClick={() => handle('apply')}
+          >
+            {submitting ? 'Подождите…' : 'Перерисовать досье'}
+          </button>
+          <button
+            type="button"
+            className="sync-hint-dismiss"
+            disabled={buttonsDisabled}
+            onClick={() => handle('dismiss')}
+            aria-label="Скрыть подсказку"
+          >
+            ×
+          </button>
+        </div>
       </div>
       {actionError && (
         <div className="sync-hint-resolved dismissed" role="alert">
