@@ -28,7 +28,10 @@ export function PendingActionCard({ pending, chatMessageId }: Props) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const router = useRouter();
-  const isDestructive = pending.kind === 'delete_character' || Boolean(pending.preview.warning);
+  const isDestructive =
+    pending.kind === 'delete_character' ||
+    pending.kind === 'regen_scene_video' ||
+    Boolean(pending.preview.warning);
 
   useEffect(() => {
     const t = setTimeout(() => setReady(true), READY_DELAY_MS);
@@ -58,7 +61,20 @@ export function PendingActionCard({ pending, chatMessageId }: Props) {
     });
   };
 
-  const confirmLabel = pending.kind === 'delete_character' ? 'Удалить навсегда' : 'Подтвердить';
+  const confirmLabel = (() => {
+    switch (pending.kind) {
+      case 'delete_character':
+        return 'Удалить навсегда';
+      case 'regen_scene_video':
+        return 'Перегенерировать';
+      case 'set_scene_model':
+        return 'Сменить модель';
+      case 'generate_master_clip':
+        return 'Финализировать';
+      default:
+        return 'Подтвердить';
+    }
+  })();
   const buttonsDisabled = submitting || !ready;
 
   return (
