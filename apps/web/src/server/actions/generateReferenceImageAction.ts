@@ -1,14 +1,12 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/get-user';
-import { logMediaCall } from '@/server/lib/log-media-call';
 import { friendlyMediaError } from '@/server/lib/media-error-message';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { getReferenceStorage } from '@/server/lib/storage-provider-factory';
+import { recordPendingJob } from '@/server/lib/scene-helpers';
 import {
   type Character,
   MediaProviderError,
-  type ReferenceImage,
   type Tier,
   getDefaultModel,
 } from '@mango/core';
@@ -24,7 +22,7 @@ const InputSchema = z.object({
 
 export async function generateReferenceImageAction(
   rawInput: unknown,
-): Promise<{ ok: true } | { ok: false; error: string; error_code?: string }> {
+): Promise<{ ok: true; job_id: string } | { ok: false; error: string; error_code?: string }> {
   const input = InputSchema.parse(rawInput);
   const user = await getCurrentUser();
   const sb = await getServerSupabase();
@@ -57,7 +55,7 @@ export async function generateReferenceImageAction(
 
   try {
     const provider = getMediaProvider();
-    const result = await provider.generateCharacterDossier(
+    const handle = await provider.submitCharacterDossier(
       {
         prompt,
         model,
@@ -68,54 +66,22 @@ export async function generateReferenceImageAction(
       ctx,
     );
 
-    await logMediaCall({
+    const { job_id } = await recordPendingJob({
       user_id: user.id,
       project_id: input.project_id,
-      model: result.model_used,
-      method: 'generateReferenceImage',
       character_id: character.id,
-      cost_usd: result.cost_usd,
-      latency_ms: result.latency_ms,
-      fal_request_id: result.fal_request_id,
-      status: 'ok',
+      kind: 'character_reference',
+      model: handle.model_used,
+      fal_request_id: handle.fal_request_id,
+      request_input: handle.request_input,
     });
 
-    // AI-generated refs всегда persist в Supabase (не fal_passthrough)
-    const storage = getReferenceStorage();
-    const stored = await storage.persist(result.fal_url, ctx);
-
-    const newRef: ReferenceImage = {
-      storage: stored,
-      source: 'ai_generated',
-      uploaded_at: new Date().toISOString(),
-    };
-    const updated: Character = {
-      ...character,
-      reference_images: [...(character.reference_images ?? []), newRef],
-    };
-    const characters = [...chars];
-    characters[idx] = updated;
-
-    const { error: updateErr } = await sb
-      .from('projects')
-      .update({ script: { ...script, characters } as never })
-      .eq('id', input.project_id)
-      .eq('user_id', user.id);
-    if (updateErr) return { ok: false, error: 'update failed' };
+    // NOTE: reference_images writeback moves to poll-orchestrator (Task 13) — no DB update here.
 
     revalidatePath(`/projects/${input.project_id}`);
-    return { ok: true };
+    return { ok: true, job_id };
   } catch (e) {
     if (e instanceof MediaProviderError) {
-      await logMediaCall({
-        user_id: user.id,
-        project_id: input.project_id,
-        model,
-        method: 'generateReferenceImage',
-        character_id: character.id,
-        status: 'error',
-        error_code: e.code,
-      });
       return { ok: false, error: friendlyMediaError(e.code, e.message), error_code: e.code };
     }
     console.error('[generateReferenceImageAction]', e);

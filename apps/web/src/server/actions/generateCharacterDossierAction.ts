@@ -1,16 +1,13 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/get-user';
-import { logMediaCall } from '@/server/lib/log-media-call';
 import { friendlyMediaError } from '@/server/lib/media-error-message';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { getStorageProvider } from '@/server/lib/storage-provider-factory';
+import { recordPendingJob } from '@/server/lib/scene-helpers';
 import {
   type Character,
   MediaProviderError,
-  type StoredAsset,
   type Tier,
-  buildAvatarPrompt,
   buildDossierPrompt,
   getDefaultModel,
   isModelInTier,
@@ -28,7 +25,7 @@ const InputSchema = z.object({
 
 export async function generateCharacterDossierAction(
   rawInput: unknown,
-): Promise<{ ok: true } | { ok: false; error: string; error_code?: string }> {
+): Promise<{ ok: true; job_id: string } | { ok: false; error: string; error_code?: string }> {
   const input = InputSchema.parse(rawInput);
   const user = await getCurrentUser();
   const sb = await getServerSupabase();
@@ -76,7 +73,7 @@ export async function generateCharacterDossierAction(
 
   try {
     const provider = getMediaProvider();
-    const result = await provider.generateCharacterDossier(
+    const handle = await provider.submitCharacterDossier(
       {
         prompt,
         model,
@@ -87,72 +84,21 @@ export async function generateCharacterDossierAction(
       ctx,
     );
 
-    await logMediaCall({
+    // NOTE(Phase 1.3): avatar gen dropped during async migration (Task 12). Will be
+    // re-added in 1.3.D once poll-orchestrator + a dedicated avatar kind land.
+
+    const { job_id } = await recordPendingJob({
       user_id: user.id,
       project_id: input.project_id,
-      model: result.model_used,
-      method: 'generateCharacterDossier',
       character_id: character.id,
-      cost_usd: result.cost_usd,
-      latency_ms: result.latency_ms,
-      fal_request_id: result.fal_request_id,
-      status: 'ok',
+      kind: 'character_dossier',
+      model: handle.model_used,
+      fal_request_id: handle.fal_request_id,
+      request_input: handle.request_input,
     });
 
-    const storage = getStorageProvider();
-    const stored = await storage.persist(result.fal_url, ctx);
-
-    // --- Avatar (1:1 portrait) — non-fatal enhancement ---
-    let avatarStored: StoredAsset | undefined;
-    try {
-      const avatarPrompt = buildAvatarPrompt(
-        {
-          name: character.name,
-          description: character.description,
-          appearance: character.appearance,
-          personality: character.personality,
-        },
-        style,
-      );
-      const avatarResult = await provider.generateCharacterDossier(
-        {
-          prompt: avatarPrompt,
-          model,
-          format: '1:1',
-          quality,
-          image_refs: [],
-        },
-        ctx,
-      );
-      await logMediaCall({
-        user_id: user.id,
-        project_id: input.project_id,
-        model: avatarResult.model_used,
-        method: 'generateCharacterDossier',
-        character_id: character.id,
-        cost_usd: avatarResult.cost_usd,
-        latency_ms: avatarResult.latency_ms,
-        fal_request_id: avatarResult.fal_request_id,
-        status: 'ok',
-      });
-      avatarStored = await storage.persist(avatarResult.fal_url, ctx);
-    } catch (avatarErr) {
-      console.error('[generateCharacterDossierAction] avatar gen failed (non-fatal)', avatarErr);
-      // continue — main dossier already persisted
-    }
-
-    const updated: Character = {
-      ...character,
-      full_prompt: prompt,
-      dossier: {
-        storage: stored,
-        avatar: avatarStored,
-        model: result.model_used,
-        format: '16:9',
-        quality,
-        generated_at: new Date().toISOString(),
-      },
-    };
+    // Save full_prompt to character now; dossier storage lands in poll-orchestrator (Task 13).
+    const updated: Character = { ...character, full_prompt: prompt };
     const newCharacters = [...characters];
     newCharacters[idx] = updated;
 
@@ -167,18 +113,9 @@ export async function generateCharacterDossierAction(
     if (updateErr) return { ok: false, error: 'update failed' };
 
     revalidatePath(`/projects/${input.project_id}`);
-    return { ok: true };
+    return { ok: true, job_id };
   } catch (e) {
     if (e instanceof MediaProviderError) {
-      await logMediaCall({
-        user_id: user.id,
-        project_id: input.project_id,
-        model,
-        method: 'generateCharacterDossier',
-        character_id: character.id,
-        status: 'error',
-        error_code: e.code,
-      });
       return { ok: false, error: friendlyMediaError(e.code, e.message), error_code: e.code };
     }
     console.error('[generateCharacterDossierAction]', e);
