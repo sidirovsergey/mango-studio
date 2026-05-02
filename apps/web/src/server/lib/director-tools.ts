@@ -3,7 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { archiveCharacterAction } from '@/server/actions/archiveCharacterAction';
 import { createCharacterAction } from '@/server/actions/createCharacterAction';
 import { generateCharacterDossierAction } from '@/server/actions/generateCharacterDossierAction';
+import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { updateProjectMetaAction } from '@/server/actions/projects';
+import { regenSceneTextAction } from '@/server/actions/regenSceneTextAction';
 import {
   addSceneAction,
   deleteSceneAction,
@@ -11,6 +13,8 @@ import {
   refineScriptAction,
   regenScriptAction,
 } from '@/server/actions/scripts';
+import { setSceneDurationAction } from '@/server/actions/setSceneDurationAction';
+import { setSceneModelAction } from '@/server/actions/setSceneModelAction';
 import { unarchiveCharacterAction } from '@/server/actions/unarchiveCharacterAction';
 import type { Character, PendingAction } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
@@ -43,6 +47,39 @@ async function resolveCharacter(
   if (error || !project) return null;
   const script = (project.script ?? {}) as { characters?: Character[] };
   return script.characters?.find((c) => c.id === character_id) ?? null;
+}
+
+/**
+ * Phase 1.3 — резолвит scene из snapshot скрипта в БД.
+ * Используется для построения preview pending action'а.
+ */
+async function resolveScene(
+  project_id: string,
+  scene_id: string,
+): Promise<{
+  scene_id: string;
+  description: string;
+  duration_sec: number;
+  first_frame: unknown;
+  final_clip: unknown;
+} | null> {
+  const sb = await getServerSupabase();
+  const { data: project, error } = await sb
+    .from('projects')
+    .select('script')
+    .eq('id', project_id)
+    .single();
+  if (error || !project) return null;
+  const script = (project.script ?? {}) as {
+    scenes?: Array<{
+      scene_id: string;
+      description: string;
+      duration_sec: number;
+      first_frame: unknown;
+      final_clip: unknown;
+    }>;
+  };
+  return script.scenes?.find((s) => s.scene_id === scene_id) ?? null;
 }
 
 interface PendingResult {
@@ -389,6 +426,153 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
             subject: character.name,
             summary: 'Карточка и досье будут удалены полностью.',
             warning: 'Это нельзя отменить. Если хочешь восстановимое — скажи «заархивируй».',
+          },
+          status: 'pending',
+        };
+        return { pending: true, action };
+      },
+    }),
+
+    // ===== Scene tools (Phase 1.3) =====
+
+    regen_scene_video: tool({
+      description:
+        'Перегенерировать видео для сцены. Используй когда пользователь просит обновить движение/ракурс/анимацию конкретной сцены. Cost-significant — система покажет pending карточку. Не переспрашивай в чате.',
+      inputSchema: z.object({
+        scene_id: z.string().min(1).describe('ID сцены, например s1, s2'),
+      }),
+      execute: async ({ scene_id }): Promise<ToolResult> => {
+        const scene = await resolveScene(project_id, scene_id);
+        if (!scene) return { ok: false, error: 'scene not found' };
+        if (!scene.first_frame)
+          return {
+            ok: false,
+            error: 'у сцены ещё нет первого кадра — сначала сгенерируй его',
+          };
+        const action: PendingAction = {
+          id: randomUUID(),
+          kind: 'regen_scene_video',
+          payload: { project_id, scene_id },
+          preview: {
+            title: `Перегенерировать видео сцены ${scene_id}?`,
+            subject: scene.description.slice(0, 60),
+            summary: 'Запустит новую video gen — ~$0.20–0.60 за сцену.',
+          },
+          status: 'pending',
+        };
+        return { pending: true, action };
+      },
+    }),
+
+    refine_scene_description: tool({
+      description:
+        'Обновить описание/реплику сцены через LLM mini-call. Используй когда пользователь просит «измени реплику», «перепиши описание», «сделай эту сцену смешнее».',
+      inputSchema: z.object({
+        scene_id: z.string().min(1),
+        instruction: z.string().min(1).max(500),
+      }),
+      execute: async ({ scene_id, instruction }): Promise<ToolResult> => {
+        try {
+          const result = await regenSceneTextAction({ project_id, scene_id, instruction });
+          if (!result.ok) return { ok: false, error: result.error };
+          return { ok: true, scene_id, dialogue: result.dialogue };
+        } catch (err) {
+          return { ok: false, error: shortError(err) };
+        }
+      },
+    }),
+
+    set_scene_duration: tool({
+      description:
+        "Изменить длительность сцены. Сервер автоматически clamp'нет к ближайшему supported значению модели. Используй когда пользователь говорит «сделай сцену 8 секунд», «короче», «длиннее».",
+      inputSchema: z.object({
+        scene_id: z.string().min(1),
+        duration_sec: z.number().int().min(1).max(30),
+      }),
+      execute: async ({ scene_id, duration_sec }): Promise<ToolResult> => {
+        try {
+          const result = await setSceneDurationAction({ project_id, scene_id, duration_sec });
+          if (!result.ok) return { ok: false, error: result.error };
+          return { ok: true, scene_id, clamped_to: result.clamped_to };
+        } catch (err) {
+          return { ok: false, error: shortError(err) };
+        }
+      },
+    }),
+
+    set_scene_model: tool({
+      description:
+        'Сменить video model для одной сцены. Cost-significant — система покажет pending карточку. Используй когда пользователь просит конкретную модель: «используй Veo для этой сцены», «попробуй Seedance Lite». model должен быть из доступных в текущем tier.',
+      inputSchema: z.object({
+        scene_id: z.string().min(1),
+        model: z.string().min(1),
+      }),
+      execute: async ({ scene_id, model }): Promise<ToolResult> => {
+        const scene = await resolveScene(project_id, scene_id);
+        if (!scene) return { ok: false, error: 'scene not found' };
+        const action: PendingAction = {
+          id: randomUUID(),
+          kind: 'set_scene_model',
+          payload: { project_id, scene_id, model },
+          preview: {
+            title: `Сменить модель сцены ${scene_id}?`,
+            subject: model.split('/').pop() ?? model,
+            summary:
+              'Существующее видео сцены не удаляется, но станет stale — нужно будет пересобрать.',
+          },
+          status: 'pending',
+        };
+        return { pending: true, action };
+      },
+    }),
+
+    generate_first_frame: tool({
+      description:
+        'Сгенерировать первый кадр сцены (image gen). Используй когда пользователь говорит «нарисуй сцену», «сделай кадр», «сгенерируй первый frame». Без confirm.',
+      inputSchema: z.object({
+        scene_id: z.string().min(1),
+      }),
+      execute: async ({ scene_id }): Promise<ToolResult> => {
+        try {
+          const result = await generateFirstFrameAction({ project_id, scene_id });
+          if (!result.ok) return { ok: false, error: result.error };
+          return { ok: true, scene_id, job_id: result.job_id, existing: result.existing };
+        } catch (err) {
+          return { ok: false, error: shortError(err) };
+        }
+      },
+    }),
+
+    generate_master_clip: tool({
+      description:
+        'Финализировать ролик (склейка всех сцен). Cost-significant. Все сцены ДОЛЖНЫ иметь final_clip. Используй когда пользователь говорит «собери ролик», «финализируй», «склей все сцены».',
+      inputSchema: z.object({}),
+      execute: async (): Promise<ToolResult> => {
+        const sb = await getServerSupabase();
+        const { data: project } = await sb
+          .from('projects')
+          .select('script')
+          .eq('id', project_id)
+          .single();
+        if (!project) return { ok: false, error: 'project not found' };
+        const script = project.script as { scenes?: { final_clip?: unknown }[] } | null;
+        const scenes = script?.scenes ?? [];
+        const totalScenes = scenes.length;
+        const readyScenes = scenes.filter((s) => s.final_clip != null).length;
+        if (readyScenes < totalScenes) {
+          return {
+            ok: false,
+            error: `готово ${readyScenes} из ${totalScenes} сцен — сначала закончи остальные`,
+          };
+        }
+        const action: PendingAction = {
+          id: randomUUID(),
+          kind: 'generate_master_clip',
+          payload: { project_id, scene_count: totalScenes },
+          preview: {
+            title: 'Финализировать ролик?',
+            subject: `${totalScenes} сцен`,
+            summary: 'Склейка через ffmpeg — ~$0.005–0.01.',
           },
           status: 'pending',
         };

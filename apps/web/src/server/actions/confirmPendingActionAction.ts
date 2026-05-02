@@ -3,7 +3,10 @@
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { deleteCharacterAction } from '@/server/actions/deleteCharacterAction';
 import { generateCharacterDossierAction } from '@/server/actions/generateCharacterDossierAction';
+import { generateMasterClipAction } from '@/server/actions/generateMasterClipAction';
+import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
 import { refineCharacterAction } from '@/server/actions/refineCharacterAction';
+import { setSceneModelAction } from '@/server/actions/setSceneModelAction';
 import {
   type Character,
   type PendingAction,
@@ -149,6 +152,63 @@ export async function confirmPendingActionAction(rawInput: unknown): Promise<Res
         chip = {
           kind: 'delete_character',
           label: `Не удалил «${name}» (${r.error})`,
+          ok: false,
+          error: r.error,
+        };
+      }
+      break;
+    }
+    case 'regen_scene_video': {
+      const sceneId = typeof payload.scene_id === 'string' ? payload.scene_id : '';
+      const r = await generateSceneVideoAction(payload);
+      if (r.ok) {
+        chip = {
+          kind: 'regen_scene_video',
+          label: `🎬 Перегенерил видео сцены ${sceneId}`,
+          ok: true,
+        };
+      } else {
+        chip = {
+          kind: 'regen_scene_video',
+          label: `Не перегенерил видео сцены ${sceneId} (${r.error})`,
+          ok: false,
+          error: r.error,
+        };
+      }
+      break;
+    }
+    case 'set_scene_model': {
+      const sceneId = typeof payload.scene_id === 'string' ? payload.scene_id : '';
+      const model = typeof payload.model === 'string' ? payload.model : '';
+      const r = await setSceneModelAction(payload);
+      if (r.ok) {
+        chip = {
+          kind: 'set_scene_model',
+          label: `✏️ Сменил модель сцены ${sceneId} на ${model.split('/').pop() ?? model}`,
+          ok: true,
+        };
+      } else {
+        chip = {
+          kind: 'set_scene_model',
+          label: `Не сменил модель сцены ${sceneId} (${r.error})`,
+          ok: false,
+          error: r.error,
+        };
+      }
+      break;
+    }
+    case 'generate_master_clip': {
+      const r = await generateMasterClipAction(payload);
+      if (r.ok) {
+        chip = {
+          kind: 'generate_master_clip',
+          label: '🎞️ Запустил финальную склейку',
+          ok: true,
+        };
+      } else {
+        chip = {
+          kind: 'generate_master_clip',
+          label: `Не запустил склейку (${r.error})`,
           ok: false,
           error: r.error,
         };
