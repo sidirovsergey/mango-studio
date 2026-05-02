@@ -50,12 +50,17 @@ export type {
   ScriptGenInput,
   ScriptGenOutput,
   ScriptGenResult,
+  Scene,
+  NarratorVoice,
   Character,
   Dossier,
   ReferenceImage,
   ScriptCharacterAction,
   StoredAssetParsed,
+  Dialogue,
+  FirstFrameSource,
 } from './llm';
+export { normalizeScene } from './llm';
 export {
   LLMProviderError,
   classifyLLMError,

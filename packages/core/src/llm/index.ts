@@ -12,7 +12,12 @@ export type {
   ScriptGenInput,
   ScriptGenOutput,
   ScriptGenResult,
+  Scene,
+  NarratorVoice,
 } from './provider';
+
+export { normalizeScene } from './normalize';
+export type { Dialogue, FirstFrameSource } from './types';
 
 export { LLMProviderError, classifyLLMError } from './errors';
 export { getModelParams } from './config';
