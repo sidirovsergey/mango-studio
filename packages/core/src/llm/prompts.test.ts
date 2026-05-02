@@ -155,4 +155,29 @@ describe('buildDirectorSystemPrompt — characters context', () => {
     // delete triggers
     expect(out).toMatch(/удали навсегда|удали окончательно|удали полностью|насовсем/i);
   });
+
+  it('Phase 1.3: содержит 6 scene tools в системном промпте', () => {
+    const out = buildDirectorSystemPrompt({
+      ...baseCtx,
+      activeCharacters: [],
+      archivedCharacters: [],
+    });
+    expect(out).toContain('regen_scene_video');
+    expect(out).toContain('refine_scene_description');
+    expect(out).toContain('set_scene_duration');
+    expect(out).toContain('set_scene_model');
+    expect(out).toContain('generate_first_frame');
+    expect(out).toContain('generate_master_clip');
+  });
+
+  it('Phase 1.3: содержит поведенческие правила для сцен', () => {
+    const out = buildDirectorSystemPrompt({
+      ...baseCtx,
+      activeCharacters: [],
+      archivedCharacters: [],
+    });
+    expect(out).toContain('Поведенческие правила для сцен');
+    expect(out).toMatch(/ОБЯЗАТЕЛЬНО confirm/i);
+    expect(out).toMatch(/final_clip/i);
+  });
 });
