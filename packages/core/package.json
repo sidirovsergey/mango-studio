@@ -10,6 +10,7 @@
     "./media/factory": "./src/media/factory.ts",
     "./llm": "./src/llm/index.ts",
     "./llm/factory": "./src/llm/factory.ts",
+    "./llm/pricing": "./src/llm/pricing.ts",
     "./prompt": "./src/prompt/types.ts",
     "./tier": "./src/tier/types.ts",
     "./fixtures": "./src/fixtures/index.ts"

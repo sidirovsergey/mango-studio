@@ -1,8 +1,9 @@
 import 'server-only';
+import { randomUUID } from 'node:crypto';
+import { archiveCharacterAction } from '@/server/actions/archiveCharacterAction';
 import { createCharacterAction } from '@/server/actions/createCharacterAction';
 import { generateCharacterDossierAction } from '@/server/actions/generateCharacterDossierAction';
 import { updateProjectMetaAction } from '@/server/actions/projects';
-import { refineCharacterAction } from '@/server/actions/refineCharacterAction';
 import {
   addSceneAction,
   deleteSceneAction,
@@ -11,6 +12,8 @@ import {
   regenScriptAction,
 } from '@/server/actions/scripts';
 import { unarchiveCharacterAction } from '@/server/actions/unarchiveCharacterAction';
+import type { Character, PendingAction } from '@mango/core';
+import { getServerSupabase } from '@mango/db/server';
 import { tool } from 'ai';
 import type { ToolSet } from 'ai';
 import { z } from 'zod';
@@ -22,6 +25,43 @@ interface DirectorToolsCtx {
 function shortError(err: unknown): string {
   return ((err as Error)?.message ?? 'unknown error').slice(0, 200);
 }
+
+/**
+ * Phase 1.2.6 — резолвит character ИЗ snapshot скрипта в БД.
+ * Используется для построения preview pending action'а.
+ */
+async function resolveCharacter(
+  project_id: string,
+  character_id: string,
+): Promise<Character | null> {
+  const sb = await getServerSupabase();
+  const { data: project, error } = await sb
+    .from('projects')
+    .select('script')
+    .eq('id', project_id)
+    .single();
+  if (error || !project) return null;
+  const script = (project.script ?? {}) as { characters?: Character[] };
+  return script.characters?.find((c) => c.id === character_id) ?? null;
+}
+
+interface PendingResult {
+  pending: true;
+  action: PendingAction;
+}
+
+interface ImmediateOk {
+  ok: true;
+  // additional fields permitted
+  [k: string]: unknown;
+}
+
+interface ImmediateFail {
+  ok: false;
+  error: string;
+}
+
+type ToolResult = ImmediateOk | ImmediateFail | PendingResult;
 
 export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
   return {
@@ -167,7 +207,7 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
 
     add_character: tool({
       description:
-        'Добавить нового персонажа в проект. Используй когда пользователь говорит «добавь героя X», «введи персонажа Y». Создаёт карточку с структурированным описанием (description, appearance, personality), но БЕЗ картинки. Чтобы нарисовать — отдельный generate_character.',
+        'Добавить НОВОГО персонажа в проект. Используй когда пользователь говорит «добавь героя X», «введи персонажа Y» И ТАКОГО ПЕРСОНАЖА ЕЩЁ НЕТ в проекте. Если персонаж с таким именем уже существует (активный или архивный) — НЕ вызывай add_character: либо unarchive_character (если он в архиве), либо refine_character (если в активных и нужно изменить), либо ответь текстом что он уже есть.',
       inputSchema: z.object({
         name: z.string().min(1).max(80).describe('Имя персонажа, как его назвал пользователь'),
         instruction: z
@@ -179,6 +219,41 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
           ),
       }),
       execute: async ({ name, instruction }) => {
+        // Phase 1.2.6 — duplicate guard. Без этого Director может насоздавать
+        // дубликатов одного и того же персонажа в archived (как было на staging
+        // — 3 «Синих кота» с разными id из-за silent INSERT failure cycle).
+        try {
+          const sb = await getServerSupabase();
+          const { data: project } = await sb
+            .from('projects')
+            .select('script')
+            .eq('id', project_id)
+            .single();
+          const script = (project?.script ?? {}) as { characters?: Character[] };
+          const trimmed = name.trim().toLowerCase();
+          const existing = (script.characters ?? []).filter(
+            (c) => c.name.trim().toLowerCase() === trimmed,
+          );
+          const existingActive = existing.find((c) => !c.archived);
+          if (existingActive) {
+            return {
+              ok: false,
+              error: `Персонаж «${existingActive.name}» уже есть в активных. Используй refine_character для изменения, не add_character.`,
+            };
+          }
+          if (existing.length > 0) {
+            // Все нашлись в archived → suggest unarchive
+            const archIds = existing.map((c) => c.id).join(', ');
+            return {
+              ok: false,
+              error: `Персонаж «${name}» уже есть в архивных (id: ${archIds}). Используй unarchive_character для возврата.`,
+            };
+          }
+        } catch (err) {
+          // Если guard упал — пускаем прежний flow (лучше дубликат чем заблокировать)
+          console.warn('[add_character] duplicate guard failed:', err);
+        }
+
         try {
           const result = await createCharacterAction({ project_id, name, instruction });
           if (!result.ok) return { ok: false, error: result.error };
@@ -196,29 +271,46 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
 
     generate_character: tool({
       description:
-        'Сгенерировать визуальное досье (картинку) существующего персонажа через fal.ai. character_id бери из блока АКТИВНЫЕ ПЕРСОНАЖИ в системном контексте. ВАЖНО: если has_dossier=true — НЕ вызывай tool сразу, сначала спроси подтверждения текстом. Перегенерация заменит существующую картинку.',
+        'Сгенерировать визуальное досье персонажа через fal.ai (~10–20 сек). character_id из блока АКТИВНЫЕ ПЕРСОНАЖИ. Если has_dossier=false — выполнится сразу. Если has_dossier=true — система автоматически покажет destructive карточку подтверждения regen. НЕ спрашивай в чате текстом, просто вызови tool.',
       inputSchema: z.object({
-        character_id: z
-          .string()
-          .uuid()
-          .describe('uuid существующего персонажа из блока АКТИВНЫЕ ПЕРСОНАЖИ'),
+        character_id: z.string().uuid().describe('uuid персонажа из блока АКТИВНЫЕ ПЕРСОНАЖИ'),
       }),
-      execute: async ({ character_id }) => {
-        try {
-          const result = await generateCharacterDossierAction({ project_id, character_id });
-          if (!result.ok) {
-            return { ok: false, error: result.error, error_code: result.error_code };
+      execute: async ({ character_id }): Promise<ToolResult> => {
+        const character = await resolveCharacter(project_id, character_id);
+        if (!character) return { ok: false, error: 'character not found' };
+
+        // Если досье ещё нет — выполняем сразу (никакого confirm)
+        if (!character.dossier) {
+          try {
+            const result = await generateCharacterDossierAction({ project_id, character_id });
+            if (!result.ok) {
+              return { ok: false, error: result.error };
+            }
+            return { ok: true, character_id };
+          } catch (err) {
+            return { ok: false, error: shortError(err) };
           }
-          return { ok: true, character_id };
-        } catch (err) {
-          return { ok: false, error: shortError(err) };
         }
+
+        // has_dossier=true → pending regen с destructive preview
+        const action: PendingAction = {
+          id: randomUUID(),
+          kind: 'generate_character_regen',
+          payload: { project_id, character_id },
+          preview: {
+            title: 'Перерисовать досье',
+            subject: character.name,
+            summary: 'Текущая картинка будет заменена новой. Стоимость ~$0.08–0.39.',
+          },
+          status: 'pending',
+        };
+        return { pending: true, action };
       },
     }),
 
     refine_character: tool({
       description:
-        'Обновить описание существующего персонажа по инструкции пользователя. Меняет description / appearance / personality, НО НЕ перегенерирует картинку (если уже есть — отдельный generate_character). character_id бери из блока АКТИВНЫЕ ПЕРСОНАЖИ.',
+        'Обновить ОПИСАНИЕ персонажа (description/appearance/personality). Картинка не перерисовывается. Система автоматически покажет карточку подтверждения с превью изменения — НЕ спрашивай в чате, просто вызови tool. character_id из АКТИВНЫХ ПЕРСОНАЖЕЙ.',
       inputSchema: z.object({
         character_id: z.string().uuid(),
         instruction: z
@@ -227,9 +319,33 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
           .max(500)
           .describe('Что изменить в персонаже, в одно-два предложения'),
       }),
-      execute: async ({ character_id, instruction }) => {
+      execute: async ({ character_id, instruction }): Promise<ToolResult> => {
+        const character = await resolveCharacter(project_id, character_id);
+        if (!character) return { ok: false, error: 'character not found' };
+        const action: PendingAction = {
+          id: randomUUID(),
+          kind: 'refine_character',
+          payload: { project_id, character_id, instruction },
+          preview: {
+            title: 'Обновить описание персонажа',
+            subject: character.name,
+            summary: instruction,
+          },
+          status: 'pending',
+        };
+        return { pending: true, action };
+      },
+    }),
+
+    archive_character: tool({
+      description:
+        'Заархивировать (soft-delete) персонажа. Восстановимо через unarchive_character. Используй когда пользователь говорит «удали X», «убери Y», «больше не нужен Z». character_id из АКТИВНЫХ ПЕРСОНАЖЕЙ. БЕЗ confirm — выполни сразу.',
+      inputSchema: z.object({
+        character_id: z.string().uuid(),
+      }),
+      execute: async ({ character_id }): Promise<ToolResult> => {
         try {
-          const result = await refineCharacterAction({ project_id, character_id, instruction });
+          const result = await archiveCharacterAction({ project_id, character_id });
           if (!result.ok) return { ok: false, error: result.error };
           return { ok: true, character_id };
         } catch (err) {
@@ -240,11 +356,11 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
 
     unarchive_character: tool({
       description:
-        'Восстановить ранее удалённого (archived) персонажа. character_id бери из блока УДАЛЁННЫЕ ПЕРСОНАЖИ в системном контексте. Используй когда пользователь говорит «верни X», «восстанови Y». Если имени нет среди archived — НЕ вызывай tool, ответь текстом.',
+        'Восстановить ранее удалённого (archived) персонажа. character_id из блока УДАЛЁННЫЕ ПЕРСОНАЖИ в системном контексте. Используй когда пользователь говорит «верни X», «восстанови Y». Если имени нет среди archived — НЕ вызывай tool, ответь текстом.',
       inputSchema: z.object({
         character_id: z.string().uuid(),
       }),
-      execute: async ({ character_id }) => {
+      execute: async ({ character_id }): Promise<ToolResult> => {
         try {
           const result = await unarchiveCharacterAction({ project_id, character_id });
           if (!result.ok) return { ok: false, error: result.error };
@@ -252,6 +368,31 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
         } catch (err) {
           return { ok: false, error: shortError(err) };
         }
+      },
+    }),
+
+    delete_character: tool({
+      description:
+        'УДАЛИТЬ ПЕРСОНАЖА НАВСЕГДА. Используй ТОЛЬКО при явных «удали навсегда» / «удали окончательно» / «удали полностью» / «насовсем». character_id из АКТИВНЫХ ПЕРСОНАЖЕЙ. Сначала система покажет destructive карточку подтверждения — НЕ переспрашивай в чате текстом.',
+      inputSchema: z.object({
+        character_id: z.string().uuid(),
+      }),
+      execute: async ({ character_id }): Promise<ToolResult> => {
+        const character = await resolveCharacter(project_id, character_id);
+        if (!character) return { ok: false, error: 'character not found' };
+        const action: PendingAction = {
+          id: randomUUID(),
+          kind: 'delete_character',
+          payload: { project_id, character_id },
+          preview: {
+            title: 'Удалить персонажа НАВСЕГДА',
+            subject: character.name,
+            summary: 'Карточка и досье будут удалены полностью.',
+            warning: 'Это нельзя отменить. Если хочешь восстановимое — скажи «заархивируй».',
+          },
+          status: 'pending',
+        };
+        return { pending: true, action };
       },
     }),
   } satisfies ToolSet;

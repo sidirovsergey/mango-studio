@@ -65,5 +65,22 @@ export {
   applyCharacterActions,
   CharacterSchema,
   AppearanceSchema,
+  detectSyncHint,
 } from './llm';
-export type { LLMTask, ModelParams, BuildScriptPromptContext } from './llm';
+export type {
+  LLMTask,
+  ModelParams,
+  BuildScriptPromptContext,
+  ToolChip,
+  ToolChipKind,
+  SyncHint,
+  SyncHintStatus,
+  RegenHint,
+  RegenHintStatus,
+  PendingAction,
+  PendingActionKind,
+  PendingActionStatus,
+  PendingActionPreview,
+  SyncHintKind,
+  SyncHintScene,
+} from './llm';

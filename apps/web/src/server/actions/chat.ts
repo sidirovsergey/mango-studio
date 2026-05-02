@@ -2,6 +2,8 @@
 
 import { getCurrentUserId } from '@/lib/auth/get-user';
 import { buildDirectorTools } from '@/server/lib/director-tools';
+import { enrichChips } from '@/server/lib/enrich-chips';
+import { extractToolSteps } from '@/server/lib/extract-tool-steps';
 import { logLLMCall } from '@/server/lib/log-llm-call';
 import {
   type Character,
@@ -10,6 +12,7 @@ import {
   classifyLLMError,
   getModelParams,
 } from '@mango/core';
+import { calculateCost } from '@mango/core/llm/pricing';
 import { getServerSupabase } from '@mango/db/server';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { generateText, stepCountIs } from 'ai';
@@ -104,20 +107,58 @@ export async function sendChatMessageAction(
       },
     });
 
-    const reply = result.text.trim() || 'Готово.';
+    // Phase 1.2.6 — extract tool steps from AI SDK result, enrich with names + sync hints,
+    // persist на assistant row через новые колонки tool_chips / pending_action.
+    const extracted = extractToolSteps(result.steps);
+    const sceneList =
+      ((project.script ?? {}) as { scenes?: { description: string }[] }).scenes ?? [];
+    const enrichedChips = enrichChips(extracted.chips, {
+      characters: scriptCharacters as Character[],
+      scenes: sceneList,
+    });
+    const finalChips = extracted.conflictError
+      ? [...enrichedChips, extracted.conflictError]
+      : enrichedChips;
 
-    await supabase.from('chat_messages').insert({ project_id, role: 'assistant', content: reply });
+    const reply = result.text.trim() || (extracted.pending ? 'Подтверди — я выполню.' : 'Готово.');
+
+    const insertPayload: {
+      project_id: string;
+      role: 'assistant';
+      content: string;
+      tool_chips?: unknown;
+      pending_action?: unknown;
+    } = {
+      project_id,
+      role: 'assistant',
+      content: reply,
+    };
+    if (finalChips.length > 0) insertPayload.tool_chips = finalChips;
+    if (extracted.pending) insertPayload.pending_action = extracted.pending;
+
+    const { error: insertAssistantErr } = await supabase
+      .from('chat_messages')
+      .insert(insertPayload as never);
+    if (insertAssistantErr) {
+      // Fail loud вместо silent drop — без этого на проде юзер видел только optimistic
+      // state, а после refresh assistant сообщение исчезало (dataloss).
+      throw new Error(`sendChat assistant-msg: ${insertAssistantErr.message}`);
+    }
 
     const total = result.totalUsage;
+    const promptTokens = total?.inputTokens ?? 0;
+    const completionTokens = total?.outputTokens ?? 0;
+    const cost_usd = await calculateCost(params.model, promptTokens, completionTokens);
+
     await logLLMCall({
       user_id: userId,
       project_id,
       method: 'chat',
       status: 'success',
       usage: {
-        prompt_tokens: total?.inputTokens ?? 0,
-        completion_tokens: total?.outputTokens ?? 0,
-        cost_usd: 0,
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        cost_usd,
         model: params.model,
         latency_ms: Date.now() - start,
       },

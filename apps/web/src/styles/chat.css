@@ -237,6 +237,350 @@
   display: none;
 }
 
+/* === Phase 1.2.6 — Tool chips, sync-hint chips, pending-action cards ===
+ * Brand language наследуется из demo: cream/paper поверхности, warm ink текст,
+ * mango-orange primary, leaf-green success, coral-red destructive, spring easing.
+ */
+
+.msg-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.tool-chip-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: chip-in 280ms var(--spring-fast) both;
+}
+
+@keyframes chip-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Tool chip — success/fail pill */
+.tool-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 11px 5px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  width: fit-content;
+  max-width: 100%;
+  background: rgba(255, 250, 241, 0.85);
+  border: 1px solid rgba(26, 18, 7, 0.07);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 4px 10px -6px rgba(26, 18, 7, 0.12);
+  color: var(--ink-800);
+}
+
+.tool-chip.ok {
+  border-color: rgba(6, 145, 80, 0.28);
+  background: linear-gradient(180deg, rgba(232, 250, 239, 0.85), rgba(255, 250, 241, 0.85));
+}
+
+.tool-chip.fail {
+  border-color: rgba(209, 74, 42, 0.32);
+  background: linear-gradient(180deg, rgba(252, 232, 226, 0.9), rgba(255, 250, 241, 0.85));
+  color: var(--ink-900);
+}
+
+.tool-chip-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  color: white;
+}
+.tool-chip.ok .tool-chip-icon {
+  background: var(--leaf-500);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset, 0 0 0 2px rgba(6, 145, 80, 0.18);
+}
+.tool-chip.fail .tool-chip-icon {
+  background: #D14A2A;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset, 0 0 0 2px rgba(209, 74, 42, 0.18);
+}
+
+.tool-chip-label {
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* Sync-hint mini-chip — secondary inline action under main chip.
+ * Phase 1.2.6 fix-5: column layout (reason сверху, кнопки снизу) — иначе
+ * в узком чат-панеле (~280-360px) текст переноcится по слову, кнопки
+ * налезают, нечитаемо. */
+.sync-hint-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 4px 0 0 12px;
+  background: linear-gradient(180deg, rgba(255, 247, 236, 0.92), rgba(255, 250, 241, 0.88));
+  border: 1px solid rgba(255, 144, 38, 0.22);
+  color: var(--ink-800);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.sync-hint-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.sync-hint-icon {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--mango-300), var(--mango-500));
+  color: white;
+  font-weight: 700;
+  font-size: 11px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.45) inset,
+    0 0 0 2px rgba(255, 144, 38, 0.16);
+}
+
+.sync-hint-reason {
+  flex: 1;
+  min-width: 0;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
+  line-height: 1.4;
+  color: var(--ink-700);
+}
+
+.sync-hint-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sync-hint-action {
+  flex: 1 1 auto;
+  border: 0;
+  cursor: pointer;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--mango-400), var(--mango-600));
+  color: white;
+  font: 600 12px/1 inherit;
+  white-space: nowrap;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.45) inset,
+    0 4px 10px -4px rgba(245, 118, 0, 0.4);
+  transition: transform 200ms var(--spring-soft), box-shadow 200ms var(--spring-fast),
+    filter 200ms;
+}
+.sync-hint-action:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 6px 14px -4px rgba(245, 118, 0, 0.5);
+}
+.sync-hint-action:active { transform: scale(0.97); }
+.sync-hint-action:disabled {
+  opacity: 0.55;
+  cursor: progress;
+  transform: none;
+  filter: grayscale(0.3);
+}
+
+.sync-hint-dismiss {
+  flex: 0 0 auto;
+  border: 1px solid rgba(26, 18, 7, 0.08);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--ink-500);
+  font-size: 14px;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 180ms, color 180ms, border-color 180ms;
+}
+.sync-hint-dismiss:hover {
+  background: rgba(26, 18, 7, 0.06);
+  color: var(--ink-700);
+  border-color: rgba(26, 18, 7, 0.14);
+}
+.sync-hint-dismiss:disabled { opacity: 0.5; cursor: progress; }
+
+.sync-hint-resolved {
+  margin-left: 12px;
+  padding: 5px 10px;
+  border-radius: 10px;
+  font: 500 11px/1.3 'Geist Mono', ui-monospace, monospace;
+  color: var(--ink-300);
+  background: rgba(26, 18, 7, 0.03);
+  border: 1px dashed rgba(26, 18, 7, 0.08);
+  width: fit-content;
+}
+.sync-hint-resolved.triggered { color: var(--leaf-500); border-color: rgba(6, 145, 80, 0.18); }
+
+/* Pending action card — confirm/cancel for destructive mutations */
+.pending-card {
+  margin-top: 10px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 250, 241, 0.92));
+  border: 1px solid rgba(26, 18, 7, 0.08);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 8px 22px -10px rgba(26, 18, 7, 0.18);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: card-in 320ms var(--spring-fast) both;
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.pending-card.destructive {
+  border-color: rgba(209, 74, 42, 0.45);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 8px 22px -10px rgba(26, 18, 7, 0.18),
+    0 0 24px -2px rgba(209, 74, 42, 0.18);
+}
+
+.pending-card-title {
+  font: 600 12.5px/1.3 inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-500);
+}
+
+.pending-card-subject {
+  font: 700 17px/1.2 'Manrope', system-ui, sans-serif;
+  color: var(--ink-900);
+  letter-spacing: -0.01em;
+}
+
+.pending-card-summary {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-700);
+}
+
+.pending-card-warning {
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: #B83A1F;
+  background: rgba(252, 232, 226, 0.85);
+  border: 1px solid rgba(209, 74, 42, 0.32);
+  padding: 7px 10px;
+  border-radius: 10px;
+  margin-top: 4px;
+}
+
+.pending-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pending-card-confirm,
+.pending-card-cancel {
+  flex: 1;
+  border: 0;
+  cursor: pointer;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font: 600 13px/1 inherit;
+  transition: transform 220ms var(--spring-soft), box-shadow 220ms var(--spring-fast), filter 200ms;
+}
+
+.pending-card-confirm {
+  color: white;
+  background: linear-gradient(180deg, var(--mango-400), var(--mango-600));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.06) inset,
+    0 6px 14px -4px rgba(245, 118, 0, 0.5);
+}
+.pending-card-confirm:hover { transform: translateY(-1px) scale(1.02); }
+.pending-card-confirm:active { transform: scale(0.97); }
+.pending-card-confirm:disabled { opacity: 0.55; cursor: progress; transform: none; }
+
+.pending-card-confirm.destructive {
+  background: linear-gradient(180deg, #E25738, #B83A1F);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.1) inset,
+    0 6px 14px -4px rgba(184, 58, 31, 0.5);
+}
+
+.pending-card-cancel {
+  color: var(--ink-700);
+  background: var(--paper);
+  border: 1px solid rgba(26, 18, 7, 0.1);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 1) inset;
+}
+.pending-card-cancel:hover { background: var(--cream); transform: translateY(-1px); }
+.pending-card-cancel:active { transform: scale(0.97); }
+.pending-card-cancel:disabled { opacity: 0.55; cursor: progress; transform: none; }
+
+/* Pending resolved strip (cancelled / executed states) */
+.pending-resolved {
+  margin-top: 10px;
+  padding: 7px 14px;
+  border-radius: 12px;
+  font: 500 11.5px/1.4 'Geist Mono', ui-monospace, monospace;
+  color: var(--ink-500);
+  background: rgba(26, 18, 7, 0.04);
+  border: 1px dashed rgba(26, 18, 7, 0.1);
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+.pending-resolved.executed { color: var(--leaf-500); border-color: rgba(6, 145, 80, 0.22); }
+.pending-resolved.cancelled { color: #B83A1F; border-color: rgba(184, 58, 31, 0.22); }
+
+/* Override .msg padding so chips/cards align nicely inside ai bubble */
+.msg.ai .msg-chips {
+  margin-top: 2px;
+}
+.msg.ai .msg-text {
+  margin-top: 4px;
+}
+.msg.user .tool-chip,
+.msg.user .pending-card {
+  /* user role shouldn't normally have these but defensive */
+  color: var(--ink-900);
+}
+
 @media (max-width: 900px) {
   .app {
     grid-template-columns: 1fr;

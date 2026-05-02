@@ -16,8 +16,14 @@ export function CharacterCard({ projectId, character, generating }: Props) {
       <Link href={`?char=${character.id}`} scroll={false} className="char-card-clickable">
         <div className="char-avatar">
           {character.dossier?.avatar ? (
+            // Phase 1.2.6 fix-6: key={generated_at} форсирует unmount/remount
+            // при regen — без этого <img src> обновляется через React reconciliation,
+            // но браузер показывает старую закешированную картинку до навигации
+            // (open/close модалки) которая делает full SSR.
             <DossierImage
+              key={character.dossier.generated_at}
               storage={character.dossier.avatar}
+              cacheBust={character.dossier.generated_at}
               bucket="character-dossiers"
               alt={character.name}
             />

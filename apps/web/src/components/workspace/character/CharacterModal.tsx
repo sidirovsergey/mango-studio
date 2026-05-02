@@ -27,7 +27,9 @@ export async function CharacterModal({ projectId, character, initialTab = 'main'
         {character.dossier ? (
           <div className="char-modal-hero">
             <DossierImage
+              key={character.dossier.generated_at}
               storage={character.dossier.storage}
+              cacheBust={character.dossier.generated_at}
               bucket="character-dossiers"
               alt={`${character.name} dossier`}
             />

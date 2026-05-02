@@ -28,7 +28,7 @@ export default async function ProjectPage({ params, searchParams }: Props) {
       .single(),
     supabase
       .from('chat_messages')
-      .select('id, project_id, role, content, created_at')
+      .select('id, project_id, role, content, created_at, tool_chips, pending_action')
       .eq('project_id', id)
       .order('created_at', { ascending: true }),
   ]);
