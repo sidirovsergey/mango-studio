@@ -9,7 +9,10 @@ export interface ModelParams {
 const DEFAULT_MODEL = 'x-ai/grok-4.1-fast';
 // Phase 1.2.6 — chat нуждается в более сильной tool-discipline чем Grok.
 // Sonnet 4.6 — баланс цена/качество для tool calling.
-const DEFAULT_CHAT_MODEL = 'anthropic/claude-sonnet-4-6';
+// ВАЖНО: ID в формате OpenRouter — `claude-sonnet-4.6` (с точкой).
+// Раньше было `claude-sonnet-4-6` (с дефисом) — генерация работала через
+// alias, но pricing API (calculateCost) не находил модель → cost_usd=0.
+const DEFAULT_CHAT_MODEL = 'anthropic/claude-sonnet-4.6';
 
 export const MODEL_PARAMS: Record<LLMTask, ModelParams> = {
   script: {
