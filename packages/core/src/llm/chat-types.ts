@@ -27,12 +27,26 @@ export interface SyncHint {
   status: SyncHintStatus;
 }
 
+export type RegenHintStatus = 'visible' | 'triggered' | 'dismissed';
+
+export interface RegenHint {
+  /** character_id для перегенерации досье */
+  character_id: string;
+  /** имя персонажа для UI */
+  character_name: string;
+  status: RegenHintStatus;
+}
+
 export interface ToolChip {
   kind: ToolChipKind;
   label: string;
   ok: boolean;
   error?: string;
   sync_hint?: SyncHint;
+  /** Phase 1.2.6 fix-3 — после refine_character confirmed предлагаем
+   * перерисовать досье (т.к. описание изменилось, картинка устарела).
+   * Триггерит generate_character_regen pending-action. */
+  regen_hint?: RegenHint;
 }
 
 export type PendingActionKind =

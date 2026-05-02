@@ -53,12 +53,17 @@ export async function triggerSyncHintAction(rawInput: unknown): Promise<Result> 
   const updatedChips = [...chips];
   updatedChips[input.chip_index] = updatedChip;
 
-  const { error: chipUpdateErr } = await sb
+  const { data: chipData, error: chipUpdateErr } = await sb
     .from('chat_messages')
     .update({ tool_chips: updatedChips as never })
-    .eq('id', row.id);
+    .eq('id', row.id)
+    .select('id');
   if (chipUpdateErr) {
     return { ok: false, error: `chip status update failed: ${chipUpdateErr.message}` };
+  }
+  // Phase 1.2.6 fix-3 — verify UPDATE прошёл (RLS UPDATE policy needed).
+  if (!chipData || chipData.length === 0) {
+    return { ok: false, error: 'chip status UPDATE affected 0 rows (RLS?)' };
   }
 
   if (input.decision === 'apply') {

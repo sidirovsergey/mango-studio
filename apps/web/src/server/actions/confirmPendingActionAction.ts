@@ -54,11 +54,17 @@ export async function confirmPendingActionAction(rawInput: unknown): Promise<Res
 
   if (input.decision === 'cancel') {
     const cancelled: PendingAction = { ...pa, status: 'cancelled', resolved_at: now };
-    const { error: cancelErr } = await sb
+    const { data: cancelData, error: cancelErr } = await sb
       .from('chat_messages')
       .update({ pending_action: cancelled as never })
-      .eq('id', row.id);
+      .eq('id', row.id)
+      .select('id');
     if (cancelErr) return { ok: false, error: `cancel update failed: ${cancelErr.message}` };
+    // Phase 1.2.6 fix-3: RLS может молча блокировать UPDATE → 0 rows. Без проверки
+    // .select() мы думали что cancel прошёл, а статус оставался pending.
+    if (!cancelData || cancelData.length === 0) {
+      return { ok: false, error: 'cancel update affected 0 rows (RLS?)' };
+    }
     revalidatePath(`/projects/${project_id}`);
     return { ok: true };
   }
@@ -79,11 +85,21 @@ export async function confirmPendingActionAction(rawInput: unknown): Promise<Res
       const name = character?.name ?? 'персонажа';
       if (r.ok) {
         const sync_hint = character ? detectSyncHint(character, scenes, 'refine') : undefined;
+        // Phase 1.2.6 fix-3 — если у персонажа было досье, его описание изменилось
+        // → картинка устарела → предлагаем перерисовать через regen_hint.
+        const regen_hint = character?.dossier
+          ? {
+              character_id: characterId,
+              character_name: name,
+              status: 'visible' as const,
+            }
+          : undefined;
         chip = {
           kind: 'refine_character',
           label: `Обновил «${name}»`,
           ok: true,
           ...(sync_hint ? { sync_hint } : {}),
+          ...(regen_hint ? { regen_hint } : {}),
         };
       } else {
         chip = {
@@ -147,12 +163,23 @@ export async function confirmPendingActionAction(rawInput: unknown): Promise<Res
 
   // Mark original row as executed
   const executed: PendingAction = { ...pa, status: 'executed', resolved_at: now };
-  const { error: execUpdateErr } = await sb
+  const { data: execData, error: execUpdateErr } = await sb
     .from('chat_messages')
     .update({ pending_action: executed as never })
-    .eq('id', row.id);
+    .eq('id', row.id)
+    .select('id');
   if (execUpdateErr) {
     return { ok: false, error: `execute update failed: ${execUpdateErr.message}` };
+  }
+  // Phase 1.2.6 fix-3: RLS UPDATE молча no-op'ит → status остаётся pending →
+  // пользователь может кликать «Подтвердить» снова и снова, каждый раз
+  // re-applying мутацию. Если 0 rows — фейлим явно.
+  if (!execData || execData.length === 0) {
+    return {
+      ok: false,
+      error:
+        'execute UPDATE affected 0 rows (RLS UPDATE policy missing on chat_messages?). Мутация прошла, но pending status остался.',
+    };
   }
 
   // Insert result row with the chip

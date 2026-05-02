@@ -1,5 +1,6 @@
 'use client';
 
+import { triggerRegenHintAction } from '@/server/actions/triggerRegenHintAction';
 import { triggerSyncHintAction } from '@/server/actions/triggerSyncHintAction';
 import type { ToolChip } from '@mango/core';
 import { useRouter } from 'next/navigation';
@@ -12,8 +13,9 @@ interface Props {
 }
 
 /**
- * Phase 1.2.6 — рендерит один tool chip + опционально под ним sync-hint mini-chip.
- * Layout вертикальный: основной chip → (опционально) ℹ-bar с кнопкой «Обновить сценарий».
+ * Phase 1.2.6 — рендерит один tool chip + опционально mini-chip'ы:
+ *   1. sync-hint — «обновить сценарий» (refine/archive/unarchive персонажа)
+ *   2. regen-hint — «перерисовать досье» (после refine_character если есть dossier)
  */
 export function ToolChipView({ chip, chatMessageId, chipIndex }: Props) {
   return (
@@ -26,6 +28,9 @@ export function ToolChipView({ chip, chatMessageId, chipIndex }: Props) {
       </div>
       {chip.sync_hint && (
         <SyncHintRow chip={chip} chatMessageId={chatMessageId} chipIndex={chipIndex} />
+      )}
+      {chip.regen_hint && (
+        <RegenHintRow chip={chip} chatMessageId={chatMessageId} chipIndex={chipIndex} />
       )}
     </div>
   );
@@ -67,6 +72,58 @@ function SyncHintRow({ chip, chatMessageId, chipIndex }: Props) {
         onClick={() => handle('apply')}
       >
         Обновить сценарий
+      </button>
+      <button
+        type="button"
+        className="sync-hint-dismiss"
+        disabled={submitting}
+        onClick={() => handle('dismiss')}
+        aria-label="Скрыть подсказку"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
+function RegenHintRow({ chip, chatMessageId, chipIndex }: Props) {
+  const [submitting, startTransition] = useTransition();
+  const router = useRouter();
+  const hint = chip.regen_hint;
+  if (!hint) return null;
+
+  const handle = (decision: 'apply' | 'dismiss') => {
+    startTransition(async () => {
+      await triggerRegenHintAction({
+        chat_message_id: chatMessageId,
+        chip_index: chipIndex,
+        decision,
+      });
+      router.refresh();
+    });
+  };
+
+  if (hint.status === 'triggered') {
+    return <div className="sync-hint-resolved triggered">Запрос на перерисовку отправлен…</div>;
+  }
+  if (hint.status === 'dismissed') {
+    return <div className="sync-hint-resolved dismissed">Подсказка скрыта</div>;
+  }
+  return (
+    <div className="sync-hint-chip">
+      <span className="sync-hint-icon" aria-hidden="true">
+        ✎
+      </span>
+      <span className="sync-hint-reason">
+        Описание «{hint.character_name}» изменилось — досье устарело
+      </span>
+      <button
+        type="button"
+        className="sync-hint-action"
+        disabled={submitting}
+        onClick={() => handle('apply')}
+      >
+        Перерисовать досье
       </button>
       <button
         type="button"

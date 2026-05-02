@@ -75,6 +75,8 @@ export type {
   ToolChipKind,
   SyncHint,
   SyncHintStatus,
+  RegenHint,
+  RegenHintStatus,
   PendingAction,
   PendingActionKind,
   PendingActionStatus,
