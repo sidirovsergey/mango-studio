@@ -58,3 +58,5 @@ export {
   clampDurationToModel,
 } from './video-models';
 export type { VideoModelMeta } from './video-models';
+
+export { buildFirstFramePrompt, buildVideoPrompt, buildVoicePrompt } from './video-prompts';
