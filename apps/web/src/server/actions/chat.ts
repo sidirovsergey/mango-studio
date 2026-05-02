@@ -136,7 +136,14 @@ export async function sendChatMessageAction(
     if (finalChips.length > 0) insertPayload.tool_chips = finalChips;
     if (extracted.pending) insertPayload.pending_action = extracted.pending;
 
-    await supabase.from('chat_messages').insert(insertPayload as never);
+    const { error: insertAssistantErr } = await supabase
+      .from('chat_messages')
+      .insert(insertPayload as never);
+    if (insertAssistantErr) {
+      // Fail loud вместо silent drop — без этого на проде юзер видел только optimistic
+      // state, а после refresh assistant сообщение исчезало (dataloss).
+      throw new Error(`sendChat assistant-msg: ${insertAssistantErr.message}`);
+    }
 
     const total = result.totalUsage;
     const promptTokens = total?.inputTokens ?? 0;

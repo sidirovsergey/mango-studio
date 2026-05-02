@@ -54,10 +54,11 @@ export async function confirmPendingActionAction(rawInput: unknown): Promise<Res
 
   if (input.decision === 'cancel') {
     const cancelled: PendingAction = { ...pa, status: 'cancelled', resolved_at: now };
-    await sb
+    const { error: cancelErr } = await sb
       .from('chat_messages')
       .update({ pending_action: cancelled as never })
       .eq('id', row.id);
+    if (cancelErr) return { ok: false, error: `cancel update failed: ${cancelErr.message}` };
     revalidatePath(`/projects/${project_id}`);
     return { ok: true };
   }
@@ -146,10 +147,13 @@ export async function confirmPendingActionAction(rawInput: unknown): Promise<Res
 
   // Mark original row as executed
   const executed: PendingAction = { ...pa, status: 'executed', resolved_at: now };
-  await sb
+  const { error: execUpdateErr } = await sb
     .from('chat_messages')
     .update({ pending_action: executed as never })
     .eq('id', row.id);
+  if (execUpdateErr) {
+    return { ok: false, error: `execute update failed: ${execUpdateErr.message}` };
+  }
 
   // Insert result row with the chip
   const { error: insertErr } = await sb.from('chat_messages').insert({
@@ -159,8 +163,12 @@ export async function confirmPendingActionAction(rawInput: unknown): Promise<Res
     tool_chips: [chip] as never,
   });
   if (insertErr) {
-    // Lifecycle уже executed; chip-вставка failed. Не блокируем — лог, юзер увидит мутацию через revalidate.
-    console.error('[confirmPendingActionAction] failed to insert chip row:', insertErr);
+    // Lifecycle уже executed (мутация прошла) — но юзер не увидит chip.
+    // Возвращаем error чтобы клиент знал что что-то не так, но мутация всё равно применилась.
+    return {
+      ok: false,
+      error: `chip insert failed: ${insertErr.message} (мутация применена, но chip не сохранён)`,
+    };
   }
 
   revalidatePath(`/projects/${project_id}`);

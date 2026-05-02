@@ -207,7 +207,7 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
 
     add_character: tool({
       description:
-        'Добавить нового персонажа в проект. Используй когда пользователь говорит «добавь героя X», «введи персонажа Y». Создаёт карточку с структурированным описанием (description, appearance, personality), но БЕЗ картинки. Чтобы нарисовать — отдельный generate_character.',
+        'Добавить НОВОГО персонажа в проект. Используй когда пользователь говорит «добавь героя X», «введи персонажа Y» И ТАКОГО ПЕРСОНАЖА ЕЩЁ НЕТ в проекте. Если персонаж с таким именем уже существует (активный или архивный) — НЕ вызывай add_character: либо unarchive_character (если он в архиве), либо refine_character (если в активных и нужно изменить), либо ответь текстом что он уже есть.',
       inputSchema: z.object({
         name: z.string().min(1).max(80).describe('Имя персонажа, как его назвал пользователь'),
         instruction: z
@@ -219,6 +219,41 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
           ),
       }),
       execute: async ({ name, instruction }) => {
+        // Phase 1.2.6 — duplicate guard. Без этого Director может насоздавать
+        // дубликатов одного и того же персонажа в archived (как было на staging
+        // — 3 «Синих кота» с разными id из-за silent INSERT failure cycle).
+        try {
+          const sb = await getServerSupabase();
+          const { data: project } = await sb
+            .from('projects')
+            .select('script')
+            .eq('id', project_id)
+            .single();
+          const script = (project?.script ?? {}) as { characters?: Character[] };
+          const trimmed = name.trim().toLowerCase();
+          const existing = (script.characters ?? []).filter(
+            (c) => c.name.trim().toLowerCase() === trimmed,
+          );
+          const existingActive = existing.find((c) => !c.archived);
+          if (existingActive) {
+            return {
+              ok: false,
+              error: `Персонаж «${existingActive.name}» уже есть в активных. Используй refine_character для изменения, не add_character.`,
+            };
+          }
+          if (existing.length > 0) {
+            // Все нашлись в archived → suggest unarchive
+            const archIds = existing.map((c) => c.id).join(', ');
+            return {
+              ok: false,
+              error: `Персонаж «${name}» уже есть в архивных (id: ${archIds}). Используй unarchive_character для возврата.`,
+            };
+          }
+        } catch (err) {
+          // Если guard упал — пускаем прежний flow (лучше дубликат чем заблокировать)
+          console.warn('[add_character] duplicate guard failed:', err);
+        }
+
         try {
           const result = await createCharacterAction({ project_id, name, instruction });
           if (!result.ok) return { ok: false, error: result.error };

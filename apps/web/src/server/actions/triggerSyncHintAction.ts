@@ -53,10 +53,13 @@ export async function triggerSyncHintAction(rawInput: unknown): Promise<Result> 
   const updatedChips = [...chips];
   updatedChips[input.chip_index] = updatedChip;
 
-  await sb
+  const { error: chipUpdateErr } = await sb
     .from('chat_messages')
     .update({ tool_chips: updatedChips as never })
     .eq('id', row.id);
+  if (chipUpdateErr) {
+    return { ok: false, error: `chip status update failed: ${chipUpdateErr.message}` };
+  }
 
   if (input.decision === 'apply') {
     let resultChip: ToolChip;
@@ -86,7 +89,10 @@ export async function triggerSyncHintAction(rawInput: unknown): Promise<Result> 
       tool_chips: [resultChip] as never,
     });
     if (insertErr) {
-      console.error('[triggerSyncHintAction] failed to insert chip row:', insertErr);
+      return {
+        ok: false,
+        error: `chip insert failed: ${insertErr.message} (refine_script мог отработать)`,
+      };
     }
   }
 
