@@ -1,5 +1,14 @@
 import 'server-only';
+import type {
+  MasterClip,
+  SceneAsset,
+  SceneVideoAsset,
+  ScriptGenOutput,
+  VoiceAsset,
+} from '@mango/core';
 import { getServiceRoleSupabase } from '@mango/db/server';
+
+type Script = ScriptGenOutput;
 
 export type MediaJobKind =
   | 'character_dossier'
@@ -63,4 +72,66 @@ export async function recordPendingJob(params: {
   }
 
   return { job_id: data.id, existing: false };
+}
+
+interface AssetApplication {
+  scene_id: string;
+  kind: 'first_frame' | 'last_frame' | 'video' | 'voice_audio' | 'final_clip';
+  asset: SceneAsset | SceneVideoAsset | VoiceAsset;
+}
+
+/**
+ * Returns a copy of `script` with the given asset applied to scene[scene_id].
+ * Throws when scene_id is not found.
+ */
+export function applyAssetToScript(script: Script, app: AssetApplication): Script {
+  const idx = script.scenes.findIndex((s) => s.scene_id === app.scene_id);
+  if (idx === -1) throw new Error(`scene not found: ${app.scene_id}`);
+  const scene = script.scenes[idx]!;
+  const updatedScene = { ...scene, [app.kind]: app.asset };
+  const scenes = [...script.scenes];
+  scenes[idx] = updatedScene as (typeof scenes)[number];
+  return { ...script, scenes };
+}
+
+/** Returns a copy of `script` with the given master_clip set on the root. */
+export function applyMasterClipToScript(script: Script, master: MasterClip): Script {
+  return { ...script, master_clip: master };
+}
+
+/**
+ * When scene[video_scene_id]'s video changes, scene[next].first_frame becomes
+ * stale (continuity ref now points to an out-of-date last_frame). Marks the
+ * stale flag silently — does NOT auto-regenerate.
+ */
+export function cascadeFirstFrameStale(script: Script, video_scene_id: string): Script {
+  const idx = script.scenes.findIndex((s) => s.scene_id === video_scene_id);
+  if (idx === -1 || idx >= script.scenes.length - 1) return script;
+  const next = script.scenes[idx + 1]!;
+  if (!next.first_frame) return script;
+  const scenes = [...script.scenes];
+  scenes[idx + 1] = {
+    ...next,
+    first_frame: { ...next.first_frame, stale: true },
+  };
+  return { ...script, scenes };
+}
+
+/**
+ * True when master_clip exists but its scene_ids_snapshot drifted from current
+ * scenes, OR any scene's final_clip was regenerated after the master clip.
+ */
+export function isMasterClipStale(script: Script): boolean {
+  if (!script.master_clip) return false;
+  const current = script.scenes
+    .map((s) => s.scene_id)
+    .sort()
+    .join(',');
+  const snap = [...script.master_clip.scene_ids_snapshot].sort().join(',');
+  if (current !== snap) return true;
+  const masterTs = new Date(script.master_clip.generated_at).getTime();
+  return script.scenes.some((s) => {
+    if (!s.final_clip) return false;
+    return new Date(s.final_clip.generated_at).getTime() > masterTs;
+  });
 }
