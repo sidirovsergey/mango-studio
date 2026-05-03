@@ -10,7 +10,15 @@ import {
   recordPendingJob,
 } from '@/server/lib/scene-helpers';
 import { getStorageProvider } from '@/server/lib/storage-provider-factory';
-import { type InflightJob, type ScriptGenOutput, type StoredAsset, runPollTick } from '@mango/core';
+import {
+  type Character,
+  type Dossier,
+  type InflightJob,
+  type ReferenceImage,
+  type ScriptGenOutput,
+  type StoredAsset,
+  runPollTick,
+} from '@mango/core';
 import { getVideoModelMeta } from '@mango/core/media';
 import { getServerSupabase } from '@mango/db/server';
 
@@ -140,13 +148,51 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
               },
             });
           }
-        } else if (
-          job.character_id &&
-          (job.kind === 'character_dossier' || job.kind === 'character_reference')
-        ) {
-          // TODO(Phase 1.3.D): re-add character writeback after dedicated avatar
-          // kind lands. For now, just mark the job completed without script update.
-          // Document as "character writeback re-added after dedicated avatar kind lands".
+        } else if (job.character_id) {
+          const characters = ((nextScript as unknown as { characters?: Character[] })
+            .characters ?? []) as Character[];
+          const idx = characters.findIndex((c) => c.id === job.character_id);
+          if (idx >= 0) {
+            const character = characters[idx]!;
+            const updated: Character = { ...character };
+            if (job.kind === 'character_dossier') {
+              const format = (requestInput.aspect_ratio === '1:1' ? '1:1' : '16:9') as
+                | '16:9'
+                | '1:1';
+              const quality = (typeof requestInput.quality === 'string'
+                ? requestInput.quality
+                : '1080p') as '720p' | '1080p' | '2k';
+              const dossier: Dossier = {
+                storage: stored,
+                model: job.model,
+                format: format === '1:1' ? '16:9' : format,
+                quality,
+                generated_at,
+              };
+              if (format === '1:1') {
+                updated.dossier = character.dossier
+                  ? { ...character.dossier, avatar: stored }
+                  : { ...dossier, avatar: stored };
+              } else {
+                updated.dossier = character.dossier
+                  ? { ...dossier, avatar: character.dossier.avatar }
+                  : dossier;
+              }
+            } else if (job.kind === 'character_reference') {
+              const newRef: ReferenceImage = {
+                storage: stored,
+                source: 'ai_generated',
+                uploaded_at: generated_at,
+              };
+              updated.reference_images = [...(character.reference_images ?? []), newRef];
+            }
+            const newCharacters = [...characters];
+            newCharacters[idx] = updated;
+            nextScript = {
+              ...nextScript,
+              characters: newCharacters as unknown as ScriptGenOutput['characters'],
+            };
+          }
         }
 
         await sb
