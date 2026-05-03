@@ -72,6 +72,43 @@ interface ModelSelectorProps {
   tier: 'economy' | 'premium';
 }
 
+/**
+ * Human-readable model labels. Slug → "Vendor — Model · audio/silent".
+ * Without this users see a bare "image-to-video" string and have no idea
+ * which provider/quality tier they're picking.
+ */
+const MODEL_LABELS: Record<string, { name: string; tag: string }> = {
+  'fal-ai/bytedance/seedance/v1/lite/image-to-video': {
+    name: 'ByteDance Seedance 1.0 Lite',
+    tag: '🔇 silent · быстро',
+  },
+  'fal-ai/kling-video/v2.5-turbo/standard/image-to-video': {
+    name: 'Kuaishou Kling 2.5 Turbo Standard',
+    tag: '🔇 silent · средне',
+  },
+  'fal-ai/ltx-video': {
+    name: 'Lightricks LTX Video',
+    tag: '🔇 silent · превью',
+  },
+  'bytedance/seedance-2.0/image-to-video': {
+    name: 'ByteDance Seedance 2.0 Pro',
+    tag: '🎵 native audio · топ',
+  },
+  'fal-ai/veo3.1/image-to-video': {
+    name: 'Google Veo 3.1',
+    tag: '🎵 native audio · 8с фикс',
+  },
+  'fal-ai/kling-video/v2.5-turbo/pro/image-to-video': {
+    name: 'Kuaishou Kling 2.5 Turbo Pro',
+    tag: '🔇 silent · качество',
+  },
+};
+
+function modelDisplayName(slug: string | undefined): string {
+  if (!slug) return 'авто';
+  return MODEL_LABELS[slug]?.name ?? (slug.split('/').at(-1) ?? slug);
+}
+
 function ModelSelector({ projectId, sceneId, currentModel, tier }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -90,8 +127,6 @@ function ModelSelector({ projectId, sceneId, currentModel, tier }: ModelSelector
     });
   };
 
-  const displayModel = currentModel ? (currentModel.split('/').at(-1) ?? currentModel) : 'авто';
-
   return (
     <div className="model-selector">
       <button
@@ -99,23 +134,31 @@ function ModelSelector({ projectId, sceneId, currentModel, tier }: ModelSelector
         className="model-btn"
         onClick={() => setOpen((v) => !v)}
         disabled={isPending}
-        title="Выбрать модель"
+        title="Выбрать модель видео-генерации"
       >
-        {displayModel} ▾
+        {modelDisplayName(currentModel)} ▾
       </button>
       {error && <span className="ctrl-error"> !</span>}
       {open && (
         <div className="model-popover">
-          {models.map((m) => (
-            <button
-              key={m}
-              type="button"
-              className={`model-option ${m === currentModel ? 'active' : ''}`}
-              onClick={() => handleSelect(m)}
-            >
-              {m.split('/').at(-1) ?? m}
-            </button>
-          ))}
+          {models.map((m) => {
+            const label = MODEL_LABELS[m];
+            return (
+              <button
+                key={m}
+                type="button"
+                className={`model-option ${m === currentModel ? 'active' : ''}`}
+                onClick={() => handleSelect(m)}
+              >
+                <strong>{label?.name ?? m}</strong>
+                {label?.tag && (
+                  <span style={{ display: 'block', fontSize: 11, opacity: 0.7 }}>
+                    {label.tag}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -401,31 +444,31 @@ export function SceneCard({
         </div>
       )}
 
-      {/* Regen row: T / I / V */}
+      {/* Regen row: text / first-frame / video */}
       <div className="scene-regen-row">
         <button
           type="button"
           onClick={onRegenText}
           disabled={isPending}
-          title="Регенерировать текст"
+          title="Перегенерировать описание сцены и реплику"
         >
-          T
+          ✏️ Текст
         </button>
         <button
           type="button"
           onClick={onGenerateFirstFrame}
           disabled={isPending}
-          title="Регенерировать первый кадр"
+          title="Перегенерировать первый кадр сцены"
         >
-          I
+          🖼️ Кадр
         </button>
         <button
           type="button"
           onClick={onGenerateVideo}
           disabled={isPending || !scene.first_frame}
-          title={!scene.first_frame ? 'Сначала нужен первый кадр' : 'Регенерировать видео'}
+          title={!scene.first_frame ? 'Сначала нужен первый кадр' : 'Перегенерировать видео сцены'}
         >
-          V
+          🎬 Видео
         </button>
       </div>
 

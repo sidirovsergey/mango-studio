@@ -9,7 +9,7 @@ interface CharacterForPrompt {
   name: string;
   description: string;
   full_prompt?: string;
-  dossier: { storage: StoredAsset } | null;
+  dossier: { storage: StoredAsset; avatar?: StoredAsset } | null;
   voice?: { tts_voice_id?: string; description?: string };
 }
 
@@ -35,7 +35,11 @@ export function buildFirstFramePrompt(input: FirstFramePromptInput): {
 
   for (const char of characters_in_scene) {
     if (refs.length >= REF_LIMIT) break;
-    if (char.dossier?.storage) refs.push(char.dossier.storage);
+    // Prefer 1:1 avatar portrait over the 16:9 character sheet — passing the
+    // model-sheet caused nano-banana to copy its multi-panel layout into the
+    // scene frame (3 horizontal copies of the character instead of one shot).
+    const ref = char.dossier?.avatar ?? char.dossier?.storage;
+    if (ref) refs.push(ref);
   }
 
   const charNames = characters_in_scene.map((c) => c.name).join(', ');
@@ -48,10 +52,10 @@ export function buildFirstFramePrompt(input: FirstFramePromptInput): {
 
   const promptParts = [
     `Style: ${project_style}.`,
-    'Aspect ratio 9:16 vertical, full scene composition for short-form video (TikTok/Reels).',
+    'CRITICAL: render ONE SINGLE cinematic frame in 9:16 vertical aspect ratio (TikTok/Reels). DO NOT produce a model-sheet, multi-panel collage, character sheet, side-by-side layout, or any kind of split composition. The output is a single still from a movie — one camera angle, one moment in time, full bleed.',
     multiCharRule,
     scene.composition_hint ?? '',
-    scene.description,
+    `Scene action: ${scene.description}`,
   ].filter(Boolean);
 
   return {
