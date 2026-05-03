@@ -35,27 +35,34 @@ export function buildFirstFramePrompt(input: FirstFramePromptInput): {
 
   for (const char of characters_in_scene) {
     if (refs.length >= REF_LIMIT) break;
-    // Prefer 1:1 avatar portrait over the 16:9 character sheet — passing the
-    // model-sheet caused nano-banana to copy its multi-panel layout into the
-    // scene frame (3 horizontal copies of the character instead of one shot).
-    const ref = char.dossier?.avatar ?? char.dossier?.storage;
-    if (ref) refs.push(ref);
+    // The 16:9 dossier sheet is the character library: multiple poses/expressions
+    // for design consistency in the new scene. We keep it as the primary ref so
+    // poses, mimicry, and gestures stay on-model. Strong prompt steering below
+    // tells the model this is a *reference for the character*, NOT a layout
+    // template to copy.
+    if (char.dossier?.storage) refs.push(char.dossier.storage);
   }
 
   const charNames = characters_in_scene.map((c) => c.name).join(', ');
   const multiCharRule =
     characters_in_scene.length > 1
-      ? `Characters in scene: ${charNames}. They are interacting in the same shot, consistent designs.`
+      ? `Characters in scene: ${charNames}. They appear together in the same shot, interacting naturally, consistent designs.`
       : characters_in_scene.length === 1
-        ? `Character: ${charNames}.`
+        ? `Character in shot: ${charNames}.`
         : '';
+
+  const refsExplanation =
+    refs.length > 0
+      ? 'IMPORTANT — Reference images: the attached image(s) are CHARACTER DESIGN SHEETS. Use them ONLY as a reference library for the character\'s appearance, anatomy, costume, color palette, and recognisable design language. DO NOT replicate the layout, multi-panel composition, side-by-side poses, captions, or background of the reference. The character must be redrawn from scratch in a NEW scene with a NEW pose, NEW camera angle, and NEW environment described below.'
+      : '';
 
   const promptParts = [
     `Style: ${project_style}.`,
-    'CRITICAL: render ONE SINGLE cinematic frame in 9:16 vertical aspect ratio (TikTok/Reels). DO NOT produce a model-sheet, multi-panel collage, character sheet, side-by-side layout, or any kind of split composition. The output is a single still from a movie — one camera angle, one moment in time, full bleed.',
+    'OUTPUT FORMAT — ONE SINGLE cinematic frame in 9:16 vertical aspect ratio (TikTok/Reels portrait). The output is a single still from a movie or animated short — one camera angle, one moment in time, full bleed, no borders, no splits, no panels.',
+    refsExplanation,
     multiCharRule,
     scene.composition_hint ?? '',
-    `Scene action: ${scene.description}`,
+    `Scene to render: ${scene.description}`,
   ].filter(Boolean);
 
   return {
