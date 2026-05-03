@@ -8,6 +8,7 @@ import {
   type Character,
   MediaProviderError,
   type Tier,
+  buildAvatarPrompt,
   buildDossierPrompt,
   getDefaultModel,
   isModelInTier,
@@ -73,31 +74,65 @@ export async function generateCharacterDossierAction(
 
   try {
     const provider = getMediaProvider();
-    const handle = await provider.submitCharacterDossier(
+
+    const avatarPrompt = buildAvatarPrompt(
       {
-        prompt,
-        model,
-        format: '16:9',
-        quality,
-        image_refs: character.reference_images.map((r) => r.storage),
+        name: character.name,
+        description: character.description,
+        appearance: character.appearance,
+        personality: character.personality,
       },
-      ctx,
+      style,
     );
 
-    // NOTE(Phase 1.3): avatar gen dropped during async migration (Task 12). Will be
-    // re-added in 1.3.D once poll-orchestrator + a dedicated avatar kind land.
+    // Two parallel jobs: 16:9 model-sheet (main dossier) + 1:1 portrait (avatar
+    // for character card thumbnail). Distinct kinds → both fit under the unique
+    // partial index media_jobs_character_active.
+    const [mainHandle, avatarHandle] = await Promise.all([
+      provider.submitCharacterDossier(
+        {
+          prompt,
+          model,
+          format: '16:9',
+          quality,
+          image_refs: character.reference_images.map((r) => r.storage),
+        },
+        ctx,
+      ),
+      provider.submitCharacterDossier(
+        {
+          prompt: avatarPrompt,
+          model,
+          format: '1:1',
+          quality,
+          image_refs: [],
+        },
+        ctx,
+      ),
+    ]);
 
-    const { job_id } = await recordPendingJob({
-      user_id: user.id,
-      project_id: input.project_id,
-      character_id: character.id,
-      kind: 'character_dossier',
-      model: handle.model_used,
-      fal_request_id: handle.fal_request_id,
-      request_input: handle.request_input,
-    });
+    const [mainJob, avatarJob] = await Promise.all([
+      recordPendingJob({
+        user_id: user.id,
+        project_id: input.project_id,
+        character_id: character.id,
+        kind: 'character_dossier',
+        model: mainHandle.model_used,
+        fal_request_id: mainHandle.fal_request_id,
+        request_input: mainHandle.request_input,
+      }),
+      recordPendingJob({
+        user_id: user.id,
+        project_id: input.project_id,
+        character_id: character.id,
+        kind: 'character_avatar',
+        model: avatarHandle.model_used,
+        fal_request_id: avatarHandle.fal_request_id,
+        request_input: avatarHandle.request_input,
+      }),
+    ]);
 
-    // Save full_prompt to character now; dossier storage lands in poll-orchestrator (Task 13).
+    // Save full_prompt to character now; dossier+avatar storage land in poll-orchestrator.
     const updated: Character = { ...character, full_prompt: prompt };
     const newCharacters = [...characters];
     newCharacters[idx] = updated;
@@ -113,7 +148,9 @@ export async function generateCharacterDossierAction(
     if (updateErr) return { ok: false, error: 'update failed' };
 
     revalidatePath(`/projects/${input.project_id}`);
-    return { ok: true, job_id };
+    // Return the main job_id; avatar runs in parallel, polling will pick it up.
+    void avatarJob;
+    return { ok: true, job_id: mainJob.job_id };
   } catch (e) {
     if (e instanceof MediaProviderError) {
       return { ok: false, error: friendlyMediaError(e.code, e.message), error_code: e.code };
