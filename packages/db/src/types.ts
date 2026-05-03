@@ -99,52 +99,64 @@ export type Database = {
           },
         ];
       };
-      media_calls: {
+      media_jobs: {
         Row: {
           character_id: string | null;
           cost_usd: number | null;
-          created_at: string;
+          created_at: string | null;
           error_code: string | null;
-          fal_request_id: string | null;
+          fal_request_id: string;
           id: string;
+          kind: string;
           latency_ms: number | null;
-          method: string;
           model: string;
-          project_id: string | null;
+          project_id: string;
+          request_input: Json | null;
+          result_storage: Json | null;
+          scene_id: string | null;
           status: string;
+          updated_at: string | null;
           user_id: string;
         };
         Insert: {
           character_id?: string | null;
           cost_usd?: number | null;
-          created_at?: string;
+          created_at?: string | null;
           error_code?: string | null;
-          fal_request_id?: string | null;
+          fal_request_id: string;
           id?: string;
+          kind: string;
           latency_ms?: number | null;
-          method: string;
           model: string;
-          project_id?: string | null;
+          project_id: string;
+          request_input?: Json | null;
+          result_storage?: Json | null;
+          scene_id?: string | null;
           status: string;
+          updated_at?: string | null;
           user_id: string;
         };
         Update: {
           character_id?: string | null;
           cost_usd?: number | null;
-          created_at?: string;
+          created_at?: string | null;
           error_code?: string | null;
-          fal_request_id?: string | null;
+          fal_request_id?: string;
           id?: string;
+          kind?: string;
           latency_ms?: number | null;
-          method?: string;
           model?: string;
-          project_id?: string | null;
+          project_id?: string;
+          request_input?: Json | null;
+          result_storage?: Json | null;
+          scene_id?: string | null;
           status?: string;
+          updated_at?: string | null;
           user_id?: string;
         };
         Relationships: [
           {
-            foreignKeyName: 'media_calls_project_id_fkey';
+            foreignKeyName: 'media_jobs_project_id_fkey';
             columns: ['project_id'];
             isOneToOne: false;
             referencedRelation: 'projects';

@@ -17,7 +17,14 @@ export type ToolChipKind =
   | 'generate_character'
   // Phase 1.2.6 new
   | 'archive_character'
-  | 'delete_character';
+  | 'delete_character'
+  // Phase 1.3 scene tools
+  | 'regen_scene_video'
+  | 'refine_scene_description'
+  | 'set_scene_duration'
+  | 'set_scene_model'
+  | 'generate_first_frame'
+  | 'generate_master_clip';
 
 export type SyncHintStatus = 'visible' | 'triggered' | 'dismissed';
 
@@ -52,7 +59,11 @@ export interface ToolChip {
 export type PendingActionKind =
   | 'refine_character'
   | 'generate_character_regen'
-  | 'delete_character';
+  | 'delete_character'
+  // Phase 1.3 scene tools
+  | 'regen_scene_video'
+  | 'set_scene_model'
+  | 'generate_master_clip';
 
 export type PendingActionStatus = 'pending' | 'executed' | 'cancelled';
 

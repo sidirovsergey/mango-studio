@@ -1,14 +1,12 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/get-user';
-import { logMediaCall } from '@/server/lib/log-media-call';
 import { friendlyMediaError } from '@/server/lib/media-error-message';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { getStorageProvider } from '@/server/lib/storage-provider-factory';
+import { recordPendingJob } from '@/server/lib/scene-helpers';
 import {
   type Character,
   MediaProviderError,
-  type StoredAsset,
   type Tier,
   buildAvatarPrompt,
   buildDossierPrompt,
@@ -28,7 +26,7 @@ const InputSchema = z.object({
 
 export async function generateCharacterDossierAction(
   rawInput: unknown,
-): Promise<{ ok: true } | { ok: false; error: string; error_code?: string }> {
+): Promise<{ ok: true; job_id: string } | { ok: false; error: string; error_code?: string }> {
   const input = InputSchema.parse(rawInput);
   const user = await getCurrentUser();
   const sb = await getServerSupabase();
@@ -76,45 +74,32 @@ export async function generateCharacterDossierAction(
 
   try {
     const provider = getMediaProvider();
-    const result = await provider.generateCharacterDossier(
+
+    const avatarPrompt = buildAvatarPrompt(
       {
-        prompt,
-        model,
-        format: '16:9',
-        quality,
-        image_refs: character.reference_images.map((r) => r.storage),
+        name: character.name,
+        description: character.description,
+        appearance: character.appearance,
+        personality: character.personality,
       },
-      ctx,
+      style,
     );
 
-    await logMediaCall({
-      user_id: user.id,
-      project_id: input.project_id,
-      model: result.model_used,
-      method: 'generateCharacterDossier',
-      character_id: character.id,
-      cost_usd: result.cost_usd,
-      latency_ms: result.latency_ms,
-      fal_request_id: result.fal_request_id,
-      status: 'ok',
-    });
-
-    const storage = getStorageProvider();
-    const stored = await storage.persist(result.fal_url, ctx);
-
-    // --- Avatar (1:1 portrait) — non-fatal enhancement ---
-    let avatarStored: StoredAsset | undefined;
-    try {
-      const avatarPrompt = buildAvatarPrompt(
+    // Two parallel jobs: 16:9 model-sheet (main dossier) + 1:1 portrait (avatar
+    // for character card thumbnail). Distinct kinds → both fit under the unique
+    // partial index media_jobs_character_active.
+    const [mainHandle, avatarHandle] = await Promise.all([
+      provider.submitCharacterDossier(
         {
-          name: character.name,
-          description: character.description,
-          appearance: character.appearance,
-          personality: character.personality,
+          prompt,
+          model,
+          format: '16:9',
+          quality,
+          image_refs: character.reference_images.map((r) => r.storage),
         },
-        style,
-      );
-      const avatarResult = await provider.generateCharacterDossier(
+        ctx,
+      ),
+      provider.submitCharacterDossier(
         {
           prompt: avatarPrompt,
           model,
@@ -123,36 +108,32 @@ export async function generateCharacterDossierAction(
           image_refs: [],
         },
         ctx,
-      );
-      await logMediaCall({
+      ),
+    ]);
+
+    const [mainJob, avatarJob] = await Promise.all([
+      recordPendingJob({
         user_id: user.id,
         project_id: input.project_id,
-        model: avatarResult.model_used,
-        method: 'generateCharacterDossier',
         character_id: character.id,
-        cost_usd: avatarResult.cost_usd,
-        latency_ms: avatarResult.latency_ms,
-        fal_request_id: avatarResult.fal_request_id,
-        status: 'ok',
-      });
-      avatarStored = await storage.persist(avatarResult.fal_url, ctx);
-    } catch (avatarErr) {
-      console.error('[generateCharacterDossierAction] avatar gen failed (non-fatal)', avatarErr);
-      // continue — main dossier already persisted
-    }
+        kind: 'character_dossier',
+        model: mainHandle.model_used,
+        fal_request_id: mainHandle.fal_request_id,
+        request_input: mainHandle.request_input,
+      }),
+      recordPendingJob({
+        user_id: user.id,
+        project_id: input.project_id,
+        character_id: character.id,
+        kind: 'character_avatar',
+        model: avatarHandle.model_used,
+        fal_request_id: avatarHandle.fal_request_id,
+        request_input: avatarHandle.request_input,
+      }),
+    ]);
 
-    const updated: Character = {
-      ...character,
-      full_prompt: prompt,
-      dossier: {
-        storage: stored,
-        avatar: avatarStored,
-        model: result.model_used,
-        format: '16:9',
-        quality,
-        generated_at: new Date().toISOString(),
-      },
-    };
+    // Save full_prompt to character now; dossier+avatar storage land in poll-orchestrator.
+    const updated: Character = { ...character, full_prompt: prompt };
     const newCharacters = [...characters];
     newCharacters[idx] = updated;
 
@@ -167,21 +148,16 @@ export async function generateCharacterDossierAction(
     if (updateErr) return { ok: false, error: 'update failed' };
 
     revalidatePath(`/projects/${input.project_id}`);
-    return { ok: true };
+    // Return the main job_id; avatar runs in parallel, polling will pick it up.
+    void avatarJob;
+    return { ok: true, job_id: mainJob.job_id };
   } catch (e) {
     if (e instanceof MediaProviderError) {
-      await logMediaCall({
-        user_id: user.id,
-        project_id: input.project_id,
-        model,
-        method: 'generateCharacterDossier',
-        character_id: character.id,
-        status: 'error',
-        error_code: e.code,
-      });
       return { ok: false, error: friendlyMediaError(e.code, e.message), error_code: e.code };
     }
-    console.error('[generateCharacterDossierAction]', e);
-    return { ok: false, error: 'unexpected error' };
+    const detail =
+      e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    console.error('[generateCharacterDossierAction]', detail, e);
+    return { ok: false, error: detail.slice(0, 240) };
   }
 }

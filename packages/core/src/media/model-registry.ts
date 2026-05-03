@@ -19,6 +19,8 @@ const EDIT_MAP: Record<string, string> = {
   'fal-ai/nano-banana-pro': 'fal-ai/nano-banana-pro/edit',
   'fal-ai/flux-pro/kontext': 'fal-ai/flux-pro/kontext',
   'fal-ai/bytedance/seedream/v4.5/edit': 'fal-ai/bytedance/seedream/v4.5/edit',
+  // Premium flux fallback to kontext for image-to-image edits
+  'fal-ai/flux-2-pro': 'fal-ai/flux-pro/kontext',
 };
 
 export function getDefaultModel(tier: Tier): string {

@@ -78,3 +78,5 @@ export const ScriptCharacterActionSchema = z.discriminatedUnion('action', [
 ]);
 
 export type ScriptCharacterAction = z.infer<typeof ScriptCharacterActionSchema>;
+
+export type { Dialogue, FirstFrameSource } from '../media/scene-types';

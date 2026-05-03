@@ -33,8 +33,20 @@ describe('OpenRouterLLMProvider', () => {
     const scriptObj = {
       title: 'Денни ищет работу',
       scenes: [
-        { scene_id: 's1', description: 'Денни плывёт к доске', duration_sec: 8 },
-        { scene_id: 's2', description: 'Краб листает резюме', duration_sec: 6 },
+        {
+          scene_id: 's1',
+          description: 'Денни плывёт к доске',
+          duration_sec: 8,
+          dialogue: { speaker: 'narrator', text: 'Жил-был дельфин Денни.' },
+          character_ids: [],
+        },
+        {
+          scene_id: 's2',
+          description: 'Краб листает резюме',
+          duration_sec: 6,
+          dialogue: null,
+          character_ids: [],
+        },
       ],
       characters: [{ action: 'add', name: 'Денни', description: 'Дельфин-оптимист' }],
     };

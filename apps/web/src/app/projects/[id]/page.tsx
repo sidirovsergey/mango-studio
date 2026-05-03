@@ -1,3 +1,4 @@
+import { ProjectJobsPoller } from '@/components/workspace/ProjectJobsPoller';
 import { Workspace } from '@/components/workspace/Workspace';
 import { CharacterModal } from '@/components/workspace/character/CharacterModal';
 import { StageCharacters } from '@/components/workspace/stages/StageCharacters';
@@ -59,6 +60,7 @@ export default async function ProjectPage({ params, searchParams }: Props) {
 
   return (
     <>
+      <ProjectJobsPoller projectId={project.id} />
       <Workspace
         project={project}
         initialChatMessages={messagesResult.data ?? []}

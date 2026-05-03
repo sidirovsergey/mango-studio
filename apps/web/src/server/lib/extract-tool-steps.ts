@@ -26,6 +26,13 @@ const KNOWN_TOOL_KINDS = new Set<ToolChipKind>([
   'refine_character',
   'generate_character',
   'delete_character',
+  // Phase 1.3 scene tools
+  'regen_scene_video',
+  'refine_scene_description',
+  'set_scene_duration',
+  'set_scene_model',
+  'generate_first_frame',
+  'generate_master_clip',
 ]);
 
 export interface RawToolChip extends ToolChip {
