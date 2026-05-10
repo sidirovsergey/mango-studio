@@ -47,9 +47,7 @@ export async function setSceneAudioModeAction(
   const updated: ScriptShape = {
     ...script,
     scenes: script.scenes.map((s) =>
-      s.scene_id === input.scene_id
-        ? ({ ...s, audio_mode: input.audio_mode } as SceneShape)
-        : s,
+      s.scene_id === input.scene_id ? ({ ...s, audio_mode: input.audio_mode } as SceneShape) : s,
     ),
   };
 

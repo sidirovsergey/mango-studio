@@ -4,7 +4,6 @@ import { getCurrentUser } from '@/lib/auth/get-user';
 import {
   type MasterClipVersion,
   type SceneAssetVersion,
-  type VersionKind,
   rollbackToPrevious,
   setActiveVersion,
 } from '@mango/core';

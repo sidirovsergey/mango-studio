@@ -94,7 +94,9 @@ describe('composeSceneFinalClipAction', () => {
     expect(result.ok).toBe(true);
     if (result.ok && 'mode' in result) expect(result.mode).toBe('native_passthrough');
     const payload = update.mock.calls[0]?.[0];
-    expect(payload?.script?.scenes[0]?.final_clip?.composed_from?.voice_audio_version_id).toBeNull();
+    expect(
+      payload?.script?.scenes[0]?.final_clip?.composed_from?.voice_audio_version_id,
+    ).toBeNull();
     expect(payload?.script?.scenes[0]?.final_clip?.composed_from?.video_version_id).toBe('v1');
   });
 

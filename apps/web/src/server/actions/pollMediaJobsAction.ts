@@ -1,5 +1,6 @@
 'use server';
 
+import { randomUUID } from 'node:crypto';
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import {
@@ -25,7 +26,6 @@ import {
 } from '@mango/core';
 import { getVideoModelMeta } from '@mango/core/media';
 import { getServerSupabase } from '@mango/db/server';
-import { randomUUID } from 'node:crypto';
 import { mirrorSceneAssetToStorage } from './mirrorSceneAssetToStorage';
 
 /**
@@ -33,23 +33,22 @@ import { mirrorSceneAssetToStorage } from './mirrorSceneAssetToStorage';
  * (kind: 'supabase', path) into the bucketed shape required by the
  * new scene-types schema (kind: 'supabase', bucket, path).
  */
-function withBucket(stored: StoredAsset): {
-  kind: 'fal_passthrough';
-  url: string;
-} | {
-  kind: 'supabase';
-  bucket: string;
-  path: string;
-} {
+function withBucket(stored: StoredAsset):
+  | {
+      kind: 'fal_passthrough';
+      url: string;
+    }
+  | {
+      kind: 'supabase';
+      bucket: string;
+      path: string;
+    } {
   if (stored.kind === 'fal_passthrough') return stored;
   return { kind: 'supabase', bucket: SCENE_ASSETS_BUCKET, path: stored.path };
 }
 
 function extOf(stored: StoredAsset, fallback: string): string {
-  const url =
-    stored.kind === 'fal_passthrough'
-      ? stored.url
-      : `path://${stored.path}`;
+  const url = stored.kind === 'fal_passthrough' ? stored.url : `path://${stored.path}`;
   const m = url.match(/\.([a-zA-Z0-9]{1,5})(?:\?|$)/);
   return m?.[1]?.toLowerCase() ?? fallback;
 }
@@ -219,8 +218,7 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
             const newVersion: SceneAssetVersion = {
               version_id: randomUUID(),
               storage: bucketedStored,
-              prompt:
-                typeof requestInput.text === 'string' ? (requestInput.text as string) : null,
+              prompt: typeof requestInput.text === 'string' ? (requestInput.text as string) : null,
               model: job.model,
               generated_at,
               cost_usd: cost_usd ?? null,
@@ -311,11 +309,10 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
           );
           nextScript = {
             ...nextScript,
-            // biome-ignore lint/suspicious/noExplicitAny: writing through legacy ScriptGenOutput
-            ...(({
+            ...({
               master_clip_versions: versions,
               master_clip_active_version_id: active_version_id,
-            } as unknown) as Record<string, unknown>),
+            } as unknown as Record<string, unknown>),
           } as ScriptGenOutput;
 
           const droppedPath =

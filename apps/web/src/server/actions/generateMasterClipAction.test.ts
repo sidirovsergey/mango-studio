@@ -17,7 +17,11 @@ beforeEach(() => {
 
 const PROJECT_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 
-const finalClip = (sceneIdx: number, video_version_id: string, voice_audio_version_id: string | null) => ({
+const finalClip = (
+  sceneIdx: number,
+  video_version_id: string,
+  voice_audio_version_id: string | null,
+) => ({
   storage: { kind: 'fal_passthrough' as const, url: `https://cdn.fal.ai/final-${sceneIdx}.mp4` },
   composed_from: { video_version_id, voice_audio_version_id },
 });
@@ -48,20 +52,21 @@ const makeProject = (scenesOverride?: unknown[]) => ({
     master_clip_active_version_id: null,
     narrator_voice: null,
     characters: [],
-    scenes:
-      scenesOverride ??
-      [
-        makeScene('s1', finalClip(1, 'v3', 'va2')),
-        makeScene('s2', finalClip(2, 'v1', null)),
-        makeScene('s3', finalClip(3, 'v2', 'va3')),
-      ],
+    scenes: scenesOverride ?? [
+      makeScene('s1', finalClip(1, 'v3', 'va2')),
+      makeScene('s2', finalClip(2, 'v1', null)),
+      makeScene('s3', finalClip(3, 'v2', 'va3')),
+    ],
   },
 });
 
 describe('generateMasterClipAction', () => {
   it('rejects when not all scenes have final_clip', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
-    const project = makeProject([makeScene('s1', finalClip(1, 'v3', 'va2')), makeScene('s2', null)]);
+    const project = makeProject([
+      makeScene('s1', finalClip(1, 'v3', 'va2')),
+      makeScene('s2', null),
+    ]);
     const projectQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),

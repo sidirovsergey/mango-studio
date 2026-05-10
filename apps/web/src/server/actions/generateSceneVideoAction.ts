@@ -41,7 +41,7 @@ type SceneShape = {
 export async function generateSceneVideoAction(
   rawInput: unknown,
 ): Promise<
-  { ok: true; job_id: string; existing: boolean; audio_mode: 'native' | 'silent_tts' }
+  | { ok: true; job_id: string; existing: boolean; audio_mode: 'native' | 'silent_tts' }
   | { ok: false; error: string }
 > {
   let input: Input;

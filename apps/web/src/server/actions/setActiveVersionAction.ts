@@ -91,10 +91,7 @@ export async function setActiveVersionAction(
           if (s.scene_id !== input.scene_id) return s;
           const versions = (s[arrK] as SceneAssetVersion[] | undefined) ?? [];
           const active = (s[actK] as string | null | undefined) ?? null;
-          const next = setActiveVersion(
-            { versions, active_version_id: active },
-            input.version_id,
-          );
+          const next = setActiveVersion({ versions, active_version_id: active }, input.version_id);
           return {
             ...s,
             [arrK]: next.versions,

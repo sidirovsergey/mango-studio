@@ -31,7 +31,10 @@ type SceneShape = Record<string, unknown> & {
   video_active_version_id?: string | null;
   voice_audio_versions?: SceneAssetVersion[];
   voice_audio_active_version_id?: string | null;
-  final_clip?: { storage: StoredAsset; composed_from: { video_version_id: string; voice_audio_version_id: string | null } } | null;
+  final_clip?: {
+    storage: StoredAsset;
+    composed_from: { video_version_id: string; voice_audio_version_id: string | null };
+  } | null;
 };
 
 type ScriptShape = { scenes: SceneShape[] };
@@ -86,7 +89,8 @@ export async function composeSceneFinalClipAction(
 
   // Determine effective audio mode using the same model that produced the video.
   const effectiveTier = scene.config_overrides?.tier ?? projectTier;
-  const videoModelId = activeVideo.model ?? scene.config_overrides?.model ?? getDefaultVideoModel(effectiveTier);
+  const videoModelId =
+    activeVideo.model ?? scene.config_overrides?.model ?? getDefaultVideoModel(effectiveTier);
   const meta = getVideoModelMeta(videoModelId);
   const audioMode = resolveAudioMode(
     {

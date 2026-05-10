@@ -22,9 +22,7 @@ type ScriptShape = { scenes: SceneShape[] };
 
 export async function setSceneTierAction(
   rawInput: unknown,
-): Promise<
-  { ok: true; reverted_model: string | null } | { ok: false; error: string }
-> {
+): Promise<{ ok: true; reverted_model: string | null } | { ok: false; error: string }> {
   let input: Input;
   try {
     input = InputSchema.parse(rawInput);
@@ -54,13 +52,15 @@ export async function setSceneTierAction(
   let revertedModel: string | null = null;
   const scenes = script.scenes.map((s) => {
     if (s.scene_id !== input.scene_id) return s;
-    const overrides = { ...(s.config_overrides ?? {}) };
-    overrides.tier = input.tier;
-    if (overrides.model && !getActiveVideoModels(input.tier).includes(overrides.model)) {
-      revertedModel = overrides.model;
-      delete overrides.model;
+    const prev = s.config_overrides ?? {};
+    let nextOverrides: { tier?: Tier; model?: string } = { ...prev, tier: input.tier };
+    if (prev.model && !getActiveVideoModels(input.tier).includes(prev.model)) {
+      revertedModel = prev.model;
+      const { model: _drop, ...rest } = nextOverrides;
+      void _drop;
+      nextOverrides = rest;
     }
-    return { ...s, config_overrides: overrides } as SceneShape;
+    return { ...s, config_overrides: nextOverrides } as SceneShape;
   });
   const updated = { ...script, scenes };
 

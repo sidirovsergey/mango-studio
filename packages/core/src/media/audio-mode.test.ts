@@ -53,12 +53,9 @@ describe('resolveAudioMode', () => {
   });
 
   it('default audio_mode (undefined) acts as auto', () => {
-    expect(
-      resolveAudioMode(
-        { dialogue: { speaker: 'narrator', text: 'Hello' } },
-        native,
-      ),
-    ).toBe('native');
+    expect(resolveAudioMode({ dialogue: { speaker: 'narrator', text: 'Hello' } }, native)).toBe(
+      'native',
+    );
   });
 });
 
@@ -75,9 +72,9 @@ describe('resolveVoiceId', () => {
   });
 
   it('returns narrator voice for narrator speaker (tts_voice_id shape)', () => {
-    expect(
-      resolveVoiceId('narrator', characters, { tts_voice_id: 'tts-narrator-v' }),
-    ).toBe('tts-narrator-v');
+    expect(resolveVoiceId('narrator', characters, { tts_voice_id: 'tts-narrator-v' })).toBe(
+      'tts-narrator-v',
+    );
   });
 
   it('falls back to VOICE_POOL[0] when narrator missing entirely', () => {
