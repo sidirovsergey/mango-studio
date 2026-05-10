@@ -96,3 +96,44 @@ button.pill { font: inherit; font-size: 11px; font-weight: 500; }
 
 .spinner { width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* === Prompt editor modal === */
+.prompt-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(26,18,7,0.4); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.prompt-modal {
+  width: 88%; max-width: 640px; max-height: 80vh; display: flex; flex-direction: column;
+  background: white; border-radius: 22px; padding: 20px 22px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(26,18,7,0.06), 0 40px 80px -20px rgba(26,18,7,0.4);
+}
+.modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.modal-head h3 { margin: 0; font-family: 'Manrope', sans-serif; font-size: 16px; font-weight: 700; }
+.modal-close { background: var(--ink-100,#EFE7DA); border: 0; font-size: 14px; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; }
+.prompt-textarea { width: 100%; min-height: 200px; max-height: 50vh; border: 1px solid rgba(26,18,7,0.1); border-radius: 10px; padding: 12px 14px; font-family: 'Geist Mono', monospace; font-size: 13px; line-height: 1.6; color: var(--ink-800,#2C2114); resize: vertical; outline: none; }
+.prompt-textarea:focus { border-color: var(--mango-400,#FF9026); box-shadow: 0 0 0 3px rgba(245,118,0,0.18); }
+.modal-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; font-size: 11px; color: var(--ink-500,#7A6651); }
+.modal-error { color: #B22; padding: 8px 12px; background: rgba(255,200,200,0.4); border-radius: 8px; font-size: 12px; margin-top: 8px; }
+.modal-foot { display: flex; gap: 8px; justify-content: flex-end; padding-top: 14px; border-top: 1px solid rgba(26,18,7,0.06); margin-top: 14px; }
+
+/* === Cost meter === */
+.cost-meter { font-family: 'Geist Mono', monospace; font-size: 13px; color: var(--ink-700,#4A3520); padding: 6px 12px; background: var(--cream,#FFFAF1); border: 1px solid rgba(26,18,7,0.06); border-radius: 999px; }
+
+/* === Cost warning toast === */
+.cost-warning-toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: white; border: 1px solid var(--mango-300,#FFB35A);
+  border-radius: 22px; padding: 14px 22px;
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 12px 36px -8px rgba(26,18,7,0.25), 0 0 0 4px rgba(245,118,0,0.15);
+  font-size: 13px; z-index: 1100;
+}
+.toast-actions { display: flex; gap: 8px; }
+
+/* === Voice picker (Stage 02 character card) === */
+.voice-picker { display: flex; align-items: center; gap: 8px; padding-top: 8px; flex-wrap: wrap; }
+.voice-label { font-size: 11px; color: var(--ink-500,#7A6651); }
+.voice-select { background: white; border: 1px solid rgba(26,18,7,0.08); border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+.adv-popover { display: flex; gap: 6px; padding: 8px; background: white; border: 1px solid rgba(26,18,7,0.06); border-radius: 12px; box-shadow: 0 8px 24px -8px rgba(26,18,7,0.18); }
+.adv-popover input { font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid rgba(26,18,7,0.08); border-radius: 6px; outline: none; }

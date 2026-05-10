@@ -167,6 +167,45 @@ describe('generateFirstFrameAction', () => {
     }
   });
 
+  it('uses prompt_override when provided (skips builder output)', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+
+    const submitFirstFrame = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-override',
+      model_used: 'fal-ai/nano-banana-pro',
+      request_input: {},
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      submitFirstFrame,
+    });
+
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: makeProject(), error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    });
+
+    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      job_id: 'job-ov',
+      existing: false,
+    });
+
+    const result = await generateFirstFrameAction({
+      project_id: PROJECT_ID,
+      scene_id: 's1',
+      prompt_override: 'CUSTOM PROMPT TEXT — override path',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(submitFirstFrame).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: 'CUSTOM PROMPT TEXT — override path' }),
+      expect.any(Object),
+    );
+  });
+
   it('caps at 5 scenes when more in bulk mode', async () => {
     // 7 scenes, bulk should only submit 5
     const scenes = Array.from({ length: 7 }, (_, i) => ({

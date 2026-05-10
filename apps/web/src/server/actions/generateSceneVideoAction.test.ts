@@ -185,6 +185,43 @@ describe('generateSceneVideoAction', () => {
     if (result.ok) expect(result.audio_mode).toBe('silent_tts');
   });
 
+  it('uses prompt_override when provided (skips builder output)', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    const project = makeProjectWithVersionedFrame();
+
+    const submitSceneVideo = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-ov',
+      model_used: 'bytedance/seedance-2.0/image-to-video',
+      request_input: { duration_sec: 7 },
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      submitSceneVideo,
+    });
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: project, error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    });
+    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      job_id: 'j-ov',
+      existing: false,
+    });
+
+    const result = await generateSceneVideoAction({
+      project_id: PROJECT_ID,
+      scene_id: 's1',
+      prompt_override: 'OVERRIDE VIDEO PROMPT',
+    });
+    expect(result.ok).toBe(true);
+    expect(submitSceneVideo).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: 'OVERRIDE VIDEO PROMPT' }),
+      expect.any(Object),
+    );
+  });
+
   it('returns native audio_mode when latin dialogue + native model', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
 

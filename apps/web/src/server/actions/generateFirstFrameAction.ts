@@ -17,6 +17,7 @@ const InputSchema = z.object({
   project_id: z.string().uuid(),
   scene_id: z.string().min(1),
   model_override: z.string().optional(),
+  prompt_override: z.string().min(1).optional(),
   mode: z.enum(['single', 'bulk']).default('single'),
 });
 
@@ -85,7 +86,7 @@ export async function generateFirstFrameAction(
   const first_frame_source =
     input.mode === 'bulk' ? 'manual_text2img' : (scene.first_frame_source ?? 'auto_continuity');
 
-  const { prompt, image_refs } = buildFirstFramePrompt({
+  const built = buildFirstFramePrompt({
     scene: {
       scene_id: scene.scene_id,
       description: scene.description,
@@ -96,6 +97,8 @@ export async function generateFirstFrameAction(
     project_style,
     first_frame_source,
   });
+  const prompt = input.prompt_override ?? built.prompt;
+  const image_refs = built.image_refs;
 
   const model = input.model_override ?? getDefaultModel(tier);
 

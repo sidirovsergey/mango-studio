@@ -20,6 +20,7 @@ const InputSchema = z.object({
   project_id: z.string().uuid(),
   scene_id: z.string().min(1),
   model_override: z.string().optional(),
+  prompt_override: z.string().min(1).optional(),
 });
 
 type Input = z.infer<typeof InputSchema>;
@@ -102,11 +103,13 @@ export async function generateSceneVideoAction(
     { has_native_audio: modelMeta?.has_native_audio ?? false },
   );
 
-  const { prompt, image_refs, aspect_ratio } = buildVideoPrompt({
+  const built = buildVideoPrompt({
     scene: { ...scene, duration_sec } as never,
     first_frame_storage: activeFrame.storage,
     model,
   });
+  const prompt = input.prompt_override ?? built.prompt;
+  const { image_refs, aspect_ratio } = built;
 
   const provider = getMediaProvider();
   const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
