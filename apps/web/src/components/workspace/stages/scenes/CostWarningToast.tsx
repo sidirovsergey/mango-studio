@@ -15,6 +15,7 @@ export function CostWarningToast({ projectId }: Props) {
   const [show, setShow] = useState(false);
   const [cost, setCost] = useState(0);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: jobs.length is the change trigger
   useEffect(() => {
     let cancelled = false;
     (async () => {

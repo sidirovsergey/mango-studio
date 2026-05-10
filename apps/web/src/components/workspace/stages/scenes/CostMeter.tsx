@@ -14,6 +14,7 @@ export function CostMeter({ projectId }: Props) {
 
   // Re-fetch when jobs list changes (Realtime push or completion).
   // Tracking jobs.length is enough because completed/failed jobs replace pending.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: jobs.length is the change trigger
   useEffect(() => {
     let cancelled = false;
     (async () => {
