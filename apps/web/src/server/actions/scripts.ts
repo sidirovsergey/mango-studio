@@ -5,9 +5,11 @@ import { logLLMCall } from '@/server/lib/log-llm-call';
 import {
   type Character,
   type PersistedScript,
+  type Scene,
   applyCharacterActions,
   classifyLLMError,
   getModelParams,
+  normalizeScene,
 } from '@mango/core';
 import { getLLMProvider } from '@mango/core/llm/factory';
 import type { Database } from '@mango/db';
@@ -73,6 +75,7 @@ export async function generateScriptAction(
       title: result.output.title,
       scenes: result.output.scenes,
       characters: mergedCharacters,
+      master_clip: null,
     };
     await persistScript(project_id, newScript);
     await logLLMCall({
@@ -126,6 +129,7 @@ export async function regenScriptAction(
       title: result.output.title,
       scenes: result.output.scenes,
       characters: mergedCharacters,
+      master_clip: null,
     };
     await persistScript(project_id, newScript);
     await logLLMCall({
@@ -197,6 +201,7 @@ export async function refineScriptAction(
       title: result.output.title,
       scenes: result.output.scenes,
       characters: mergedCharacters,
+      master_clip: null,
     };
     await persistScript(project_id, newScript);
     await logLLMCall({
@@ -234,7 +239,12 @@ export async function addSceneAction(
   const userId = await getCurrentUserId();
   const project = await loadProjectForGeneration(project_id);
   if (!project.script) throw new Error('addScene: project has no script yet');
-  const script = project.script as unknown as PersistedScript;
+  const rawScript = project.script as unknown as PersistedScript;
+  const script: PersistedScript = {
+    ...rawScript,
+    scenes: rawScript.scenes.map(normalizeScene),
+    master_clip: rawScript.master_clip ?? null,
+  };
 
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('OPENROUTER_API_KEY is not set');
@@ -299,7 +309,7 @@ ${script.scenes.map((s, i) => `${i + 1}. (${s.duration_sec} сек) ${s.descript
       const num = Number.parseInt(s.scene_id.replace(/^s/, ''), 10);
       return Number.isFinite(num) && num > max ? num : max;
     }, 0);
-    const newScene = {
+    const newScene: Scene = {
       scene_id: `s${maxId + 1}`,
       description: parsed.description.trim(),
       duration_sec:
@@ -308,14 +318,22 @@ ${script.scenes.map((s, i) => `${i + 1}. (${s.duration_sec} сек) ${s.descript
         parsed.duration_sec <= 12
           ? Math.round(parsed.duration_sec)
           : 7,
-      ...(typeof parsed.voiceover === 'string' && parsed.voiceover.trim()
-        ? { voiceover: parsed.voiceover.trim() }
-        : {}),
+      dialogue:
+        typeof parsed.voiceover === 'string' && parsed.voiceover.trim()
+          ? { speaker: 'narrator', text: parsed.voiceover.trim() }
+          : null,
+      character_ids: [],
+      first_frame_source: 'auto_continuity',
+      first_frame: null,
+      last_frame: null,
+      video: null,
+      voice_audio: null,
+      final_clip: null,
     };
 
     const updated: PersistedScript = {
       ...script,
-      scenes: [...script.scenes, newScene],
+      scenes: [...script.scenes.map(normalizeScene), newScene],
     };
     await persistScript(project_id, updated);
 
@@ -361,7 +379,12 @@ export async function deleteSceneAction(
   await getCurrentUserId();
   const project = await loadProjectForGeneration(project_id);
   if (!project.script) throw new Error('deleteScene: project has no script yet');
-  const script = project.script as unknown as PersistedScript;
+  const rawScript = project.script as unknown as PersistedScript;
+  const script: PersistedScript = {
+    ...rawScript,
+    scenes: rawScript.scenes.map(normalizeScene),
+    master_clip: rawScript.master_clip ?? null,
+  };
   const remaining = script.scenes.filter((s) => s.scene_id !== scene_id);
   if (remaining.length === script.scenes.length) {
     throw new Error(`deleteScene: scene_id ${scene_id} not found`);
@@ -389,7 +412,12 @@ export async function refineBeatAction(
   const project = await loadProjectForGeneration(project_id);
 
   if (!project.script) throw new Error('refineBeat: project has no script yet');
-  const script = project.script as unknown as PersistedScript;
+  const rawScript = project.script as unknown as PersistedScript;
+  const script: PersistedScript = {
+    ...rawScript,
+    scenes: rawScript.scenes.map(normalizeScene),
+    master_clip: rawScript.master_clip ?? null,
+  };
   const targetScene = script.scenes.find((s) => s.scene_id === scene_id);
   if (!targetScene) throw new Error(`refineBeat: scene_id ${scene_id} not found`);
 

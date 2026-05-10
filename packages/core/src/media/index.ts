@@ -2,6 +2,15 @@ export type {
   MediaProvider,
   GenerateCharacterDossierInput,
   GenerateCharacterDossierResult,
+  GenerateFirstFrameInput,
+  GenerateSceneVideoInput,
+  GenerateVoiceInput,
+  ComposeFinalClipInput,
+  ConcatMasterInput,
+  ExtractLastFrameInput,
+  JobHandle,
+  JobResult,
+  JobStatus,
   DossierFormat,
   DossierQuality,
   AssetContext,
@@ -25,3 +34,38 @@ export { buildDossierPrompt, buildAvatarPrompt } from './prompts';
 
 export { MediaProviderError, classifyMediaError } from './errors';
 export type { MediaErrorCode } from './errors';
+
+export {
+  StoredAssetSchema,
+  SceneAssetSchema,
+  SceneVideoAssetSchema,
+  VoiceAssetSchema,
+  MasterClipSchema,
+  DialogueSchema,
+  FirstFrameSourceSchema,
+} from './scene-types';
+export type {
+  SceneAsset,
+  SceneVideoAsset,
+  VoiceAsset,
+  MasterClip,
+  Dialogue,
+  FirstFrameSource,
+} from './scene-types';
+
+export {
+  VIDEO_MODELS,
+  VOICE_MODELS,
+  MUX_MODEL,
+  CONCAT_MODEL,
+  EXTRACT_LAST_FRAME_MODEL,
+  getDefaultVideoModel,
+  getActiveVideoModels,
+  getVideoModelMeta,
+  isVideoModelInTier,
+  getDefaultVoiceModel,
+  clampDurationToModel,
+} from './video-models';
+export type { VideoModelMeta } from './video-models';
+
+export { buildFirstFramePrompt, buildVideoPrompt, buildVoicePrompt } from './video-prompts';

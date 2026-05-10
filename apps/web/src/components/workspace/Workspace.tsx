@@ -22,6 +22,7 @@ interface WorkspaceProps {
 export function Workspace({ project, initialChatMessages, charactersSlot }: WorkspaceProps) {
   const script = project.script as PersistedScript | null;
   const status = project.status;
+  const hasReadyCharacter = (script?.characters ?? []).some((c) => c.dossier !== null);
 
   return (
     <div
@@ -42,7 +43,11 @@ export function Workspace({ project, initialChatMessages, charactersSlot }: Work
             <StageIdea project={project} />
             {charactersSlot}
             <StageScript project={project} script={script} />
-            <StageScenes projectStatus={status} />
+            <StageScenes
+              projectId={project.id}
+              projectStatus={status}
+              hasReadyCharacter={hasReadyCharacter}
+            />
             <StageFinal projectStatus={status} />
           </div>
         </WorkspaceScroll>

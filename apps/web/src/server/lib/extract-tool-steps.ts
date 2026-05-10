@@ -26,6 +26,13 @@ const KNOWN_TOOL_KINDS = new Set<ToolChipKind>([
   'refine_character',
   'generate_character',
   'delete_character',
+  // Phase 1.3 scene tools
+  'regen_scene_video',
+  'refine_scene_description',
+  'set_scene_duration',
+  'set_scene_model',
+  'generate_first_frame',
+  'generate_master_clip',
 ]);
 
 export interface RawToolChip extends ToolChip {
@@ -112,12 +119,13 @@ export function extractToolSteps(steps: ReadonlyArray<AIStepLike> | undefined): 
   }
 
   if (extraPending > 0) {
+    const more = extraPending === 1 ? 'ещё одно действие' : `ещё ${extraPending} действия`;
     return {
       chips,
       pending,
       conflictError: {
         kind: 'refine_script', // arbitrary — chip is informational
-        label: `Больше одного действия с подтверждением в одном запросе нельзя — лишних отброшено: ${extraPending}`,
+        label: `За один ответ можно подтвердить одно действие. ${more} ждёт — подтверди это, затем напиши «продолжай», чтобы запустить остальные.`,
         ok: false,
         error: 'multiple-pending',
       },

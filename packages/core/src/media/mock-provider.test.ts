@@ -16,23 +16,30 @@ const input: GenerateCharacterDossierInput = {
 };
 
 describe('MockMediaProvider', () => {
-  it('generateCharacterDossier returns a fal_url', async () => {
+  it('submitCharacterDossier returns a handle with fal_request_id', async () => {
     const p = new MockMediaProvider();
-    const result = await p.generateCharacterDossier(input, ctx);
-    expect(result.fal_url).toContain('mock-dossier');
-    expect(result.cost_usd).toBe(0);
-    expect(result.latency_ms).toBe(1);
+    const handle = await p.submitCharacterDossier(input, ctx);
+    expect(handle.fal_request_id).toBeTruthy();
+    expect(handle.fal_request_id).toContain('dossier');
   });
 
   it('model_used matches input.model', async () => {
     const p = new MockMediaProvider();
-    const result = await p.generateCharacterDossier(input, ctx);
-    expect(result.model_used).toBe(input.model);
+    const handle = await p.submitCharacterDossier(input, ctx);
+    expect(handle.model_used).toBe(input.model);
   });
 
-  it('fal_request_id is set', async () => {
+  it('getJobStatus returns completed', async () => {
     const p = new MockMediaProvider();
-    const result = await p.generateCharacterDossier(input, ctx);
-    expect(result.fal_request_id).toBeTruthy();
+    const status = await p.getJobStatus('mock-req', 'mock-model');
+    expect(status.status).toBe('completed');
+  });
+
+  it('getJobResult returns primary_url', async () => {
+    const p = new MockMediaProvider();
+    const result = await p.getJobResult('mock-req', 'mock-model');
+    expect(result.primary_url).toContain('mock-result');
+    expect(result.cost_usd).toBe(0);
+    expect(result.latency_ms).toBe(1);
   });
 });

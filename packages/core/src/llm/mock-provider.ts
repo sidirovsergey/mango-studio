@@ -35,6 +35,7 @@ export class MockLLMProvider implements LLMProvider {
         title: fixture.title,
         scenes: fixture.scenes,
         characters: fixture.characters,
+        master_clip: null,
       },
       usage: mockUsage(Date.now() - start),
     };

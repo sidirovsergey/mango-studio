@@ -2,7 +2,7 @@
 
 import { triggerRegenHintAction } from '@/server/actions/triggerRegenHintAction';
 import { triggerSyncHintAction } from '@/server/actions/triggerSyncHintAction';
-import type { ToolChip } from '@mango/core';
+import type { ToolChip, ToolChipKind } from '@mango/core';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 
@@ -14,6 +14,31 @@ interface Props {
 
 const READY_DELAY_MS = 450;
 
+/** Phase 1.3 — per-kind icon map. Falls back to ✓/✕ if not listed. */
+const CHIP_ICONS: Partial<Record<ToolChipKind, string>> = {
+  // Script / scene structural
+  refine_script: '✏️',
+  regen_script: '✨',
+  add_scene: '➕',
+  delete_scene: '🗑️',
+  refine_beat: '✏️',
+  update_project_meta: '⚙️',
+  // Character tools
+  add_character: '✨',
+  archive_character: '📦',
+  unarchive_character: '📤',
+  refine_character: '✏️',
+  generate_character: '🎨',
+  delete_character: '🗑️',
+  // Phase 1.3 scene tools
+  regen_scene_video: '🎬',
+  refine_scene_description: '✏️',
+  set_scene_duration: '⏱️',
+  set_scene_model: '⚙️',
+  generate_first_frame: '✨',
+  generate_master_clip: '🎞️',
+};
+
 /**
  * Phase 1.2.6 — рендерит один tool chip + опционально mini-chip'ы:
  *   1. sync-hint  — «обновить сценарий» (refine/archive/unarchive персонажа)
@@ -21,13 +46,15 @@ const READY_DELAY_MS = 450;
  *
  * Phase 1.2.6 fix-4 — defensive: 450ms задержка на ready, error UI, disabled
  * states. Те же гарантии что у PendingActionCard.
+ * Phase 1.3 — per-kind icon mapping via CHIP_ICONS.
  */
 export function ToolChipView({ chip, chatMessageId, chipIndex }: Props) {
+  const icon = chip.ok ? (CHIP_ICONS[chip.kind] ?? '✓') : '✕';
   return (
     <div className="tool-chip-group">
       <div className={`tool-chip ${chip.ok ? 'ok' : 'fail'}`} role="status" aria-live="polite">
         <span className="tool-chip-icon" aria-hidden="true">
-          {chip.ok ? '✓' : '✕'}
+          {icon}
         </span>
         <span className="tool-chip-label">{chip.label}</span>
       </div>
