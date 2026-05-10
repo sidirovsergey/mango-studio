@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { ScriptSchema, upgradeScript } from '@mango/core';
+import { upgradeScript } from '@mango/core/llm/migration';
+import { ScriptGenSchema as ScriptSchema } from '@mango/core/llm/schemas';
 
 async function main() {
   const env = process.argv.includes('--env=production') ? 'production' : 'staging';

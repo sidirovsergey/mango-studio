@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { downgradeScript } from '@mango/core';
+import { downgradeScript } from '@mango/core/llm/migration';
 
 async function main() {
   const env = process.argv.includes('--env=production') ? 'production' : 'staging';

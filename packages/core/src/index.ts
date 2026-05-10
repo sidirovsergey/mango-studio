@@ -131,5 +131,10 @@ export {
   type NarratorVoiceLike,
 } from './media/audio-mode';
 
-export { upgradeScene, upgradeScript, downgradeScript } from './llm/migration';
-export { ScriptGenSchema, ScriptGenSchema as ScriptSchema, SceneSchema } from './llm/schemas';
+// NOTE: `ScriptGenSchema`/`ScriptSchema`/`SceneSchema` (from `./llm/schemas`)
+// and `upgradeScene`/`upgradeScript`/`downgradeScript` (from `./llm/migration`)
+// are deliberately NOT re-exported here — both files have client-incompatible
+// imports (`'server-only'` and `node:crypto` respectively), and a barrel re-export
+// poisons every client component that imports `@mango/core`. Server-side and CLI
+// consumers should import directly from `@mango/core/llm/schemas` and
+// `@mango/core/llm/migration`.
