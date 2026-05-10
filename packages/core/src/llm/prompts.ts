@@ -199,6 +199,7 @@ export function buildDirectorSystemPrompt(ctx: DirectorContext): string {
 - set_scene_model(scene_id, model): сменить video model для сцены. ОБЯЗАТЕЛЬНО confirm. Model должен быть из доступных в текущем tier.
 - generate_first_frame(scene_id): сгенерировать первый кадр сцены. Без confirm.
 - generate_master_clip(): финализировать ролик (склейка всех сцен). ОБЯЗАТЕЛЬНО confirm. Все сцены должны иметь final_clip.
+- rollback_scene_version: откатить ассет сцены на предыдущую версию или указанную (kind=first_frame|video|voice_audio|master_clip, target_version_id опционально). Destructive — будет confirm.
 
 Поведенческие правила для сцен:
 1. Видео-генерация дорогая (~$0.20-0.60 за сцену). Подтверждай через pending-card; НЕ переспрашивай в чате текстом.

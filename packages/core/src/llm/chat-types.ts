@@ -24,7 +24,9 @@ export type ToolChipKind =
   | 'set_scene_duration'
   | 'set_scene_model'
   | 'generate_first_frame'
-  | 'generate_master_clip';
+  | 'generate_master_clip'
+  // Phase 1.3.5 rollback
+  | 'rollback_scene_version';
 
 export type SyncHintStatus = 'visible' | 'triggered' | 'dismissed';
 
@@ -63,7 +65,9 @@ export type PendingActionKind =
   // Phase 1.3 scene tools
   | 'regen_scene_video'
   | 'set_scene_model'
-  | 'generate_master_clip';
+  | 'generate_master_clip'
+  // Phase 1.3.5 rollback
+  | 'rollback_scene_version';
 
 export type PendingActionStatus = 'pending' | 'executed' | 'cancelled';
 
