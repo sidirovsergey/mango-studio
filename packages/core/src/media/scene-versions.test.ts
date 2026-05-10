@@ -1,13 +1,21 @@
-import { describe, it, expect } from 'vitest';
-import {
-  appendVersion, getActiveVersion, setActiveVersion, rollbackToPrevious, dropOldestIfOverflow,
-} from './scene-versions';
+import { describe, expect, it } from 'vitest';
 import type { SceneAssetVersion } from './scene-types';
+import {
+  appendVersion,
+  dropOldestIfOverflow,
+  getActiveVersion,
+  rollbackToPrevious,
+  setActiveVersion,
+} from './scene-versions';
 
 const v = (id: string, ts: string): SceneAssetVersion => ({
   version_id: id,
   storage: { kind: 'fal_passthrough', url: `https://fal.media/${id}.jpg` },
-  prompt: null, model: null, generated_at: ts, cost_usd: null, source: 'auto_continuity',
+  prompt: null,
+  model: null,
+  generated_at: ts,
+  cost_usd: null,
+  source: 'auto_continuity',
 });
 
 describe('appendVersion', () => {
@@ -43,8 +51,9 @@ describe('setActiveVersion', () => {
   });
 
   it('throws when version_id not found', () => {
-    expect(() => setActiveVersion({ versions: [v('v1', 'x')], active_version_id: 'v1' }, 'unknown'))
-      .toThrow(/not found/);
+    expect(() =>
+      setActiveVersion({ versions: [v('v1', 'x')], active_version_id: 'v1' }, 'unknown'),
+    ).toThrow(/not found/);
   });
 });
 
@@ -56,8 +65,9 @@ describe('rollbackToPrevious', () => {
   });
 
   it('throws when active is the only/oldest version', () => {
-    expect(() => rollbackToPrevious({ versions: [v('v1', 'x')], active_version_id: 'v1' }))
-      .toThrow(/no previous/);
+    expect(() => rollbackToPrevious({ versions: [v('v1', 'x')], active_version_id: 'v1' })).toThrow(
+      /no previous/,
+    );
   });
 });
 
@@ -81,7 +91,9 @@ describe('dropOldestIfOverflow', () => {
   });
 
   it('drops oldest when overflow', () => {
-    const versions = ['v1', 'v2', 'v3', 'v4', 'v5', 'v6'].map((id, i) => v(id, `2026-01-0${i + 1}`));
+    const versions = ['v1', 'v2', 'v3', 'v4', 'v5', 'v6'].map((id, i) =>
+      v(id, `2026-01-0${i + 1}`),
+    );
     const r = dropOldestIfOverflow({ versions, active_version_id: 'v6' });
     expect(r.dropped?.version_id).toBe('v1');
     expect(r.state.versions).toHaveLength(5);

@@ -1,4 +1,4 @@
-import type { SceneAssetVersion, MasterClipVersion } from './scene-types';
+import type { MasterClipVersion, SceneAssetVersion } from './scene-types';
 
 export const MAX_VERSIONS = 5;
 
@@ -10,7 +10,7 @@ export type VersionedAsset<V extends { version_id: string; generated_at: string 
 export type AppendResult<V extends { version_id: string; generated_at: string }> = {
   versions: V[];
   active_version_id: string;
-  dropped: V | null;  // version evicted by overflow
+  dropped: V | null; // version evicted by overflow
 };
 
 export function appendVersion<V extends { version_id: string; generated_at: string }>(
@@ -43,7 +43,9 @@ export function setActiveVersion<V extends { version_id: string; generated_at: s
 ): VersionedAsset<V> {
   const found = state.versions.find((v) => v.version_id === target_version_id);
   if (!found) {
-    throw new Error(`setActiveVersion: version_id "${target_version_id}" not found in ${state.versions.length} versions`);
+    throw new Error(
+      `setActiveVersion: version_id "${target_version_id}" not found in ${state.versions.length} versions`,
+    );
   }
   return { versions: state.versions, active_version_id: target_version_id };
 }

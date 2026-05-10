@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { upgradeScene, upgradeScript, downgradeScript } from './migration';
+import { describe, expect, it } from 'vitest';
+import { downgradeScript, upgradeScene, upgradeScript } from './migration';
 
 const legacyScene = {
   scene_id: 's1',
@@ -10,7 +10,9 @@ const legacyScene = {
   first_frame_source: 'auto_continuity',
   first_frame: {
     storage: { kind: 'fal_passthrough', url: 'https://fal.media/f.jpg' },
-    model: 'm', generated_at: 'now', source: 'ai_text2img',
+    model: 'm',
+    generated_at: 'now',
+    source: 'ai_text2img',
   },
   video: null,
   last_frame: null,
@@ -44,14 +46,19 @@ describe('upgradeScene', () => {
 
 describe('upgradeScript', () => {
   const legacyScript = {
-    title: 'X', genre: 'comedy', mood: 'light', target_audience: 'kids',
-    logline: 'l', synopsis: 's',
+    title: 'X',
+    genre: 'comedy',
+    mood: 'light',
+    target_audience: 'kids',
+    logline: 'l',
+    synopsis: 's',
     narrator_voice: { voice_id: 'v', voice_label: 'L' },
     characters: [],
     scenes: [legacyScene],
     master_clip: {
       storage: { kind: 'fal_passthrough', url: 'https://fal.media/m.mp4' },
-      generated_at: 'now', scene_ids_snapshot: ['s1'],
+      generated_at: 'now',
+      scene_ids_snapshot: ['s1'],
     },
   };
 
@@ -74,14 +81,19 @@ describe('upgradeScript', () => {
 
 describe('downgradeScript (rollback)', () => {
   const legacyScript = {
-    title: 'X', genre: 'comedy', mood: 'light', target_audience: 'kids',
-    logline: 'l', synopsis: 's',
+    title: 'X',
+    genre: 'comedy',
+    mood: 'light',
+    target_audience: 'kids',
+    logline: 'l',
+    synopsis: 's',
     narrator_voice: { voice_id: 'v', voice_label: 'L' },
     characters: [],
     scenes: [legacyScene],
     master_clip: {
       storage: { kind: 'fal_passthrough', url: 'https://fal.media/m.mp4' },
-      generated_at: 'now', scene_ids_snapshot: ['s1'],
+      generated_at: 'now',
+      scene_ids_snapshot: ['s1'],
     },
   };
 
