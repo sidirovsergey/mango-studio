@@ -28,9 +28,8 @@ export function SceneSidePanel({ projectId, scene, index, tier }: Props) {
   const [promptModal, setPromptModal] = useState<'first_frame' | 'video' | null>(null);
 
   const activeFrame =
-    scene.first_frame_versions.find(
-      (v) => v.version_id === scene.first_frame_active_version_id,
-    ) ?? null;
+    scene.first_frame_versions.find((v) => v.version_id === scene.first_frame_active_version_id) ??
+    null;
   const activeVideo =
     scene.video_versions.find((v) => v.version_id === scene.video_active_version_id) ?? null;
 
@@ -83,11 +82,7 @@ export function SceneSidePanel({ projectId, scene, index, tier }: Props) {
       <div className="sect">
         <div className="sect-label">
           🖼️ ПРОМПТ ПЕРВОГО КАДРА
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={() => setPromptModal('first_frame')}
-          >
+          <button type="button" className="icon-btn" onClick={() => setPromptModal('first_frame')}>
             ✏️ открыть
           </button>
         </div>

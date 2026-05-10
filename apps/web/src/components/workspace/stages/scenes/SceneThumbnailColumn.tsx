@@ -86,9 +86,7 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob }: Props) {
     const ff = scene.first_frame_versions.find(
       (v) => v.version_id === scene.first_frame_active_version_id,
     );
-    const vd = scene.video_versions.find(
-      (v) => v.version_id === scene.video_active_version_id,
-    );
+    const vd = scene.video_versions.find((v) => v.version_id === scene.video_active_version_id);
     return !!(ff && vd && ff.generated_at > vd.generated_at);
   })();
 
@@ -119,7 +117,7 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob }: Props) {
               className="thumb-media"
             />
           ) : (
-            // biome-ignore lint/performance/noImgElement: signed-url passthrough, not a static asset
+            // Next.js Image isn't suitable here — signed-url passthrough varies per render
             <img
               src={getAssetUrl(active) ?? undefined}
               alt={`Сцена ${scene.scene_id}`}
@@ -182,12 +180,7 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob }: Props) {
       </div>
 
       {!isLatest && active && (
-        <button
-          type="button"
-          className="rollback-btn"
-          onClick={handleRollback}
-          disabled={pending}
-        >
+        <button type="button" className="rollback-btn" onClick={handleRollback} disabled={pending}>
           ↺ откат на пред.
         </button>
       )}
