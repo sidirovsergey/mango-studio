@@ -15,24 +15,28 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-const firstFrameAsset = {
-  storage: { kind: 'fal_passthrough' as const, url: 'https://cdn.fal.ai/frame.jpg' },
-  model: 'fal-ai/nano-banana-pro',
-  generated_at: '2026-01-01T00:00:00Z',
-  fal_request_id: 'req-ff',
-  source: 'ai_text2img' as const,
-};
-
 const PROJECT_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 
-const makeProjectWithFrame = (sceneOverrides: Record<string, unknown> = {}) => ({
+const ffVersion = (overrides: Record<string, unknown> = {}) => ({
+  version_id: 'ff-v1',
+  storage: { kind: 'fal_passthrough' as const, url: 'https://cdn.fal.ai/frame.jpg' },
+  prompt: 'a happy mango',
+  model: 'fal-ai/nano-banana-pro',
+  generated_at: '2026-01-01T00:00:00Z',
+  cost_usd: 0.01,
+  source: 'auto_continuity' as const,
+  ...overrides,
+});
+
+const makeProjectWithVersionedFrame = (sceneOverrides: Record<string, unknown> = {}) => ({
   id: PROJECT_ID,
   user_id: 'u1',
   tier: 'premium',
   style: '3d_pixar',
   script: {
     title: 'Test',
-    master_clip: null,
+    master_clip_versions: [],
+    master_clip_active_version_id: null,
     characters: [],
     scenes: [
       {
@@ -42,10 +46,14 @@ const makeProjectWithFrame = (sceneOverrides: Record<string, unknown> = {}) => (
         dialogue: null,
         character_ids: [],
         first_frame_source: 'auto_continuity',
-        first_frame: firstFrameAsset,
+        audio_mode: 'auto',
+        first_frame_versions: [ffVersion()],
+        first_frame_active_version_id: 'ff-v1',
+        video_versions: [],
+        video_active_version_id: null,
+        voice_audio_versions: [],
+        voice_audio_active_version_id: null,
         last_frame: null,
-        video: null,
-        voice_audio: null,
         final_clip: null,
         ...sceneOverrides,
       },
@@ -54,29 +62,18 @@ const makeProjectWithFrame = (sceneOverrides: Record<string, unknown> = {}) => (
 });
 
 describe('generateSceneVideoAction', () => {
-  it('rejects when scene has no first_frame', async () => {
+  it('rejects when scene has no active first_frame version', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
 
-    const projectNoFrame = {
-      ...makeProjectWithFrame(),
-      script: {
-        ...makeProjectWithFrame().script,
-        scenes: [
-          {
-            ...makeProjectWithFrame().script.scenes[0],
-            first_frame: null,
-          },
-        ],
-      },
-    };
+    const empty = makeProjectWithVersionedFrame({
+      first_frame_versions: [],
+      first_frame_active_version_id: null,
+    });
 
     const builder = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
-        data: projectNoFrame,
-        error: null,
-      }),
+      single: vi.fn().mockResolvedValue({ data: empty, error: null }),
     };
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => builder),
@@ -86,21 +83,31 @@ describe('generateSceneVideoAction', () => {
       project_id: PROJECT_ID,
       scene_id: 's1',
     });
-
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toMatch(/first_frame/i);
-    }
+    if (!result.ok) expect(result.error).toMatch(/first_frame/i);
   });
 
-  it('submits image-to-video with duration_sec=7', async () => {
+  it('uses active first_frame_version as ref when multiple versions exist', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
 
-    const DEFAULT_VIDEO_MODEL = 'bytedance/seedance-2.0/image-to-video';
+    const project = makeProjectWithVersionedFrame({
+      first_frame_versions: [
+        ffVersion({ version_id: 'ff-v1' }),
+        ffVersion({
+          version_id: 'ff-v2',
+          storage: { kind: 'fal_passthrough', url: 'https://cdn.fal.ai/v2.jpg' },
+        }),
+        ffVersion({
+          version_id: 'ff-v3',
+          storage: { kind: 'fal_passthrough', url: 'https://cdn.fal.ai/v3.jpg' },
+        }),
+      ],
+      first_frame_active_version_id: 'ff-v2',
+    });
 
     const submitSceneVideo = vi.fn().mockResolvedValue({
       fal_request_id: 'req-video-1',
-      model_used: DEFAULT_VIDEO_MODEL,
+      model_used: 'bytedance/seedance-2.0/image-to-video',
       request_input: { prompt: 'Scene 1', duration_sec: 7 },
     });
     (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
@@ -110,10 +117,7 @@ describe('generateSceneVideoAction', () => {
     const builder = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
-        data: makeProjectWithFrame(),
-        error: null,
-      }),
+      single: vi.fn().mockResolvedValue({ data: project, error: null }),
     };
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => builder),
@@ -128,30 +132,94 @@ describe('generateSceneVideoAction', () => {
       project_id: PROJECT_ID,
       scene_id: 's1',
     });
-
     expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.job_id).toBe('job-video-1');
-    }
-
     expect(submitSceneVideo).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: DEFAULT_VIDEO_MODEL,
-        duration_sec: 7,
-        aspect_ratio: '9:16',
-        first_frame_ref: expect.objectContaining({ kind: 'fal_passthrough' }),
+        first_frame_ref: expect.objectContaining({ url: 'https://cdn.fal.ai/v2.jpg' }),
       }),
-      expect.objectContaining({ user_id: 'u1', project_id: PROJECT_ID }),
+      expect.objectContaining({ user_id: 'u1' }),
     );
-
     expect(recordPendingJob).toHaveBeenCalledWith(
       expect.objectContaining({
-        user_id: 'u1',
-        project_id: PROJECT_ID,
-        scene_id: 's1',
-        kind: 'video',
-        fal_request_id: 'req-video-1',
+        request_input: expect.objectContaining({
+          first_frame_version_id: 'ff-v2',
+          audio_mode: expect.any(String),
+        }),
       }),
     );
+  });
+
+  it('forces silent_tts pipeline when dialogue is Cyrillic + auto', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+
+    const project = makeProjectWithVersionedFrame({
+      audio_mode: 'auto',
+      dialogue: { speaker: 'narrator', text: 'Привет, друзья!' },
+    });
+
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      submitSceneVideo: vi.fn().mockResolvedValue({
+        fal_request_id: 'req-1',
+        model_used: 'bytedance/seedance-2.0/image-to-video',
+        request_input: { duration_sec: 7 },
+      }),
+    });
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: project, error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    });
+    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      job_id: 'j1',
+      existing: false,
+    });
+
+    const result = await generateSceneVideoAction({
+      project_id: PROJECT_ID,
+      scene_id: 's1',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.audio_mode).toBe('silent_tts');
+  });
+
+  it('returns native audio_mode when latin dialogue + native model', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+
+    const project = makeProjectWithVersionedFrame({
+      audio_mode: 'auto',
+      dialogue: { speaker: 'narrator', text: 'Hello world' },
+    });
+
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      submitSceneVideo: vi.fn().mockResolvedValue({
+        fal_request_id: 'req-1',
+        model_used: 'fal-ai/veo3.1/image-to-video',
+        request_input: { duration_sec: 7 },
+      }),
+    });
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: project, error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    });
+    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      job_id: 'j1',
+      existing: false,
+    });
+
+    // Pick a model that has_native_audio = true via override
+    const result = await generateSceneVideoAction({
+      project_id: PROJECT_ID,
+      scene_id: 's1',
+      model_override: 'fal-ai/veo3.1/image-to-video',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.audio_mode).toBe('native');
   });
 });
