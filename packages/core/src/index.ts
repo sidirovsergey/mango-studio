@@ -30,6 +30,11 @@ export type {
   JobHandle,
   JobResult,
   JobStatus,
+  SceneAssetVersion,
+  SceneAssetVersionSource,
+  MasterClipVersion,
+  AudioMode,
+  VersionKind,
 } from './media';
 export {
   ECONOMY_MODELS,

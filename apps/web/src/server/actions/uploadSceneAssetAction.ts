@@ -2,6 +2,7 @@
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { applyAssetToScript } from '@/server/lib/scene-helpers';
+import { SCENE_ASSETS_BUCKET } from '@/server/lib/storage-paths';
 import type { PersistedScript, SceneAsset, SceneVideoAsset, ScriptGenOutput } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
@@ -58,7 +59,7 @@ export async function uploadSceneAssetAction(
   if (uploadError) return { ok: false, error: `upload failed: ${uploadError.message}` };
 
   const generated_at = new Date().toISOString();
-  const storage = { kind: 'supabase' as const, path };
+  const storage = { kind: 'supabase' as const, bucket: SCENE_ASSETS_BUCKET, path };
 
   let asset: SceneAsset | SceneVideoAsset;
   if (input.kind === 'first_frame') {

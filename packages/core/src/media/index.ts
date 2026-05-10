@@ -44,6 +44,12 @@ export {
   DialogueSchema,
   FirstFrameSourceSchema,
 } from './scene-types';
+export {
+  SceneAssetVersionSchema,
+  MasterClipVersionSchema,
+  AudioModeSchema,
+  VersionKindSchema,
+} from './scene-types';
 export type {
   SceneAsset,
   SceneVideoAsset,
@@ -51,6 +57,11 @@ export type {
   MasterClip,
   Dialogue,
   FirstFrameSource,
+  SceneAssetVersion,
+  SceneAssetVersionSource,
+  MasterClipVersion,
+  AudioMode,
+  VersionKind,
 } from './scene-types';
 
 export {
