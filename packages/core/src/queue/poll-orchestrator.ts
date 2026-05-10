@@ -22,6 +22,21 @@ export interface InflightJob {
   request_input: Record<string, unknown>;
 }
 
+/**
+ * Hint returned by `finalizeCompleted` to drive the async storage-mirror pipeline
+ * (Phase 1.3.5+). Pre-Sub-phase-C callers may return `void`, in which case the
+ * orchestrator skips mirror/deleteStorage side-effects.
+ */
+export interface MirrorHint {
+  project_id: string;
+  scene_id?: string; // omitted for master_clip
+  version_id: string;
+  kind: 'first_frame' | 'video' | 'voice_audio' | 'master_clip';
+  ext: string;
+  /** Supabase Storage path of the version evicted by appendVersion overflow, if any. */
+  dropped_supabase_path?: string;
+}
+
 export interface PollDeps {
   listInflight(project_id: string): Promise<InflightJob[]>;
   finalizeCompleted(args: {
@@ -29,7 +44,7 @@ export interface PollDeps {
     result_storage: unknown;
     cost_usd: number | null;
     latency_ms: number;
-  }): Promise<void>;
+  }): Promise<MirrorHint | undefined>;
   finalizeError(args: { job: InflightJob; error_code: string }): Promise<void>;
   recordPendingJob(args: {
     user_id: string;
@@ -43,6 +58,22 @@ export interface PollDeps {
   }): Promise<{ job_id: string; existing: boolean }>;
   persistAsset(url: string, ctx: { user_id: string; project_id: string }): Promise<unknown>;
   provider: Pick<MediaProvider, 'getJobStatus' | 'getJobResult' | 'submitLastFrameExtract'>;
+  /**
+   * Fire-and-forget: download fal CDN URL → upload to Supabase Storage →
+   * update jsonb storage descriptor. Failures are silently retried by Phase 1.4 cron.
+   */
+  mirror?: (args: {
+    project_id: string;
+    scene_id?: string;
+    version_id: string;
+    kind: 'first_frame' | 'video' | 'voice_audio' | 'master_clip';
+    ext: string;
+  }) => Promise<{ ok: boolean }>;
+  /**
+   * Fire-and-forget: best-effort delete an evicted version's Supabase Storage object.
+   * Only called when a dropped version actually had `storage.kind === 'supabase'`.
+   */
+  deleteStorage?: (path: string) => Promise<void>;
 }
 
 export interface PollContext {
@@ -73,12 +104,28 @@ async function onComplete(job: InflightJob, ctx: PollContext, deps: PollDeps): P
     user_id: ctx.user_id,
     project_id: ctx.project_id,
   });
-  await deps.finalizeCompleted({
+  const hint = await deps.finalizeCompleted({
     job,
     result_storage: persisted,
     cost_usd: result.cost_usd,
     latency_ms: result.latency_ms,
   });
+
+  // Phase 1.3.5: fire-and-forget storage mirror + drop cleanup.
+  // Pre-Sub-phase-C callers return void here, so the block is a no-op until
+  // finalizeCompleted is migrated to use appendVersion and emit a MirrorHint.
+  if (hint && deps.mirror) {
+    void deps.mirror({
+      project_id: hint.project_id,
+      scene_id: hint.scene_id,
+      version_id: hint.version_id,
+      kind: hint.kind,
+      ext: hint.ext,
+    });
+    if (hint.dropped_supabase_path && deps.deleteStorage) {
+      void deps.deleteStorage(hint.dropped_supabase_path);
+    }
+  }
 
   // Side-effect for video kind: when fal didn't return last_frame_url,
   // submit a separate extract job so continuity ref is available for next scene.

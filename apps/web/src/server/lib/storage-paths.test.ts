@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { sceneAssetStoragePath, masterClipStoragePath } from './storage-paths';
+import { describe, expect, it } from 'vitest';
+import { masterClipStoragePath, sceneAssetStoragePath } from './storage-paths';
 
 describe('sceneAssetStoragePath', () => {
   it('builds frame path', () => {

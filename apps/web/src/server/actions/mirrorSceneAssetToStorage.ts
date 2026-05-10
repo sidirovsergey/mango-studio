@@ -42,7 +42,6 @@ export async function mirrorSceneAssetToStorage(args: {
     // 2. Locate version
     let version: Version | undefined;
     if (args.kind === 'master_clip') {
-      // biome-ignore lint/suspicious/noExplicitAny: jsonb script schema is dynamic at this layer
       version = (script.master_clip_versions ?? []).find(
         (v: Version) => v.version_id === args.version_id,
       );
@@ -76,8 +75,7 @@ export async function mirrorSceneAssetToStorage(args: {
         : sceneAssetStoragePath({
             user_id: user.id,
             project_id: args.project_id,
-            // biome-ignore lint/style/noNonNullAssertion: scene_id is required for non-master kinds
-            scene_id: args.scene_id!,
+            scene_id: args.scene_id ?? '',
             version_id: args.version_id,
             kind: args.kind,
             ext: args.ext,

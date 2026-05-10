@@ -21,6 +21,7 @@ import {
 } from '@mango/core';
 import { getVideoModelMeta } from '@mango/core/media';
 import { getServerSupabase } from '@mango/db/server';
+import { mirrorSceneAssetToStorage } from './mirrorSceneAssetToStorage';
 
 export async function pollMediaJobsAction(input: { project_id: string }): Promise<
   { ok: true } | { ok: false; error: string }
@@ -242,6 +243,17 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
           // For scene jobs we pass '' as placeholder — used only for folder pathing.
           character_id: '',
         }),
+
+      // Phase 1.3.5: async fal CDN → Supabase Storage mirror.
+      // finalizeCompleted above currently writes the pre-1.3.5 single-asset shape
+      // and returns void, so the orchestrator never invokes mirror in this sub-phase.
+      // Sub-phase C migrates finalizeCompleted to use appendVersion + emit MirrorHint;
+      // wiring it here now keeps the integration ready and unit-testable.
+      mirror: mirrorSceneAssetToStorage,
+      deleteStorage: async (path: string) => {
+        const sbAdmin = sb;
+        await sbAdmin.storage.from('scene-assets').remove([path]);
+      },
 
       provider,
     },
