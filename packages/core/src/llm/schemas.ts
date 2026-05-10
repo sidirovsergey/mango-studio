@@ -1,40 +1,60 @@
 import 'server-only';
 import { z } from 'zod';
 import {
+  AudioModeSchema,
   DialogueSchema,
   FirstFrameSourceSchema,
   MasterClipSchema,
-  SceneAssetSchema,
-  SceneVideoAssetSchema,
-  VoiceAssetSchema,
+  MasterClipVersionSchema,
+  SceneAssetVersionSchema,
+  StoredAssetSchema,
 } from '../media/scene-types';
 import type { ScriptGenOutput } from './provider';
 import { ScriptCharacterActionSchema } from './types';
 
 export const SceneSchema = z.object({
-  scene_id: z.string().min(1).describe('Уникальный id сцены, например s1, s2'),
-  description: z
-    .string()
-    .min(1)
-    .describe('Описание сцены, что в ней происходит, для media-генерации'),
-  duration_sec: z.number().int().min(1).max(30).describe('Длительность сцены в секундах'),
-  dialogue: DialogueSchema.nullable().describe(
-    "Реплика для сцены: {speaker: 'narrator' | character_id, text}. null если сцена немая.",
-  ),
-  character_ids: z
-    .array(z.string())
-    .describe('id персонажей, видимых в сцене. Пустой массив если только окружение.'),
-  composition_hint: z
-    .string()
-    .optional()
-    .describe('Опциональная композиционная подсказка типа "close-up Алисы"'),
+  scene_id: z.string().min(1),
+  description: z.string().min(1),
+  dialogue: DialogueSchema.nullable(),
+  character_ids: z.array(z.string()),
+  composition_hint: z.string().optional(),
+  duration_sec: z.number().int().min(1).max(30),
+  config_overrides: z
+    .object({
+      tier: z.enum(['economy', 'premium']).optional(),
+      model: z.string().optional(),
+    })
+    .optional(),
+  audio_mode: AudioModeSchema.default('auto'),
   first_frame_source: FirstFrameSourceSchema.default('auto_continuity'),
-  first_frame: SceneAssetSchema.nullable().default(null),
-  last_frame: SceneAssetSchema.nullable().default(null),
-  video: SceneVideoAssetSchema.nullable().default(null),
-  voice_audio: VoiceAssetSchema.nullable().default(null),
-  final_clip: SceneAssetSchema.nullable().default(null),
+
+  // Versioned arrays (max 5)
+  first_frame_versions: z.array(SceneAssetVersionSchema).max(5),
+  first_frame_active_version_id: z.string().nullable(),
+  video_versions: z.array(SceneAssetVersionSchema).max(5),
+  video_active_version_id: z.string().nullable(),
+  voice_audio_versions: z.array(SceneAssetVersionSchema).max(5),
+  voice_audio_active_version_id: z.string().nullable(),
+
+  // Derived (auto-recomposed)
+  last_frame: z
+    .object({
+      storage: StoredAssetSchema,
+      extracted_from_version_id: z.string(),
+    })
+    .nullable(),
+  final_clip: z
+    .object({
+      storage: StoredAssetSchema,
+      composed_from: z.object({
+        video_version_id: z.string(),
+        voice_audio_version_id: z.string().nullable(),
+      }),
+    })
+    .nullable(),
 });
+
+export type Scene = z.infer<typeof SceneSchema>;
 
 export const NarratorVoiceSchema = z.object({
   tts_voice_id: z.string(),
