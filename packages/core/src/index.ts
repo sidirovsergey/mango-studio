@@ -113,3 +113,6 @@ export type {
 } from './llm';
 
 export * from './queue';
+
+export type { VoiceOption } from './media/voices';
+export { VOICE_POOL, getVoiceById, DEFAULT_NARRATOR_VOICE_ID } from './media/voices';
