@@ -4,12 +4,10 @@ import {
   AudioModeSchema,
   DialogueSchema,
   FirstFrameSourceSchema,
-  MasterClipSchema,
   MasterClipVersionSchema,
   SceneAssetVersionSchema,
   StoredAssetSchema,
 } from '../media/scene-types';
-import type { ScriptGenOutput } from './provider';
 import { ScriptCharacterActionSchema } from './types';
 
 export const SceneSchema = z.object({
@@ -76,14 +74,12 @@ export const ScriptGenSchema = z.object({
   narrator_voice: NarratorVoiceSchema.optional().describe(
     'Дефолтный голос рассказчика на уровне проекта',
   ),
-  master_clip: MasterClipSchema.nullable().default(null),
+  master_clip_versions: z.array(MasterClipVersionSchema).max(5),
+  master_clip_active_version_id: z.string().nullable(),
 });
 
-type _SchemaMatchesType = z.infer<typeof ScriptGenSchema> extends ScriptGenOutput
-  ? ScriptGenOutput extends z.infer<typeof ScriptGenSchema>
-    ? true
-    : false
-  : false;
+export type Script = z.infer<typeof ScriptGenSchema>;
 
-const _check: _SchemaMatchesType = true;
-void _check;
+// NOTE: SchemaMatchesType check is intentionally removed in Phase 1.3.5 —
+// the schema diverges from the legacy ScriptGenOutput interface (master_clip → master_clip_versions,
+// scene asset fields → versioned arrays). Sub-phase C will reconcile interfaces with new schemas.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SceneSchema } from './schemas';
+import { SceneSchema, ScriptGenSchema } from './schemas';
 
 describe('SceneSchema (1.3.5 versioned)', () => {
   it('accepts empty version arrays', () => {
@@ -74,5 +74,56 @@ describe('SceneSchema (1.3.5 versioned)', () => {
       config_overrides: { tier: 'premium', model: 'fal-ai/veo3.1/image-to-video' },
     });
     expect(r.config_overrides?.tier).toBe('premium');
+  });
+});
+
+describe('ScriptGenSchema (1.3.5 master_clip versioned)', () => {
+  const baseScene = {
+    scene_id: 's1',
+    description: 'd',
+    dialogue: null,
+    character_ids: [],
+    duration_sec: 5,
+    first_frame_source: 'auto_continuity' as const,
+    audio_mode: 'auto' as const,
+    first_frame_versions: [],
+    first_frame_active_version_id: null,
+    video_versions: [],
+    video_active_version_id: null,
+    voice_audio_versions: [],
+    voice_audio_active_version_id: null,
+    last_frame: null,
+    final_clip: null,
+  };
+
+  it('accepts empty master_clip_versions', () => {
+    const r = ScriptGenSchema.parse({
+      title: 'X',
+      scenes: [baseScene, { ...baseScene, scene_id: 's2' }],
+      characters: [{ action: 'add', name: 'Hero', description: 'd' }],
+      master_clip_versions: [],
+      master_clip_active_version_id: null,
+    });
+    expect(r.master_clip_versions).toEqual([]);
+  });
+
+  it('accepts populated master clip with active pointer', () => {
+    const mv = {
+      version_id: 'mv1',
+      storage: { kind: 'fal_passthrough', url: 'https://fal.media/m.mp4' },
+      generated_at: 'now',
+      cost_usd: 0.005,
+      composed_from_scene_versions: [
+        { scene_id: 's1', video_version_id: 'v1', voice_audio_version_id: null },
+      ],
+    };
+    const r = ScriptGenSchema.parse({
+      title: 'X',
+      scenes: [baseScene, { ...baseScene, scene_id: 's2' }],
+      characters: [{ action: 'add', name: 'Hero', description: 'd' }],
+      master_clip_versions: [mv],
+      master_clip_active_version_id: 'mv1',
+    });
+    expect(r.master_clip_active_version_id).toBe('mv1');
   });
 });
