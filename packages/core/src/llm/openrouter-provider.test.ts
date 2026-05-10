@@ -30,6 +30,16 @@ afterEach(() => {
 
 describe('OpenRouterLLMProvider', () => {
   it('generateScript parses JSON from generateText output via ScriptGenSchema', async () => {
+    const emptySceneVersions = {
+      first_frame_versions: [],
+      first_frame_active_version_id: null,
+      video_versions: [],
+      video_active_version_id: null,
+      voice_audio_versions: [],
+      voice_audio_active_version_id: null,
+      last_frame: null,
+      final_clip: null,
+    };
     const scriptObj = {
       title: 'Денни ищет работу',
       scenes: [
@@ -39,6 +49,7 @@ describe('OpenRouterLLMProvider', () => {
           duration_sec: 8,
           dialogue: { speaker: 'narrator', text: 'Жил-был дельфин Денни.' },
           character_ids: [],
+          ...emptySceneVersions,
         },
         {
           scene_id: 's2',
@@ -46,9 +57,12 @@ describe('OpenRouterLLMProvider', () => {
           duration_sec: 6,
           dialogue: null,
           character_ids: [],
+          ...emptySceneVersions,
         },
       ],
       characters: [{ action: 'add', name: 'Денни', description: 'Дельфин-оптимист' }],
+      master_clip_versions: [],
+      master_clip_active_version_id: null,
     };
     mockGenerateText.mockResolvedValueOnce({
       text: `Here is the script:\n${JSON.stringify(scriptObj)}`,

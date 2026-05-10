@@ -97,7 +97,9 @@ export class OpenRouterLLMProvider implements LLMProvider {
       if (!jsonMatch) throw new SyntaxError('No JSON object found in LLM response');
       const object = ScriptGenSchema.parse(JSON.parse(jsonMatch[0]));
       const llmUsage = await this.buildUsage(params.model, usage, start);
-      return { output: object, usage: llmUsage };
+      // NOTE: ScriptGenOutput legacy interface still has `master_clip` field; new schema replaces it
+      // with master_clip_versions/active_id. Sub-phase C reconciles consumer interfaces.
+      return { output: object as unknown as ScriptGenResult['output'], usage: llmUsage };
     } catch (err) {
       logLLMError('script', params.model, err);
       throw classifyLLMError(err);

@@ -30,7 +30,7 @@ export function appendVersion<V extends { version_id: string; generated_at: stri
   return { versions: next, active_version_id: newVersion.version_id, dropped: null };
 }
 
-export function getActiveVersion<V extends { version_id: string }>(
+export function getActiveVersion<V extends { version_id: string; generated_at: string }>(
   state: VersionedAsset<V>,
 ): V | null {
   if (!state.active_version_id) return null;
