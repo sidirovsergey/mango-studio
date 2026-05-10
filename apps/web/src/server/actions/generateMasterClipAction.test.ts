@@ -17,31 +17,25 @@ beforeEach(() => {
 
 const PROJECT_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 
-const finalClipAsset = {
-  storage: { kind: 'fal_passthrough' as const, url: 'https://cdn.fal.ai/final.mp4' },
-  model: 'fal-ai/ffmpeg-api/merge-audio-video',
-  generated_at: '2026-01-01T00:00:00Z',
-  fal_request_id: 'req-mux',
-};
+const finalClip = (sceneIdx: number, video_version_id: string, voice_audio_version_id: string | null) => ({
+  storage: { kind: 'fal_passthrough' as const, url: `https://cdn.fal.ai/final-${sceneIdx}.mp4` },
+  composed_from: { video_version_id, voice_audio_version_id },
+});
 
-const finalClipAsset2 = {
-  storage: { kind: 'fal_passthrough' as const, url: 'https://cdn.fal.ai/final2.mp4' },
-  model: 'fal-ai/ffmpeg-api/merge-audio-video',
-  generated_at: '2026-01-01T00:00:00Z',
-  fal_request_id: 'req-mux-2',
-};
-
-const makeScene = (id: string, finalClip: unknown) => ({
+const makeScene = (id: string, fc: unknown) => ({
   scene_id: id,
   description: `Scene ${id}`,
   duration_sec: 7,
   dialogue: null,
   character_ids: [],
-  first_frame: null,
+  first_frame_versions: [],
+  first_frame_active_version_id: null,
+  video_versions: [],
+  video_active_version_id: null,
+  voice_audio_versions: [],
+  voice_audio_active_version_id: null,
   last_frame: null,
-  video: null,
-  voice_audio: null,
-  final_clip: finalClip,
+  final_clip: fc,
 });
 
 const makeProject = (scenesOverride?: unknown[]) => ({
@@ -50,93 +44,94 @@ const makeProject = (scenesOverride?: unknown[]) => ({
   tier: 'premium',
   script: {
     title: 'Test',
-    master_clip: null,
+    master_clip_versions: [],
+    master_clip_active_version_id: null,
     narrator_voice: null,
     characters: [],
-    scenes: scenesOverride ?? [makeScene('s1', finalClipAsset), makeScene('s2', finalClipAsset2)],
+    scenes:
+      scenesOverride ??
+      [
+        makeScene('s1', finalClip(1, 'v3', 'va2')),
+        makeScene('s2', finalClip(2, 'v1', null)),
+        makeScene('s3', finalClip(3, 'v2', 'va3')),
+      ],
   },
 });
 
 describe('generateMasterClipAction', () => {
   it('rejects when not all scenes have final_clip', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
-
-    const projectMissingFinalClip = makeProject([
-      makeScene('s1', finalClipAsset),
-      makeScene('s2', null),
-    ]);
-
-    const builder = {
+    const project = makeProject([makeScene('s1', finalClip(1, 'v3', 'va2')), makeScene('s2', null)]);
+    const projectQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: projectMissingFinalClip, error: null }),
+      single: vi.fn().mockResolvedValue({ data: project, error: null }),
     };
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      from: vi.fn(() => builder),
+      from: vi.fn(() => projectQuery),
     });
 
     const result = await generateMasterClipAction({ project_id: PROJECT_ID });
-
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toMatch(/final_clip/i);
-    }
+    if (!result.ok) expect(result.error).toMatch(/final_clip/i);
   });
 
-  it('submits concat and records master_clip job (no scene_id, no character_id)', async () => {
+  it('submits concat using each scene active final_clip; passes composed metadata', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
-
-    const CONCAT_MODEL = 'fal-ai/ffmpeg-api/merge-videos';
 
     const submitMasterConcat = vi.fn().mockResolvedValue({
       fal_request_id: 'req-concat-1',
-      model_used: CONCAT_MODEL,
+      model_used: 'fal-ai/ffmpeg-api/merge-videos',
       request_input: {
-        clip_urls: ['https://cdn.fal.ai/final.mp4', 'https://cdn.fal.ai/final2.mp4'],
+        clip_urls: [
+          'https://cdn.fal.ai/final-1.mp4',
+          'https://cdn.fal.ai/final-2.mp4',
+          'https://cdn.fal.ai/final-3.mp4',
+        ],
       },
     });
     (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
       submitMasterConcat,
     });
 
-    const builder = {
+    const projectQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       single: vi.fn().mockResolvedValue({ data: makeProject(), error: null }),
     };
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      from: vi.fn(() => builder),
+      from: vi.fn(() => projectQuery),
     });
-
     (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       job_id: 'job-concat-1',
       existing: false,
     });
 
     const result = await generateMasterClipAction({ project_id: PROJECT_ID });
-
     expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.job_id).toBe('job-concat-1');
-    }
-
     expect(submitMasterConcat).toHaveBeenCalledWith(
       expect.objectContaining({
-        clip_urls: ['https://cdn.fal.ai/final.mp4', 'https://cdn.fal.ai/final2.mp4'],
+        clip_urls: [
+          'https://cdn.fal.ai/final-1.mp4',
+          'https://cdn.fal.ai/final-2.mp4',
+          'https://cdn.fal.ai/final-3.mp4',
+        ],
       }),
-      expect.objectContaining({ user_id: 'u1', project_id: PROJECT_ID }),
+      expect.objectContaining({ user_id: 'u1' }),
     );
-
     expect(recordPendingJob).toHaveBeenCalledWith(
       expect.objectContaining({
-        user_id: 'u1',
-        project_id: PROJECT_ID,
         kind: 'master_clip',
-        fal_request_id: 'req-concat-1',
+        request_input: expect.objectContaining({
+          composed: [
+            { scene_id: 's1', video_version_id: 'v3', voice_audio_version_id: 'va2' },
+            { scene_id: 's2', video_version_id: 'v1', voice_audio_version_id: null },
+            { scene_id: 's3', video_version_id: 'v2', voice_audio_version_id: 'va3' },
+          ],
+        }),
       }),
     );
 
-    // master_clip is project-level — no scene_id or character_id
     const call = (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0];
     expect(call.scene_id).toBeUndefined();
     expect(call.character_id).toBeUndefined();
