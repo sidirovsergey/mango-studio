@@ -1,8 +1,9 @@
 'use client';
 
 import { generateCharacterDossierAction } from '@/server/actions/generateCharacterDossierAction';
+import { setCharacterVoiceAction } from '@/server/actions/setCharacterVoiceAction';
 import { updateCharacterFieldAction } from '@/server/actions/updateCharacterFieldAction';
-import { type Character, buildDossierPrompt } from '@mango/core';
+import { type Character, VOICE_POOL, buildDossierPrompt } from '@mango/core';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { ReferenceImagesPanel } from './ReferenceImagesPanel';
@@ -213,6 +214,7 @@ export function CharacterModalClient({
           }
           placeholder="например: тёплый баритон, спокойная уверенность"
         />
+        <VoicePicker projectId={projectId} character={character} />
         <div className="tts-provider-toggle">
           <label>
             <input
@@ -250,6 +252,97 @@ export function CharacterModalClient({
           referenceUrls={referenceUrls}
         />
       </section>
+    </div>
+  );
+}
+
+// ---------------- VoicePicker ----------------
+function VoicePicker({ projectId, character }: { projectId: string; character: Character }) {
+  const router = useRouter();
+  const [pending, startT] = useTransition();
+  const [showAdv, setShowAdv] = useState(false);
+  const [advId, setAdvId] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSelect = (voice: { id: string; label: string }) => {
+    setError(null);
+    startT(async () => {
+      const r = await setCharacterVoiceAction({
+        project_id: projectId,
+        character_id: character.id,
+        voice_id: voice.id,
+        voice_label: voice.label,
+      });
+      if (!r.ok) setError(r.error);
+      else router.refresh();
+    });
+  };
+
+  const handleAdvanced = () => {
+    if (!advId.match(/^[A-Za-z0-9]{20}$/)) {
+      setError('voice_id must be 20 alphanumeric chars');
+      return;
+    }
+    setError(null);
+    startT(async () => {
+      const r = await setCharacterVoiceAction({
+        project_id: projectId,
+        character_id: character.id,
+        voice_id: advId,
+        voice_label: 'Custom',
+        advanced: true,
+      });
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      setShowAdv(false);
+      setAdvId('');
+      router.refresh();
+    });
+  };
+
+  return (
+    <div className="voice-picker">
+      <span className="voice-label">🗣️ Голос:</span>
+      <select
+        className="voice-select"
+        value={character.voice_id ?? ''}
+        onChange={(e) => {
+          const v = VOICE_POOL.find((x) => x.id === e.target.value);
+          if (v) handleSelect({ id: v.id, label: v.label });
+        }}
+        disabled={pending}
+      >
+        <option value="">— не задан —</option>
+        {VOICE_POOL.map((v) => (
+          <option key={v.id} value={v.id}>
+            {v.label} ({v.gender}, {v.tone})
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        className="icon-btn"
+        onClick={() => setShowAdv((x) => !x)}
+        title="Custom voice_id"
+      >
+        ✎ adv
+      </button>
+      {showAdv && (
+        <div className="adv-popover">
+          <input
+            type="text"
+            placeholder="ElevenLabs voice_id (20 chars)"
+            value={advId}
+            onChange={(e) => setAdvId(e.target.value)}
+          />
+          <button type="button" className="btn primary" onClick={handleAdvanced} disabled={pending}>
+            применить
+          </button>
+        </div>
+      )}
+      {error && <span className="voice-error">⚠ {error}</span>}
     </div>
   );
 }

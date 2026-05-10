@@ -167,6 +167,18 @@
 .tts-provider-toggle { display: flex; gap: 12px; align-items: center; font-size: 13px; }
 .tts-provider-toggle .tts-note { color: var(--ink-500); font-size: 11px; }
 
+/* Voice picker (Phase 1.3.5 — voice pool selector) */
+.voice-picker { display: flex; align-items: center; gap: 8px; padding-top: 4px; flex-wrap: wrap; position: relative; }
+.voice-picker .voice-label { font-size: 12px; color: var(--ink-500); }
+.voice-picker .voice-select { background: white; border: 1px solid var(--ink-200); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.voice-picker .voice-select:disabled { opacity: 0.6; cursor: wait; }
+.voice-picker .icon-btn { background: transparent; border: 0; font-size: 11px; color: var(--ink-500); cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+.voice-picker .icon-btn:hover { background: var(--ink-100); color: var(--ink-900); }
+.voice-picker .adv-popover { display: flex; gap: 6px; padding: 8px; background: white; border: 1px solid var(--ink-200); border-radius: 12px; box-shadow: 0 8px 24px -8px rgba(26,18,7,0.18); }
+.voice-picker .adv-popover input { font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid var(--ink-200); border-radius: 6px; outline: none; }
+.voice-picker .adv-popover .btn.primary { background: var(--mango-500); color: white; padding: 4px 12px; border-radius: 999px; border: 0; cursor: pointer; font: inherit; font-size: 12px; }
+.voice-picker .voice-error { color: #B22; font-size: 11px; }
+
 .refs-panel { display: flex; flex-direction: column; gap: 8px; }
 .refs-grid {
   display: grid;
