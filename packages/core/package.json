@@ -11,6 +11,8 @@
     "./llm": "./src/llm/index.ts",
     "./llm/factory": "./src/llm/factory.ts",
     "./llm/pricing": "./src/llm/pricing.ts",
+    "./llm/schemas": "./src/llm/schemas.ts",
+    "./llm/migration": "./src/llm/migration.ts",
     "./prompt": "./src/prompt/types.ts",
     "./tier": "./src/tier/types.ts",
     "./fixtures": "./src/fixtures/index.ts"

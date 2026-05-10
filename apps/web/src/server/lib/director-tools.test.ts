@@ -221,6 +221,66 @@ describe('generate_first_frame', () => {
   });
 });
 
+describe('rollback_scene_version', () => {
+  it('returns pending action with payload + warning when scene exists', async () => {
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeSupabaseSingleWith({ scenes: [SCENE_WITH_FIRST_FRAME] }),
+    );
+
+    const tools = buildDirectorTools({ project_id: PROJECT_ID });
+    const result = await callTool(tools.rollback_scene_version, {
+      scene_id: 's1',
+      kind: 'first_frame',
+    });
+
+    expect(result).toMatchObject({
+      pending: true,
+      action: {
+        kind: 'rollback_scene_version',
+        payload: { project_id: PROJECT_ID, scene_id: 's1', kind: 'first_frame' },
+        status: 'pending',
+      },
+    });
+    expect(result.action?.payload.target_version_id).toBeUndefined();
+    expect(result.action?.preview.title).toContain('s1');
+    expect(result.action?.preview.title).toContain('first_frame');
+  });
+
+  it('passes target_version_id through payload when provided', async () => {
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeSupabaseSingleWith({ scenes: [SCENE_WITH_FIRST_FRAME] }),
+    );
+
+    const tools = buildDirectorTools({ project_id: PROJECT_ID });
+    const result = await callTool(tools.rollback_scene_version, {
+      scene_id: 's1',
+      kind: 'video',
+      target_version_id: 'v2',
+    });
+
+    expect(result.action?.payload).toMatchObject({
+      project_id: PROJECT_ID,
+      scene_id: 's1',
+      kind: 'video',
+      target_version_id: 'v2',
+    });
+  });
+
+  it('returns error when scene not found', async () => {
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeSupabaseSingleWith({ scenes: [] }),
+    );
+
+    const tools = buildDirectorTools({ project_id: PROJECT_ID });
+    const result = await callTool(tools.rollback_scene_version, {
+      scene_id: 's99',
+      kind: 'first_frame',
+    });
+
+    expect(result).toMatchObject({ ok: false, error: 'scene not found' });
+  });
+});
+
 describe('generate_master_clip', () => {
   it('returns pending action when all scenes have final_clip', async () => {
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(

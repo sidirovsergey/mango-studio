@@ -30,6 +30,11 @@ export type {
   JobHandle,
   JobResult,
   JobStatus,
+  SceneAssetVersion,
+  SceneAssetVersionSource,
+  MasterClipVersion,
+  AudioMode,
+  VersionKind,
 } from './media';
 export {
   ECONOMY_MODELS,
@@ -113,3 +118,23 @@ export type {
 } from './llm';
 
 export * from './queue';
+
+export type { VoiceOption } from './media/voices';
+export { VOICE_POOL, getVoiceById, DEFAULT_NARRATOR_VOICE_ID } from './media/voices';
+
+export * from './media/scene-versions';
+export {
+  resolveAudioMode,
+  resolveVoiceId,
+  type SceneForAudio,
+  type VideoModelMetaForAudio,
+  type NarratorVoiceLike,
+} from './media/audio-mode';
+
+// NOTE: `ScriptGenSchema`/`ScriptSchema`/`SceneSchema` (from `./llm/schemas`)
+// and `upgradeScene`/`upgradeScript`/`downgradeScript` (from `./llm/migration`)
+// are deliberately NOT re-exported here — both files have client-incompatible
+// imports (`'server-only'` and `node:crypto` respectively), and a barrel re-export
+// poisons every client component that imports `@mango/core`. Server-side and CLI
+// consumers should import directly from `@mango/core/llm/schemas` and
+// `@mango/core/llm/migration`.

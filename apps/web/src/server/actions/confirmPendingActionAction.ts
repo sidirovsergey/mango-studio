@@ -6,6 +6,7 @@ import { generateCharacterDossierAction } from '@/server/actions/generateCharact
 import { generateMasterClipAction } from '@/server/actions/generateMasterClipAction';
 import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
 import { refineCharacterAction } from '@/server/actions/refineCharacterAction';
+import { rollbackVersionAction } from '@/server/actions/rollbackVersionAction';
 import { setSceneModelAction } from '@/server/actions/setSceneModelAction';
 import {
   type Character,
@@ -209,6 +210,29 @@ export async function confirmPendingActionAction(rawInput: unknown): Promise<Res
         chip = {
           kind: 'generate_master_clip',
           label: `Не запустил склейку (${r.error})`,
+          ok: false,
+          error: r.error,
+        };
+      }
+      break;
+    }
+    case 'rollback_scene_version': {
+      const sceneId = typeof payload.scene_id === 'string' ? payload.scene_id : '';
+      const kind = typeof payload.kind === 'string' ? payload.kind : '';
+      const targetVersionId =
+        typeof payload.target_version_id === 'string' ? payload.target_version_id : null;
+      const r = await rollbackVersionAction(payload);
+      if (r.ok) {
+        const labelTarget = targetVersionId ? ` → ${targetVersionId}` : ' на пред.';
+        chip = {
+          kind: 'rollback_scene_version',
+          label: `↺ Откат · сцена ${sceneId} · ${kind}${labelTarget}`,
+          ok: true,
+        };
+      } else {
+        chip = {
+          kind: 'rollback_scene_version',
+          label: `Не откатил ${kind} сцены ${sceneId} (${r.error})`,
           ok: false,
           error: r.error,
         };

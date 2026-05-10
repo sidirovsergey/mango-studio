@@ -55,6 +55,8 @@ export const CharacterSchema = z.object({
   voice: VoiceSchema,
   dossier: DossierSchema.nullable().default(null),
   reference_images: z.array(ReferenceImageSchema).default([]),
+  voice_id: z.string().optional(),
+  voice_label: z.string().optional(),
   config_overrides: ConfigOverridesSchema,
   archived: z.boolean().optional(),
 });

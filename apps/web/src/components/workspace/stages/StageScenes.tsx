@@ -1,19 +1,35 @@
 'use client';
 
-import Link from 'next/link';
+import type { PersistedScript, Tier } from '@mango/core';
 import { StageGate } from '../StageGate';
 import { StageHead } from '../shared/StageHead';
+import { Stage04Inline } from './scenes/Stage04Inline';
+import type { Stage04Script } from './scenes/Stage04Provider';
 
 interface Props {
   projectId: string;
   projectStatus: string;
   hasReadyCharacter: boolean;
+  tier: Tier;
+  initialScript: PersistedScript | null;
 }
 
-export function StageScenes({ projectId, projectStatus, hasReadyCharacter }: Props) {
+export function StageScenes({
+  projectId,
+  projectStatus,
+  hasReadyCharacter,
+  tier,
+  initialScript,
+}: Props) {
   const unlocked =
     hasReadyCharacter ||
     ['script_ready', 'characters_ready', 'scenes_ready', 'final_ready'].includes(projectStatus);
+
+  // PersistedScript's compile-time shape is still the legacy one (scenes: Scene[],
+  // master_clip: MasterClip | null). Runtime data is the Phase 1.3.5 versioned
+  // shape — see migration.ts. Cast at the boundary; downstream components consume
+  // SceneView from Stage04Provider.
+  const initial = initialScript as unknown as Stage04Script | null;
 
   return (
     <section className="stage" data-stage id="scenesStage">
@@ -23,38 +39,7 @@ export function StageScenes({ projectId, projectStatus, hasReadyCharacter }: Pro
         scrollToStageId="charactersStage"
         hint="Сначала сгенерируй хотя бы одного персонажа"
       >
-        <div
-          className="scene-grid-placeholder"
-          style={{
-            padding: '32px',
-            textAlign: 'center',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '16px',
-          }}
-        >
-          <p style={{ margin: 0, color: 'var(--ink-300)' }}>
-            Открой раскадровку — там собираются first-frame'ы, видео и финальный мастер-клип.
-          </p>
-          <Link
-            href={`/projects/${projectId}/storyboard`}
-            className="btn btn-primary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '12px 24px',
-              borderRadius: '10px',
-              background: 'var(--mango-500)',
-              color: 'white',
-              textDecoration: 'none',
-              fontWeight: 600,
-            }}
-          >
-            🎬 Перейти к раскадровке
-          </Link>
-        </div>
+        <Stage04Inline projectId={projectId} tier={tier} initialScript={initial} />
       </StageGate>
     </section>
   );

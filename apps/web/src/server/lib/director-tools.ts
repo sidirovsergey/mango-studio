@@ -578,5 +578,47 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
         return { pending: true, action };
       },
     }),
+
+    rollback_scene_version: tool({
+      description:
+        'Откатить активную версию ассета сцены на указанную (или предыдущую если не указано). Применять когда юзер просит «верни прошлый кадр», «не нравится текущий, откати», «верни v2». Это destructive action — затрагивает downstream final_clip и master_clip stale state. Поэтому требуется confirm через pending-action card.',
+      inputSchema: z.object({
+        scene_id: z.string().min(1).describe('ID сцены, например s1, s2'),
+        kind: z
+          .enum(['first_frame', 'video', 'voice_audio', 'master_clip'])
+          .describe('Какой ассет откатывать'),
+        target_version_id: z
+          .string()
+          .min(1)
+          .optional()
+          .describe('ID конкретной версии; если не указано — откат на предыдущую'),
+      }),
+      execute: async ({ scene_id, kind, target_version_id }): Promise<ToolResult> => {
+        const scene = await resolveScene(project_id, scene_id);
+        if (!scene) return { ok: false, error: 'scene not found' };
+        const targetSummary = target_version_id
+          ? `версия ${target_version_id}`
+          : 'предыдущая версия';
+        const action: PendingAction = {
+          id: randomUUID(),
+          kind: 'rollback_scene_version',
+          payload: {
+            project_id,
+            scene_id,
+            kind,
+            ...(target_version_id ? { target_version_id } : {}),
+          },
+          preview: {
+            title: `Откатить ${kind} сцены ${scene_id}?`,
+            subject: scene.description.slice(0, 60),
+            summary: `Активная версия будет переключена на ${targetSummary}. Downstream final_clip / master_clip станут stale.`,
+            warning:
+              'Это действие может затронуть собранный ролик — потребуется пересборка master_clip.',
+          },
+          status: 'pending',
+        };
+        return { pending: true, action };
+      },
+    }),
   } satisfies ToolSet;
 }

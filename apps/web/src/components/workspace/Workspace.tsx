@@ -47,6 +47,8 @@ export function Workspace({ project, initialChatMessages, charactersSlot }: Work
               projectId={project.id}
               projectStatus={status}
               hasReadyCharacter={hasReadyCharacter}
+              tier={project.tier as Tier}
+              initialScript={script}
             />
             <StageFinal projectStatus={status} />
           </div>

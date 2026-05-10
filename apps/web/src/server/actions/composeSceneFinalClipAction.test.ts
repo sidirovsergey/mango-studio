@@ -17,23 +17,25 @@ beforeEach(() => {
 
 const PROJECT_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 
-const videoAsset = {
-  storage: { kind: 'fal_passthrough' as const, url: 'https://cdn.fal.ai/video.mp4' },
-  model: 'bytedance/seedance-2.0/image-to-video',
+const videoVersion = (id: string, model = 'bytedance/seedance-2.0/image-to-video') => ({
+  version_id: id,
+  storage: { kind: 'fal_passthrough' as const, url: `https://cdn.fal.ai/${id}.mp4` },
+  prompt: null,
+  model,
   generated_at: '2026-01-01T00:00:00Z',
-  fal_request_id: 'req-video',
-  duration_sec: 7,
-  source: 'ai_img2vid' as const,
+  cost_usd: null,
   has_native_audio: false,
-};
-
-const voiceAsset = {
-  storage: { kind: 'fal_passthrough' as const, url: 'https://cdn.fal.ai/audio.mp3' },
-  tts_provider: 'elevenlabs',
-  voice_id: 'narrator-voice-id',
+  source: 'auto_continuity' as const,
+});
+const voiceVersion = (id: string) => ({
+  version_id: id,
+  storage: { kind: 'fal_passthrough' as const, url: `https://cdn.fal.ai/${id}.mp3` },
+  prompt: 'hi',
+  model: 'fal-ai/elevenlabs/tts/multilingual-v2',
   generated_at: '2026-01-01T00:00:00Z',
-  fal_request_id: 'req-voice',
-};
+  cost_usd: null,
+  source: 'auto_continuity' as const,
+});
 
 const makeProject = (sceneOverrides: Record<string, unknown> = {}) => ({
   id: PROJECT_ID,
@@ -41,7 +43,8 @@ const makeProject = (sceneOverrides: Record<string, unknown> = {}) => ({
   tier: 'premium',
   script: {
     title: 'Test',
-    master_clip: null,
+    master_clip_versions: [],
+    master_clip_active_version_id: null,
     narrator_voice: { tts_voice_id: 'narrator-voice-id' },
     characters: [],
     scenes: [
@@ -49,12 +52,16 @@ const makeProject = (sceneOverrides: Record<string, unknown> = {}) => ({
         scene_id: 's1',
         description: 'Scene 1',
         duration_sec: 7,
-        dialogue: { speaker: 'narrator', text: 'Once upon a time...' },
+        dialogue: { speaker: 'narrator', text: 'Hello' },
         character_ids: [],
-        first_frame: null,
+        audio_mode: 'silent_tts',
+        first_frame_versions: [],
+        first_frame_active_version_id: null,
+        video_versions: [videoVersion('v3')],
+        video_active_version_id: 'v3',
+        voice_audio_versions: [voiceVersion('va2')],
+        voice_audio_active_version_id: 'va2',
         last_frame: null,
-        video: videoAsset,
-        voice_audio: voiceAsset,
         final_clip: null,
         ...sceneOverrides,
       },
@@ -63,84 +70,98 @@ const makeProject = (sceneOverrides: Record<string, unknown> = {}) => ({
 });
 
 describe('composeSceneFinalClipAction', () => {
-  it('rejects when scene uses native-audio model (has_native_audio=true)', async () => {
+  it('passes through video as final_clip when audio_mode resolves to native', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
 
-    const projectNativeAudio = makeProject({
-      video: { ...videoAsset, has_native_audio: true },
+    const project = makeProject({
+      audio_mode: 'native',
+      video_versions: [videoVersion('v1', 'fal-ai/veo3.1/image-to-video')],
+      video_active_version_id: 'v1',
     });
 
-    const builder = {
+    const updateEq = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn().mockReturnValue({ eq: updateEq });
+    const projectQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: projectNativeAudio, error: null }),
+      single: vi.fn().mockResolvedValue({ data: project, error: null }),
     };
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      from: vi.fn(() => builder),
+      from: vi.fn(() => ({ ...projectQuery, update })),
     });
 
     const result = await composeSceneFinalClipAction({ project_id: PROJECT_ID, scene_id: 's1' });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toMatch(/native-audio/i);
-    }
+    expect(result.ok).toBe(true);
+    if (result.ok && 'mode' in result) expect(result.mode).toBe('native_passthrough');
+    const payload = update.mock.calls[0]?.[0];
+    expect(
+      payload?.script?.scenes[0]?.final_clip?.composed_from?.voice_audio_version_id,
+    ).toBeNull();
+    expect(payload?.script?.scenes[0]?.final_clip?.composed_from?.video_version_id).toBe('v1');
   });
 
-  it('submits mux and records final_clip job', async () => {
+  it('submits mux job with active video + voice version refs', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
-
-    const MUX_MODEL = 'fal-ai/ffmpeg-api/merge-audio-video';
 
     const submitFinalClipMux = vi.fn().mockResolvedValue({
       fal_request_id: 'req-mux-1',
-      model_used: MUX_MODEL,
+      model_used: 'fal-ai/ffmpeg-api/merge-audio-video',
       request_input: {
-        video_url: 'https://cdn.fal.ai/video.mp4',
-        audio_url: 'https://cdn.fal.ai/audio.mp3',
+        video_url: 'https://cdn.fal.ai/v3.mp4',
+        audio_url: 'https://cdn.fal.ai/va2.mp3',
       },
     });
     (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
       submitFinalClipMux,
     });
 
-    const builder = {
+    const project = makeProject();
+    const projectQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: makeProject(), error: null }),
+      single: vi.fn().mockResolvedValue({ data: project, error: null }),
     };
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      from: vi.fn(() => builder),
+      from: vi.fn(() => projectQuery),
     });
-
     (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       job_id: 'job-mux-1',
       existing: false,
     });
 
     const result = await composeSceneFinalClipAction({ project_id: PROJECT_ID, scene_id: 's1' });
-
     expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.job_id).toBe('job-mux-1');
-    }
-
     expect(submitFinalClipMux).toHaveBeenCalledWith(
       expect.objectContaining({
-        video_url: 'https://cdn.fal.ai/video.mp4',
-        audio_url: 'https://cdn.fal.ai/audio.mp3',
+        video_url: 'https://cdn.fal.ai/v3.mp4',
+        audio_url: 'https://cdn.fal.ai/va2.mp3',
       }),
-      expect.objectContaining({ user_id: 'u1', project_id: PROJECT_ID }),
+      expect.objectContaining({ user_id: 'u1' }),
     );
-
     expect(recordPendingJob).toHaveBeenCalledWith(
       expect.objectContaining({
-        user_id: 'u1',
-        project_id: PROJECT_ID,
-        scene_id: 's1',
         kind: 'final_clip',
-        fal_request_id: 'req-mux-1',
+        request_input: expect.objectContaining({
+          video_version_id: 'v3',
+          voice_audio_version_id: 'va2',
+        }),
       }),
     );
+  });
+
+  it('rejects when scene has no active video', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    const project = makeProject({ video_versions: [], video_active_version_id: null });
+    const projectQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: project, error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => projectQuery),
+    });
+
+    const result = await composeSceneFinalClipAction({ project_id: PROJECT_ID, scene_id: 's1' });
+    expect(result.ok).toBe(false);
   });
 });

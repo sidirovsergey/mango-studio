@@ -31,6 +31,7 @@ export function PendingActionCard({ pending, chatMessageId }: Props) {
   const isDestructive =
     pending.kind === 'delete_character' ||
     pending.kind === 'regen_scene_video' ||
+    pending.kind === 'rollback_scene_version' ||
     Boolean(pending.preview.warning);
 
   useEffect(() => {
@@ -71,6 +72,8 @@ export function PendingActionCard({ pending, chatMessageId }: Props) {
         return 'Сменить модель';
       case 'generate_master_clip':
         return 'Финализировать';
+      case 'rollback_scene_version':
+        return 'Подтвердить откат';
       default:
         return 'Подтвердить';
     }

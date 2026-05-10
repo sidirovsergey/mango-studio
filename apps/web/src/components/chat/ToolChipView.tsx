@@ -37,6 +37,8 @@ const CHIP_ICONS: Partial<Record<ToolChipKind, string>> = {
   set_scene_model: '⚙️',
   generate_first_frame: '✨',
   generate_master_clip: '🎞️',
+  // Phase 1.3.5 rollback
+  rollback_scene_version: '↺',
 };
 
 /**

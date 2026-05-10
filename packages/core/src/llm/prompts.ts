@@ -1,5 +1,10 @@
+import { VOICE_POOL } from '../media/voices';
 import type { ChatMessage, RefineSceneInput, ScriptGenInput } from './provider';
 import type { Character } from './types';
+
+const VOICE_POOL_LINES = VOICE_POOL.map(
+  (v) => `  - "${v.id}" — ${v.label} (${v.gender}, ${v.tone})`,
+).join('\n');
 
 const FORMAT_LABEL: Record<ScriptGenInput['format'], string> = {
   '9:16': 'вертикальное (TikTok/Reels/Shorts)',
@@ -36,10 +41,14 @@ export const SCRIPT_SYSTEM_PROMPT = `Ты — Mango, AI-режиссёр кор�
       "dialogue": { "speaker": "narrator", "text": "закадровый текст" },
       "character_ids": [],
       "first_frame_source": "auto_continuity",
-      "first_frame": null,
+      "audio_mode": "auto",
+      "first_frame_versions": [],
+      "first_frame_active_version_id": null,
+      "video_versions": [],
+      "video_active_version_id": null,
+      "voice_audio_versions": [],
+      "voice_audio_active_version_id": null,
       "last_frame": null,
-      "video": null,
-      "voice_audio": null,
       "final_clip": null
     }
   ],
@@ -47,20 +56,32 @@ export const SCRIPT_SYSTEM_PROMPT = `Ты — Mango, AI-режиссёр кор�
     {
       "action": "add",
       "name": "Имя персонажа",
-      "description": "краткое описание внешности и характера"
+      "description": "краткое описание внешности и характера",
+      "voice_id": "21m00Tcm4TlvDq8ikWAM",
+      "voice_label": "Rachel"
     }
   ],
   "narrator_voice": { "tts_voice_id": "21m00Tcm4TlvDq8ikWAM" },
-  "master_clip": null
+  "master_clip_versions": [],
+  "master_clip_active_version_id": null
 }
 
-Правила для новых полей:
+Правила для полей:
 - dialogue.speaker — 'narrator' для закадрового текста ИЛИ id персонажа из characters[] для реплики этого персонажа. dialogue: null если сцена немая.
 - character_ids — пустой массив [] если в сцене никого нет (только окружение); иначе ['c1', 'c2'] (используй id из characters действий 'keep'/'add' — для 'add' id'ы появятся после применения, в первой генерации можно оставить пустыми).
-- first_frame_source — всегда 'auto_continuity' (continuity ref последнего кадра предыдущей сцены) для всех кроме s1, и для s1 тоже 'auto_continuity' допустим.
-- first_frame, last_frame, video, voice_audio, final_clip — ВСЕГДА null при генерации (заполняются медиа-pipeline'ом).
-- master_clip — null.
-- narrator_voice — ElevenLabs voice_id; если не уверен — используй placeholder '21m00Tcm4TlvDq8ikWAM' (Rachel, multilingual).`;
+- first_frame_source — всегда 'auto_continuity'.
+- audio_mode — всегда 'auto' при генерации (резолвер сам выберет native vs silent_tts по языку диалога и модели). Используй 'native' только если уверен, что диалог английский и сцена пойдёт через premium-модель с native audio.
+- *_versions поля и *_active_version_id — ВСЕГДА пустые массивы / null при генерации (заполняются медиа-pipeline'ом по мере прохождения jobs).
+- last_frame, final_clip, master_clip_versions, master_clip_active_version_id — ВСЕГДА null / [] при генерации.
+- narrator_voice.tts_voice_id — ElevenLabs voice_id; если не уверен — используй placeholder '21m00Tcm4TlvDq8ikWAM' (Rachel, multilingual).
+
+Голоса персонажей (voice pool, multilingual-v2):
+${VOICE_POOL_LINES}
+
+Правила назначения голосов персонажам:
+- Каждому персонажу с действием 'add' назначь voice_id + voice_label из пула выше.
+- Подбирай голос под пол и тон описания. Если описание не уточняет — раздавай голоса так, чтобы у разных говорящих персонажей в одном сценарии были разные voice_id (избегай дубликатов).
+- Если у проекта только один говорящий персонаж и нет особых требований — используй Rachel (21m00Tcm4TlvDq8ikWAM) как нейтральный default.`;
 
 export function buildScriptUserPrompt(input: ScriptGenInput): string {
   return `Идея пользователя: «${input.user_prompt}»
@@ -199,6 +220,7 @@ export function buildDirectorSystemPrompt(ctx: DirectorContext): string {
 - set_scene_model(scene_id, model): сменить video model для сцены. ОБЯЗАТЕЛЬНО confirm. Model должен быть из доступных в текущем tier.
 - generate_first_frame(scene_id): сгенерировать первый кадр сцены. Без confirm.
 - generate_master_clip(): финализировать ролик (склейка всех сцен). ОБЯЗАТЕЛЬНО confirm. Все сцены должны иметь final_clip.
+- rollback_scene_version: откатить ассет сцены на предыдущую версию или указанную (kind=first_frame|video|voice_audio|master_clip, target_version_id опционально). Destructive — будет confirm.
 
 Поведенческие правила для сцен:
 1. Видео-генерация дорогая (~$0.20-0.60 за сцену). Подтверждай через pending-card; НЕ переспрашивай в чате текстом.

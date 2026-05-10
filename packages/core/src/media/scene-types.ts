@@ -2,7 +2,11 @@ import { z } from 'zod';
 
 export const StoredAssetSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('fal_passthrough'), url: z.string().url() }),
-  z.object({ kind: z.literal('supabase'), path: z.string().min(1) }),
+  z.object({
+    kind: z.literal('supabase'),
+    bucket: z.string().min(1).default('scene-assets'),
+    path: z.string().min(1),
+  }),
 ]);
 
 export const SceneAssetSchema = z.object({
@@ -59,3 +63,45 @@ export type Dialogue = z.infer<typeof DialogueSchema>;
 export const FirstFrameSourceSchema = z.enum(['auto_continuity', 'manual_text2img', 'user_upload']);
 
 export type FirstFrameSource = z.infer<typeof FirstFrameSourceSchema>;
+
+// ============== Phase 1.3.5: versioned scene assets ==============
+
+export const SceneAssetVersionSourceSchema = z.enum([
+  'auto_continuity',
+  'manual_text2img',
+  'user_upload',
+]);
+export type SceneAssetVersionSource = z.infer<typeof SceneAssetVersionSourceSchema>;
+
+export const SceneAssetVersionSchema = z.object({
+  version_id: z.string().min(1),
+  storage: StoredAssetSchema,
+  prompt: z.string().nullable(),
+  model: z.string().nullable(),
+  generated_at: z.string(),
+  cost_usd: z.number().nullable(),
+  has_native_audio: z.boolean().optional(),
+  source: SceneAssetVersionSourceSchema,
+});
+export type SceneAssetVersion = z.infer<typeof SceneAssetVersionSchema>;
+
+export const MasterClipComposedSchema = z.object({
+  scene_id: z.string(),
+  video_version_id: z.string(),
+  voice_audio_version_id: z.string().nullable(),
+});
+
+export const MasterClipVersionSchema = z.object({
+  version_id: z.string().min(1),
+  storage: StoredAssetSchema,
+  generated_at: z.string(),
+  cost_usd: z.number().nullable(),
+  composed_from_scene_versions: z.array(MasterClipComposedSchema),
+});
+export type MasterClipVersion = z.infer<typeof MasterClipVersionSchema>;
+
+export const VersionKindSchema = z.enum(['first_frame', 'video', 'voice_audio', 'master_clip']);
+export type VersionKind = z.infer<typeof VersionKindSchema>;
+
+export const AudioModeSchema = z.enum(['native', 'silent_tts', 'auto']);
+export type AudioMode = z.infer<typeof AudioModeSchema>;

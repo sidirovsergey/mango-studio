@@ -1,11 +1,11 @@
 'use client';
 
+import { useStage04 } from '@/components/workspace/stages/scenes/Stage04Provider';
 import { subscribeMediaJobs } from '@/lib/realtime-publication';
 import { fetchProjectScriptAction } from '@/server/actions/fetchProjectScriptAction';
 import { pollMediaJobsAction } from '@/server/actions/pollMediaJobsAction';
 import type { Database } from '@mango/db';
 import { useEffect, useRef } from 'react';
-import { useStage04 } from './Stage04Provider';
 
 type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 
