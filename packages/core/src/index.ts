@@ -118,6 +118,13 @@ export type { VoiceOption } from './media/voices';
 export { VOICE_POOL, getVoiceById, DEFAULT_NARRATOR_VOICE_ID } from './media/voices';
 
 export * from './media/scene-versions';
+export {
+  resolveAudioMode,
+  resolveVoiceId,
+  type SceneForAudio,
+  type VideoModelMetaForAudio,
+  type NarratorVoiceLike,
+} from './media/audio-mode';
 
 export { upgradeScene, upgradeScript, downgradeScript } from './llm/migration';
 export { ScriptGenSchema, ScriptGenSchema as ScriptSchema, SceneSchema } from './llm/schemas';
