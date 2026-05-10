@@ -20,32 +20,32 @@ export function StageGate({ unlocked, scrollToStageId, hint, children }: Props) 
     return <>{children}</>;
   }
 
+  // Locked: do NOT mount expensive children (they may set up polling, Realtime
+  // subscriptions, server-action effects that don't make sense for an empty
+  // pre-script project). Render only a CTA pointing back to the prerequisite
+  // stage. This fixes a v1.3.5 regression where Stage04Inline + Stage04Provider
+  // + usePollJobs would mount unconditionally on draft projects.
   return (
-    <div className="stage-gate-wrap" style={{ position: 'relative' }}>
-      <div style={{ opacity: 0.3, pointerEvents: 'none' }} aria-hidden>
-        {children}
-      </div>
-      <button
-        type="button"
-        className="stage-gate-overlay"
-        onClick={onOverlayClick}
-        style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'rgba(255, 255, 255, 0.4)',
-          backdropFilter: 'blur(4px)',
-          border: '1px dashed var(--ink-200)',
-          borderRadius: 'inherit',
-          cursor: 'pointer',
-          fontSize: '15px',
-          color: 'var(--ink-500)',
-        }}
-      >
-        {hint} ↑
-      </button>
-    </div>
+    <button
+      type="button"
+      className="stage-gate-overlay"
+      onClick={onOverlayClick}
+      style={{
+        width: '100%',
+        minHeight: '120px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(255, 255, 255, 0.4)',
+        backdropFilter: 'blur(4px)',
+        border: '1px dashed var(--ink-200)',
+        borderRadius: '14px',
+        cursor: 'pointer',
+        fontSize: '15px',
+        color: 'var(--ink-500)',
+      }}
+    >
+      {hint} ↑
+    </button>
   );
 }
