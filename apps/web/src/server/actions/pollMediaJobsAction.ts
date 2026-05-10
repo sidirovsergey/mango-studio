@@ -149,16 +149,16 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
             });
           }
         } else if (job.character_id) {
-          const characters = ((nextScript as unknown as { characters?: Character[] })
-            .characters ?? []) as Character[];
+          const characters = ((nextScript as unknown as { characters?: Character[] }).characters ??
+            []) as Character[];
           const idx = characters.findIndex((c) => c.id === job.character_id);
           if (idx >= 0) {
             const character = characters[idx]!;
             const updated: Character = { ...character };
             if (job.kind === 'character_dossier') {
-              const quality = (typeof requestInput.quality === 'string'
-                ? requestInput.quality
-                : '1080p') as '720p' | '1080p' | '2k';
+              const quality = (
+                typeof requestInput.quality === 'string' ? requestInput.quality : '1080p'
+              ) as '720p' | '1080p' | '2k';
               const dossier: Dossier = {
                 storage: stored,
                 model: job.model,
@@ -170,9 +170,9 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
                 ? { ...dossier, avatar: character.dossier.avatar }
                 : dossier;
             } else if (job.kind === 'character_avatar') {
-              const quality = (typeof requestInput.quality === 'string'
-                ? requestInput.quality
-                : '1080p') as '720p' | '1080p' | '2k';
+              const quality = (
+                typeof requestInput.quality === 'string' ? requestInput.quality : '1080p'
+              ) as '720p' | '1080p' | '2k';
               if (character.dossier) {
                 updated.dossier = { ...character.dossier, avatar: stored };
               } else {

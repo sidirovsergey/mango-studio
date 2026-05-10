@@ -53,7 +53,7 @@ export function buildFirstFramePrompt(input: FirstFramePromptInput): {
 
   const refsExplanation =
     refs.length > 0
-      ? 'IMPORTANT — Reference images: the attached image(s) are CHARACTER DESIGN SHEETS. Use them ONLY as a reference library for the character\'s appearance, anatomy, costume, color palette, and recognisable design language. DO NOT replicate the layout, multi-panel composition, side-by-side poses, captions, or background of the reference. The character must be redrawn from scratch in a NEW scene with a NEW pose, NEW camera angle, and NEW environment described below.'
+      ? "IMPORTANT — Reference images: the attached image(s) are CHARACTER DESIGN SHEETS. Use them ONLY as a reference library for the character's appearance, anatomy, costume, color palette, and recognisable design language. DO NOT replicate the layout, multi-panel composition, side-by-side poses, captions, or background of the reference. The character must be redrawn from scratch in a NEW scene with a NEW pose, NEW camera angle, and NEW environment described below."
       : '';
 
   const promptParts = [

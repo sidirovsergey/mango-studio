@@ -106,7 +106,7 @@ const MODEL_LABELS: Record<string, { name: string; tag: string }> = {
 
 function modelDisplayName(slug: string | undefined): string {
   if (!slug) return 'авто';
-  return MODEL_LABELS[slug]?.name ?? (slug.split('/').at(-1) ?? slug);
+  return MODEL_LABELS[slug]?.name ?? slug.split('/').at(-1) ?? slug;
 }
 
 function ModelSelector({ projectId, sceneId, currentModel, tier }: ModelSelectorProps) {
@@ -152,9 +152,7 @@ function ModelSelector({ projectId, sceneId, currentModel, tier }: ModelSelector
               >
                 <strong>{label?.name ?? m}</strong>
                 {label?.tag && (
-                  <span style={{ display: 'block', fontSize: 11, opacity: 0.7 }}>
-                    {label.tag}
-                  </span>
+                  <span style={{ display: 'block', fontSize: 11, opacity: 0.7 }}>{label.tag}</span>
                 )}
               </button>
             );
