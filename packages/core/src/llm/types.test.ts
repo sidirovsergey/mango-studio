@@ -15,6 +15,27 @@ describe('CharacterSchema', () => {
     expect(out.reference_images).toEqual([]);
   });
 
+  it('accepts character with voice_id + voice_label', () => {
+    const out = CharacterSchema.parse({
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      name: 'Дельфин',
+      description: 'Главный герой',
+      voice_id: '21m00Tcm4TlvDq8ikWAM',
+      voice_label: 'Rachel',
+    });
+    expect(out.voice_id).toBe('21m00Tcm4TlvDq8ikWAM');
+    expect(out.voice_label).toBe('Rachel');
+  });
+
+  it('voice_id + voice_label optional', () => {
+    const out = CharacterSchema.parse({
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      name: 'X',
+    });
+    expect(out.voice_id).toBeUndefined();
+    expect(out.voice_label).toBeUndefined();
+  });
+
   it('parses полный character с dossier', () => {
     const out = CharacterSchema.parse({
       id: '550e8400-e29b-41d4-a716-446655440000',
