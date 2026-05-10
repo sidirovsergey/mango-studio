@@ -1,15 +1,16 @@
 'use client';
 
-import type { MasterClip, Scene } from '@mango/core';
+import type { MasterClipVersion } from '@mango/core';
 import { useEffect, useRef } from 'react';
+import type { SceneView } from './Stage04Provider';
 
 interface MasterClipModalProps {
-  masterClip: MasterClip;
-  scenes: Scene[];
+  masterClip: MasterClipVersion;
+  scenes: SceneView[];
   onClose: () => void;
 }
 
-function resolveUrl(clip: MasterClip): string | null {
+function resolveUrl(clip: MasterClipVersion): string | null {
   const s = clip.storage;
   if (s.kind === 'fal_passthrough') {
     return s.url;
@@ -18,19 +19,23 @@ function resolveUrl(clip: MasterClip): string | null {
   return `/api/storage/${s.path}`;
 }
 
-function isStale(clip: MasterClip, scenes: Scene[]): boolean {
+function isStale(clip: MasterClipVersion, scenes: SceneView[]): boolean {
+  const snapshotSceneIds = clip.composed_from_scene_versions.map((c) => c.scene_id);
   const currentIds = scenes
     .map((s) => s.scene_id)
     .sort()
     .join(',');
-  const snapshotIds = [...clip.scene_ids_snapshot].sort().join(',');
+  const snapshotIds = [...snapshotSceneIds].sort().join(',');
   if (currentIds !== snapshotIds) return true;
-  // Also stale if any scene was modified after master gen
-  const masterAt = clip.generated_at;
+
+  // Stale if any scene's current active video version differs from the snapshot
+  const snapshotByScene = new Map(
+    clip.composed_from_scene_versions.map((c) => [c.scene_id, c.video_version_id]),
+  );
   return scenes.some((s) => {
-    const sceneUpdatedAt =
-      s.final_clip?.generated_at ?? s.video?.generated_at ?? s.first_frame?.generated_at ?? null;
-    return sceneUpdatedAt != null && sceneUpdatedAt > masterAt;
+    const snapVid = snapshotByScene.get(s.scene_id);
+    if (!snapVid) return false;
+    return s.video_active_version_id !== snapVid;
   });
 }
 

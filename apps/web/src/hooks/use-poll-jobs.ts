@@ -5,7 +5,7 @@ import { fetchProjectScriptAction } from '@/server/actions/fetchProjectScriptAct
 import { pollMediaJobsAction } from '@/server/actions/pollMediaJobsAction';
 import type { Database } from '@mango/db';
 import { useEffect, useRef } from 'react';
-import { useStage04 } from './Stage04Provider';
+import { useStage04 } from '@/components/workspace/stages/scenes/Stage04Provider';
 
 type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 
