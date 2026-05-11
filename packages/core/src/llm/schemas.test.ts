@@ -179,4 +179,36 @@ describe('ScriptGenSchema (1.3.5 master_clip versioned)', () => {
     });
     expect(r.master_clip_active_version_id).toBe('mv1');
   });
+
+  it('Script accepts visual_theme + tier when provided', () => {
+    const script = ScriptGenSchema.parse({
+      title: 'X',
+      scenes: [baseScene, { ...baseScene, scene_id: 's2' }],
+      characters: [{ action: 'add', name: 'Hero', description: 'd' }],
+      master_clip_versions: [],
+      master_clip_active_version_id: null,
+      visual_theme: {
+        palette: ['#F4E4BC', '#3D2914', '#E8B86D'],
+        lighting: 'soft golden-hour key + warm fill + cool rim',
+        lens: '85mm shallow DOF',
+        motion: 'locked-off + occasional slow dolly',
+        mood: 'cozy',
+      },
+      tier: 'premium',
+    });
+    expect(script.tier).toBe('premium');
+    expect(script.visual_theme?.palette).toHaveLength(3);
+  });
+
+  it('Script defaults visual_theme and tier to null when omitted', () => {
+    const script = ScriptGenSchema.parse({
+      title: 'X',
+      scenes: [baseScene, { ...baseScene, scene_id: 's2' }],
+      characters: [{ action: 'add', name: 'Hero', description: 'd' }],
+      master_clip_versions: [],
+      master_clip_active_version_id: null,
+    });
+    expect(script.visual_theme).toBeNull();
+    expect(script.tier).toBeNull();
+  });
 });

@@ -14,6 +14,7 @@ import {
   LightingSchema,
   AudioDirectionSchema,
   ArcRoleSchema,
+  VisualThemeSchema,
 } from '../media/cinematography-schemas';
 import { ScriptCharacterActionSchema } from './types';
 
@@ -99,6 +100,8 @@ export const ScriptGenSchema = z.object({
     .min(1)
     .max(5)
     .describe('Персонажи: keep/add/remove действия для diff-merge'),
+  visual_theme: VisualThemeSchema.nullable().default(null),
+  tier: z.enum(['economy', 'premium']).nullable().default(null),
   narrator_voice: NarratorVoiceSchema.optional().describe(
     'Дефолтный голос рассказчика на уровне проекта',
   ),
