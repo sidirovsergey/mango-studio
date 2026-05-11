@@ -4,27 +4,42 @@ import { usePollJobs } from '@/hooks/use-poll-jobs';
 import { generateMasterClipAction } from '@/server/actions/generateMasterClipAction';
 import '@/styles/storyboard-inline.css';
 import type { Database } from '@mango/db';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { CostMeter } from './CostMeter';
 import { CostWarningToast } from './CostWarningToast';
-import { MasterClipModal } from './MasterClipModal';
 import { SceneCard } from './SceneCard';
-import { Stage04Provider, type Stage04Script, useStage04 } from './Stage04Provider';
+import { useStage04 } from './Stage04Provider';
 
 type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 
 interface Stage04InlineProps {
   projectId: string;
   tier: 'economy' | 'premium';
-  initialScript?: Stage04Script | null;
 }
 
-function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initialScript'>) {
+/**
+ * Scroll the user's attention to Stage 05 (Финал) — that's where the
+ * master clip player lives now. Called after finalize starts AND when
+ * user clicks "Открыть ролик" on a ready master.
+ */
+function scrollToFinal() {
+  if (typeof document === 'undefined') return;
+  const el = document.getElementById('finalStage');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
   const { script, jobs } = useStage04();
-  const [showMaster, setShowMaster] = useState(false);
   const [masterError, setMasterError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   usePollJobs(projectId);
+
+  // Auto-clear error after 6s so it doesn't linger
+  useEffect(() => {
+    if (!masterError) return;
+    const t = setTimeout(() => setMasterError(null), 6000);
+    return () => clearTimeout(t);
+  }, [masterError]);
 
   const scenes = script?.scenes ?? [];
   const characters = script?.characters ?? [];
@@ -58,15 +73,21 @@ function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initi
 
   const handleMasterClick = () => {
     setMasterError(null);
-    if (masterInFlight) return;
+    if (masterInFlight) {
+      scrollToFinal();
+      return;
+    }
     if (activeMaster) {
-      setShowMaster(true);
+      scrollToFinal();
       return;
     }
     if (!allScenesReady) return;
     startTransition(async () => {
       const r = await generateMasterClipAction({ project_id: projectId });
-      if (!r.ok) {
+      if (r.ok) {
+        // Job submitted — scroll user to Stage 05 where the result will land.
+        scrollToFinal();
+      } else {
         setMasterError(r.error ?? 'не удалось запустить финализацию');
       }
     });
@@ -76,17 +97,17 @@ function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initi
     if (masterInFlight) {
       return {
         label: 'Финализирую…',
-        disabled: true,
-        title: 'Идёт сборка master_clip — это 10-30 секунд',
+        disabled: false,
+        title: 'Идёт сборка — открыть Stage 05 «Финал» чтобы дождаться',
         busy: true,
         variant: 'busy' as const,
       };
     }
     if (activeMaster) {
       return {
-        label: 'Открыть ролик',
+        label: 'Открыть в Финале',
         disabled: false,
-        title: 'Готовый master_clip — открыть превью + скачать',
+        title: 'Прокрутить к Stage 05 «Финал» — там готовый ролик и кнопка скачать',
         busy: false,
         variant: 'ready' as const,
       };
@@ -95,7 +116,7 @@ function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initi
       return {
         label: 'Финализировать ролик',
         disabled: true,
-        title: `${readySceneCount}/${scenes.length} сцен готовы — нужно сгенерировать видео и финальные клипы для всех сцен`,
+        title: `${readySceneCount}/${scenes.length} сцен готовы — нужно сгенерировать видео для всех сцен`,
         busy: false,
         variant: 'idle' as const,
       };
@@ -103,7 +124,7 @@ function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initi
     return {
       label: pending ? 'Запускаю…' : 'Финализировать ролик',
       disabled: pending,
-      title: 'Склеить все сцены в финальный ролик через ffmpeg (~$0.005)',
+      title: 'Склеить все сцены в финальный ролик через ffmpeg (~$0.005) — результат в Stage 05',
       busy: pending,
       variant: 'active' as const,
     };
@@ -173,22 +194,6 @@ function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initi
       </div>
 
       <CostWarningToast projectId={projectId} jobs={jobs} />
-
-      {showMaster && activeMaster && (
-        <MasterClipModal
-          masterClip={activeMaster}
-          scenes={scenes}
-          onClose={() => setShowMaster(false)}
-        />
-      )}
     </section>
-  );
-}
-
-export function Stage04Inline({ projectId, tier, initialScript }: Stage04InlineProps) {
-  return (
-    <Stage04Provider projectId={projectId} initialScript={initialScript ?? null}>
-      <Stage04InlineInner projectId={projectId} tier={tier} />
-    </Stage04Provider>
   );
 }

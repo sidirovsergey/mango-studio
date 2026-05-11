@@ -107,11 +107,9 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob }: Props) {
       <div className="thumb">
         {isActiveJob ? (
           <div className="thumb-loading">
-            <div className="spinner" />
-            <span className="thumb-loading-label">{activeJobLabel ?? '…'}</span>
             <button
               type="button"
-              className="cancel-btn"
+              className="thumb-cancel"
               onClick={handleCancel}
               disabled={pending}
               aria-label="Отменить генерацию"
@@ -119,6 +117,11 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob }: Props) {
             >
               ✕
             </button>
+            <div className="thumb-loading-core">
+              <div className="spinner" />
+              <span className="thumb-loading-label">{activeJobLabel ?? 'генерация'}</span>
+              <span className="thumb-loading-sub">обычно 30–90 сек</span>
+            </div>
           </div>
         ) : active ? (
           mode === 'video' ? (
@@ -141,18 +144,20 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob }: Props) {
         ) : (
           <div className="thumb-empty">Не сгенерировано</div>
         )}
-        <div className="thumb-badges">
-          {active?.has_native_audio !== undefined && (
-            <span className="badge" title={active.has_native_audio ? 'Native audio' : 'Silent'}>
-              {active.has_native_audio ? '🎵' : '🔇'}
-            </span>
-          )}
-          {stale && (
-            <span className="badge warn" title="Кадр обновлён после видео — стоит regen">
-              🔁
-            </span>
-          )}
-        </div>
+        {!isActiveJob && (
+          <div className="thumb-badges">
+            {active?.has_native_audio !== undefined && (
+              <span className="badge" title={active.has_native_audio ? 'Native audio' : 'Silent'}>
+                {active.has_native_audio ? '🎵' : '🔇'}
+              </span>
+            )}
+            {stale && (
+              <span className="badge warn" title="Кадр обновлён после видео — стоит regen">
+                🔁
+              </span>
+            )}
+          </div>
+        )}
         {scene.first_frame_versions.length > 0 && scene.video_versions.length > 0 && (
           <div className="thumb-mode" role="tablist">
             <button

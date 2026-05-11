@@ -9,6 +9,7 @@ import { StageFinal } from './stages/StageFinal';
 import { StageIdea } from './stages/StageIdea';
 import { StageScenes } from './stages/StageScenes';
 import { StageScript } from './stages/StageScript';
+import { Stage04Provider, type Stage04Script } from './stages/scenes/Stage04Provider';
 
 type ProjectRow = Database['public']['Tables']['projects']['Row'];
 type ChatMessageRow = Database['public']['Tables']['chat_messages']['Row'];
@@ -43,14 +44,18 @@ export function Workspace({ project, initialChatMessages, charactersSlot }: Work
             <StageIdea project={project} />
             {charactersSlot}
             <StageScript project={project} script={script} />
-            <StageScenes
+            <Stage04Provider
               projectId={project.id}
-              projectStatus={status}
-              hasReadyCharacter={hasReadyCharacter}
-              tier={project.tier as Tier}
-              initialScript={script}
-            />
-            <StageFinal projectStatus={status} />
+              initialScript={(script as unknown as Stage04Script) ?? null}
+            >
+              <StageScenes
+                projectId={project.id}
+                projectStatus={status}
+                hasReadyCharacter={hasReadyCharacter}
+                tier={project.tier as Tier}
+              />
+              <StageFinal projectStatus={status} projectId={project.id} />
+            </Stage04Provider>
           </div>
         </WorkspaceScroll>
       </main>
