@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { NarratorVoiceSchema, SceneSchema, ScriptGenSchema } from './schemas';
+import { CharacterSchema } from './types';
 
 describe('SceneSchema (1.3.5 versioned)', () => {
   it('accepts empty version arrays', () => {
@@ -235,4 +236,33 @@ it('NarratorVoice accepts minimal {tts_voice_id} (back-compat)', () => {
 
 it('NarratorVoice rejects stability outside 0-1', () => {
   expect(() => NarratorVoiceSchema.parse({ tts_voice_id: 'x', stability: 1.5 })).toThrow();
+});
+
+it('Character.voice accepts new voice_settings', () => {
+  const c = CharacterSchema.parse({
+    id: '550e8400-e29b-41d4-a716-446655440000',
+    name: 'Дэнни',
+    voice: {
+      tts_voice_id: 'rachel_v3',
+      stability: 0.55,
+      similarity_boost: 0.7,
+      style: 0.1,
+      speed: 1.0,
+    },
+  });
+  expect(c.voice?.stability).toBe(0.55);
+});
+
+it('Character.voice strips legacy description field (back-compat)', () => {
+  const c = CharacterSchema.parse({
+    id: '550e8400-e29b-41d4-a716-446655440000',
+    name: 'Дэнни',
+    voice: {
+      tts_voice_id: 'rachel_v3',
+      description: 'тёплый, чуть низкий', // legacy F38 dead field
+    },
+  });
+  expect(c.voice?.tts_voice_id).toBe('rachel_v3');
+  // @ts-expect-error — description not in new type
+  expect(c.voice?.description).toBeUndefined();
 });
