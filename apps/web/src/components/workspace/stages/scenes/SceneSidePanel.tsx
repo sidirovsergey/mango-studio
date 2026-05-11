@@ -64,11 +64,14 @@ const JOB_KIND_LABEL: Record<string, string> = {
   storage_mirror: 'mirror в storage',
 };
 
+type ActionId = 'text' | 'frame' | 'video';
+
 export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, activeJob }: Props) {
   const num = sceneNum ?? String(index + 1).padStart(2, '0');
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [promptModal, setPromptModal] = useState<'first_frame' | 'video' | null>(null);
+  const [activeAction, setActiveAction] = useState<ActionId | null>(null);
 
   const activeFrame =
     scene.first_frame_versions.find((v) => v.version_id === scene.first_frame_active_version_id) ??
@@ -91,6 +94,15 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
       const r = await fn();
       if (!r.ok) setError(r.error ?? 'unknown');
       else setError(null);
+    });
+  };
+  const runScopedAction = (id: ActionId, fn: () => Promise<ActionResult>) => {
+    setActiveAction(id);
+    startTransition(async () => {
+      const r = await fn();
+      if (!r.ok) setError(r.error ?? 'unknown');
+      else setError(null);
+      setActiveAction(null);
     });
   };
 
@@ -188,39 +200,57 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
 
       <section className="action-strip" aria-label="Действия со сценой">
         <ActionTile
-          icon={<IconPencil size={13} />}
-          label="Перегенерить текст"
+          icon={<IconPencil size={16} />}
+          object="Текст"
+          action="перегенерировать"
           cost="$0.001"
+          busy={activeAction === 'text'}
           disabled={pending || lockedByGen}
+          title="LLM перепишет описание сцены и реплику диалога"
           onClick={() =>
-            onAction(() =>
+            runScopedAction('text', () =>
               regenSceneTextAction({ project_id: projectId, scene_id: scene.scene_id }),
             )
           }
         />
         <ActionTile
-          icon={<IconFrame size={13} />}
-          label={activeFrame ? 'Перегенерить кадр' : 'Создать кадр'}
+          icon={<IconFrame size={16} />}
+          object="Кадр"
+          action={activeFrame ? 'перегенерировать' : 'создать'}
           cost="$0.02"
+          busy={activeAction === 'frame'}
           disabled={pending || lockedByGen}
+          title={
+            activeFrame
+              ? 'Сгенерировать новую версию first_frame (9:16) — заменит текущую активную'
+              : 'Сгенерировать первый кадр сцены (9:16) для последующего video-генератора'
+          }
           onClick={() =>
-            onAction(() =>
+            runScopedAction('frame', () =>
               generateFirstFrameAction({ project_id: projectId, scene_id: scene.scene_id }),
             )
           }
         />
         <ActionTile
           primary
-          icon={activeVideo ? <IconRefresh size={14} /> : <IconPlay size={14} />}
-          label={activeVideo ? 'Перегенерить видео' : 'Сгенерировать видео'}
+          icon={activeVideo ? <IconRefresh size={17} /> : <IconPlay size={17} />}
+          object="Видео"
+          action={activeVideo ? 'перегенерировать' : 'сгенерировать'}
           cost={videoCostHint}
+          busy={activeAction === 'video'}
           disabled={pending || lockedByGen || !activeFrame}
+          title={
+            !activeFrame
+              ? 'Сначала сгенерируй кадр — нужен first_frame для image-to-video'
+              : activeVideo
+                ? `Создать новую версию видео из активного кадра (${videoCostHint})`
+                : `Сгенерировать видео сцены из активного кадра (${videoCostHint})`
+          }
           onClick={() =>
-            onAction(() =>
+            runScopedAction('video', () =>
               generateSceneVideoAction({ project_id: projectId, scene_id: scene.scene_id }),
             )
           }
-          title={!activeFrame ? 'Сначала сгенерируй кадр' : undefined}
         />
       </section>
 
@@ -330,35 +360,48 @@ function PromptSection({ kind, label, prompt, version, onOpen, disabled }: Promp
 
 interface ActionTileProps {
   icon: React.ReactNode;
-  label: string;
+  /** What the button generates: "Текст" / "Кадр" / "Видео". Top line, bold. */
+  object: string;
+  /** Action verb: "перегенерировать" / "создать". Bottom line, muted mono. */
+  action: string;
   cost: string;
   disabled: boolean;
+  /** True only for the currently running tile — shows spinner + "Генерирую…". */
+  busy: boolean;
   onClick: () => void;
   primary?: boolean;
+  /** Native title tooltip — explain what this button does. */
   title?: string;
 }
 
 function ActionTile({
   icon,
-  label,
+  object,
+  action,
   cost,
   disabled,
+  busy,
   onClick,
   primary = false,
   title,
 }: ActionTileProps) {
+  const cls = `action-tile${primary ? ' primary' : ''}${busy ? ' busy' : ''}`;
   return (
     <button
       type="button"
-      className={`action-tile${primary ? ' primary' : ''}`}
+      className={cls}
       onClick={onClick}
-      disabled={disabled}
+      disabled={disabled || busy}
       title={title}
+      aria-busy={busy}
     >
       <span className="action-tile-icon" aria-hidden>
-        {icon}
+        {busy ? <span className="spinner inline-spinner" /> : icon}
       </span>
-      <span className="action-tile-label">{label}</span>
+      <span className="action-tile-body">
+        <span className="action-tile-object">{busy ? 'Генерирую…' : object}</span>
+        <span className="action-tile-action">{busy ? object.toLowerCase() : action}</span>
+      </span>
       <span className="action-tile-cost">{cost}</span>
     </button>
   );

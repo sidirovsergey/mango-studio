@@ -628,11 +628,14 @@
 }
 
 /* === Action strip — unified tile pattern.
-   All three buttons share the same anatomy and 48px height.
-   Primary gets prominence via mango-gradient fill, not scale. === */
+   Three tiles share the same anatomy and 58px height. Each shows
+   ICON + two-line body (object name + action verb) + cost. While a
+   tile is busy, its icon swaps to a spinner and "Генерирую…" replaces
+   the object line — sibling tiles go to disabled state. Primary
+   gains prominence only via mango-gradient fill, not scale. === */
 .action-strip {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.6fr;
+  grid-template-columns: 1fr 1fr 1.5fr;
   gap: 10px;
   padding-top: 16px;
   border-top: 1px solid var(--rule-soft);
@@ -642,8 +645,8 @@
   grid-template-columns: auto 1fr auto;
   gap: 12px;
   align-items: center;
-  height: 48px;
-  padding: 0 14px 0 12px;
+  min-height: 58px;
+  padding: 8px 14px 8px 10px;
   background: rgba(255, 255, 255, 0.65);
   border: 1px solid var(--rule);
   border-radius: 12px;
@@ -661,27 +664,47 @@
   transform: translateY(-1px);
   box-shadow: 0 4px 10px -4px rgba(245, 118, 0, 0.20);
 }
+.action-tile:active:not(:disabled) { transform: scale(0.99); }
 .action-tile:disabled { opacity: 0.45; cursor: not-allowed; }
+
 .action-tile-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   background: rgba(245, 118, 0, 0.10);
   color: var(--mango-600, #D85F00);
   flex-shrink: 0;
 }
-.action-tile-label {
+.action-tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.action-tile-object {
   font-family: var(--font-display), 'Manrope', system-ui, sans-serif;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 13.5px;
   letter-spacing: -0.005em;
   color: var(--ink-900, #1A1207);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.25;
+}
+.action-tile-action {
+  font-family: var(--font-mono), 'Geist Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
 }
 .action-tile-cost {
   font-family: var(--font-mono), 'Geist Mono', ui-monospace, monospace;
@@ -690,6 +713,25 @@
   color: var(--ink-dim);
   font-feature-settings: 'tnum';
   white-space: nowrap;
+}
+
+/* Busy state — pulses subtly, icon→spinner, label changes. */
+.action-tile.busy {
+  background: rgba(255, 247, 236, 0.95);
+  border-color: var(--mango-300, #FFB35A);
+  cursor: progress;
+  animation: action-tile-pulse 1.8s ease-in-out infinite;
+}
+.action-tile.busy .action-tile-icon {
+  background: rgba(245, 118, 0, 0.18);
+}
+.action-tile.busy .action-tile-object {
+  color: var(--mango-700, #A84800);
+}
+.action-tile.busy:disabled { opacity: 1; }
+@keyframes action-tile-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 118, 0, 0.0); }
+  50%      { box-shadow: 0 0 0 4px rgba(245, 118, 0, 0.15); }
 }
 
 /* Primary variant — same anatomy, mango-gradient fill. */
@@ -716,7 +758,8 @@
   background: rgba(255, 255, 255, 0.22);
   color: white;
 }
-.action-tile.primary .action-tile-label { color: white; }
+.action-tile.primary .action-tile-object { color: white; }
+.action-tile.primary .action-tile-action { color: rgba(255, 255, 255, 0.78); }
 .action-tile.primary .action-tile-cost {
   color: white;
   background: rgba(255, 255, 255, 0.22);
@@ -733,10 +776,34 @@
   background: rgba(26, 18, 7, 0.05);
   color: var(--ink-dim);
 }
-.action-tile.primary:disabled .action-tile-label { color: var(--ink-700, #4A3520); }
+.action-tile.primary:disabled .action-tile-object { color: var(--ink-700, #4A3520); }
+.action-tile.primary:disabled .action-tile-action { color: var(--ink-dim); }
 .action-tile.primary:disabled .action-tile-cost {
   background: rgba(26, 18, 7, 0.06);
   color: var(--ink-dim);
+}
+.action-tile.primary.busy {
+  background: linear-gradient(180deg, var(--mango-400, #FF9026), var(--mango-600, #D85F00));
+  border: 0;
+  animation: action-tile-pulse-primary 1.8s ease-in-out infinite;
+}
+.action-tile.primary.busy .action-tile-icon {
+  background: rgba(255, 255, 255, 0.30);
+}
+.action-tile.primary.busy .action-tile-object { color: white; }
+.action-tile.primary.busy .inline-spinner {
+  border-color: rgba(255, 255, 255, 0.30);
+  border-top-color: white;
+}
+@keyframes action-tile-pulse-primary {
+  0%, 100% { box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.50) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.08) inset,
+    0 8px 20px -6px rgba(245, 118, 0, 0.45); }
+  50%      { box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.08) inset,
+    0 14px 28px -6px rgba(245, 118, 0, 0.65); }
 }
 
 /* === Controls strip === */
