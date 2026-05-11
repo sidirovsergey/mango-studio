@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildDirectorSystemPrompt, buildRefinePrompt, buildScriptPrompt } from './prompts';
+import { buildDirectorSystemPrompt, buildRefinePrompt, buildScriptPrompt, CHAT_SYSTEM_PROMPT } from './prompts';
 
 describe('buildScriptPrompt с existingCharacters', () => {
   const baseInput = {
@@ -281,5 +281,22 @@ describe('buildRefinePrompt (1.4.B.T3)', () => {
     // Must NOT contain the old 1-sentence Russian prompt text
     expect(p).not.toContain('Верни ОДНО предложение');
     expect(p).not.toContain('AI-режиссёр.');
+  });
+});
+
+describe('CHAT_SYSTEM_PROMPT (1.4.B.T4)', () => {
+  it('CHAT_SYSTEM_PROMPT strips UI-coupling vocabulary', () => {
+    expect(CHAT_SYSTEM_PROMPT).not.toContain('нажми');
+    expect(CHAT_SYSTEM_PROMPT).not.toContain('кнопку');
+    expect(CHAT_SYSTEM_PROMPT).not.toContain('интерфейс');
+  });
+
+  it('CHAT_SYSTEM_PROMPT carries the new XML role + task structure', () => {
+    expect(CHAT_SYSTEM_PROMPT).toContain('<role>');
+    expect(CHAT_SYSTEM_PROMPT).toContain('Mango');
+    expect(CHAT_SYSTEM_PROMPT).toContain('Pre-production Concierge');
+    expect(CHAT_SYSTEM_PROMPT).toContain('<task>');
+    expect(CHAT_SYSTEM_PROMPT).toContain('Respond in Russian');
+    expect(CHAT_SYSTEM_PROMPT).toMatch(/no markdown headers/i);
   });
 });
