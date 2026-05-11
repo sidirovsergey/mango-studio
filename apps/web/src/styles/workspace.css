@@ -274,6 +274,33 @@
   font-size: 11px;
 }
 
+/* "Обновлено …" chip in Stage 01 header — previously had zero styling and
+   appeared as foreign raw text. Now: subtle mango-cream pill matching the
+   .stage-num + .stage-title visual language. */
+.stage-subtitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 246, 226, 0.6), rgba(255, 233, 200, 0.4));
+  border: 1px solid rgba(245, 118, 0, 0.10);
+  font-family: 'Geist Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--ink-500);
+  white-space: nowrap;
+}
+.stage-subtitle::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mango-400);
+  box-shadow: 0 0 0 2px rgba(245, 118, 0, 0.18);
+  flex-shrink: 0;
+}
+
 /* Shared across stages 02-04 (action buttons in stage-head and char-actions) */
 .icon-btn {
   width: 28px;
@@ -413,11 +440,19 @@
     padding: 16px 14px;
     border-radius: 16px;
   }
-  /* Tighter section heads */
+  /* Tighter section heads — flex-wrap so subtitle drops to next line
+     when title is long, instead of overflowing horizontally. */
   .stage-head {
     gap: 10px;
+    flex-wrap: wrap;
   }
   .stage-title {
     font-size: 16px;
+  }
+  .stage-subtitle {
+    font-size: 9.5px;
+    padding: 3px 8px 3px 7px;
+    /* On phone, "Обновлено DD.MM.YYYY, HH:MM" is too long with localized
+       weekday; ::before dot still acts as the indicator. */
   }
 }
