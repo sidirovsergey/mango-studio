@@ -14,7 +14,7 @@ interface CharacterForPrompt {
 }
 
 interface FirstFramePromptInput {
-  scene: { scene_id: string; description: string; composition_hint?: string };
+  scene: { scene_id: string; description: string };
   characters_in_scene: CharacterForPrompt[];
   prev_last_frame: StoredAsset | null;
   project_style: string;
@@ -61,7 +61,6 @@ export function buildFirstFramePrompt(input: FirstFramePromptInput): {
     'OUTPUT FORMAT — ONE SINGLE cinematic frame in 9:16 vertical aspect ratio (TikTok/Reels portrait). The output is a single still from a movie or animated short — one camera angle, one moment in time, full bleed, no borders, no splits, no panels.',
     refsExplanation,
     multiCharRule,
-    scene.composition_hint ?? '',
     `Scene to render: ${scene.description}`,
   ].filter(Boolean);
 

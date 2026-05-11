@@ -238,6 +238,53 @@ it('NarratorVoice rejects stability outside 0-1', () => {
   expect(() => NarratorVoiceSchema.parse({ tts_voice_id: 'x', stability: 1.5 })).toThrow();
 });
 
+it('Scene strips legacy composition_hint field (back-compat)', () => {
+  const scene = SceneSchema.parse({
+    scene_id: 's1',
+    description: 'Кот спит',
+    duration_sec: 5,
+    dialogue: null,
+    character_ids: ['c1'],
+    composition_hint: 'medium shot, eye level', // legacy F57 dead field
+    first_frame_source: 'auto_continuity',
+    audio_mode: 'auto',
+    first_frame_versions: [],
+    first_frame_active_version_id: null,
+    video_versions: [],
+    video_active_version_id: null,
+    voice_audio_versions: [],
+    voice_audio_active_version_id: null,
+    last_frame: null,
+    final_clip: null,
+  });
+  // composition_hint is stripped — it's not on the parsed object
+  // @ts-expect-error — field removed from type
+  expect(scene.composition_hint).toBeUndefined();
+  // composition (the structured replacement) defaults to null
+  expect(scene.composition).toBeNull();
+});
+
+it('Scene without composition_hint parses cleanly (no legacy baggage)', () => {
+  const scene = SceneSchema.parse({
+    scene_id: 's1',
+    description: 'x',
+    duration_sec: 5,
+    dialogue: null,
+    character_ids: [],
+    first_frame_source: 'auto_continuity',
+    audio_mode: 'auto',
+    first_frame_versions: [],
+    first_frame_active_version_id: null,
+    video_versions: [],
+    video_active_version_id: null,
+    voice_audio_versions: [],
+    voice_audio_active_version_id: null,
+    last_frame: null,
+    final_clip: null,
+  });
+  expect('composition_hint' in scene).toBe(false);
+});
+
 it('Character.voice accepts new voice_settings', () => {
   const c = CharacterSchema.parse({
     id: '550e8400-e29b-41d4-a716-446655440000',

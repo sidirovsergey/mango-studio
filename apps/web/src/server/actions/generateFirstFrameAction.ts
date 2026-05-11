@@ -90,7 +90,6 @@ export async function generateFirstFrameAction(
     scene: {
       scene_id: scene.scene_id,
       description: scene.description,
-      composition_hint: scene.composition_hint,
     },
     characters_in_scene,
     prev_last_frame,

@@ -31,7 +31,6 @@ type SceneShape = {
   duration_sec: number;
   dialogue: { speaker: string; text: string } | null;
   character_ids: string[];
-  composition_hint?: string;
   first_frame_source?: 'auto_continuity' | 'manual_text2img' | 'user_upload';
   audio_mode?: 'native' | 'silent_tts' | 'auto';
   first_frame_versions?: SceneAssetVersion[];

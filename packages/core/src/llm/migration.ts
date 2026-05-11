@@ -9,7 +9,6 @@ type LegacyScene = {
   dialogue?: any;
   voiceover?: string; // pre-1.3 — covered by existing normalize
   character_ids?: string[];
-  composition_hint?: string;
   duration_sec: number;
   first_frame_source?: string;
   config_overrides?: any;
@@ -61,7 +60,6 @@ export function upgradeScene(legacy: LegacyScene): Scene {
     description: legacy.description,
     dialogue: legacy.dialogue ?? null,
     character_ids: legacy.character_ids ?? [],
-    composition_hint: legacy.composition_hint,
     duration_sec: legacy.duration_sec,
     config_overrides: legacy.config_overrides,
     audio_mode: (legacy.audio_mode as any) ?? 'auto',
@@ -121,7 +119,6 @@ export function downgradeScript(script: Script): unknown {
       description: s.description,
       dialogue: s.dialogue,
       character_ids: s.character_ids,
-      composition_hint: s.composition_hint,
       duration_sec: s.duration_sec,
       config_overrides: s.config_overrides,
       audio_mode: s.audio_mode,

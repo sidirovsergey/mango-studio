@@ -24,7 +24,6 @@ export interface SceneView {
   description: string;
   dialogue: Dialogue | null;
   character_ids: string[];
-  composition_hint?: string;
   duration_sec: number;
   config_overrides?: {
     tier?: 'economy' | 'premium';

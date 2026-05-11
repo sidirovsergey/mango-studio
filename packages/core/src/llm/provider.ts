@@ -32,7 +32,6 @@ export interface Scene {
   duration_sec: number;
   dialogue: Dialogue | null;
   character_ids: string[];
-  composition_hint?: string;
   first_frame_source: FirstFrameSource;
   first_frame: SceneAsset | null;
   last_frame: SceneAsset | null;

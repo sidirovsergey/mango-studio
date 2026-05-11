@@ -23,12 +23,11 @@ const crab = {
 };
 
 describe('buildFirstFramePrompt', () => {
-  it('composes prompt with style + composition + characters + description', () => {
+  it('composes prompt with style + characters + description', () => {
     const result = buildFirstFramePrompt({
       scene: {
         scene_id: 's1',
         description: 'Дельфин говорит с крабом на пляже',
-        composition_hint: 'wide shot, обоих видно',
       },
       characters_in_scene: [dolphin, crab],
       prev_last_frame: null,
@@ -38,7 +37,6 @@ describe('buildFirstFramePrompt', () => {
     expect(result.prompt).toContain('3D Pixar');
     expect(result.prompt).toContain('9:16');
     expect(result.prompt).toContain('Дельфин говорит с крабом');
-    expect(result.prompt).toContain('wide shot');
     expect(result.image_refs).toHaveLength(2);
   });
 

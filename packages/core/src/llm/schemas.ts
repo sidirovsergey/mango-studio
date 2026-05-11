@@ -20,9 +20,15 @@ import { ScriptCharacterActionSchema } from './types';
 
 export const SceneSchema = z.preprocess(
   (raw) => {
-    // back-compat: if description_ru missing, mirror from description
-    if (raw && typeof raw === 'object' && 'description' in raw && !('description_ru' in raw)) {
-      return { ...raw, description_ru: (raw as { description: string }).description };
+    if (raw && typeof raw === 'object') {
+      const obj = { ...(raw as Record<string, unknown>) };
+      // back-compat: if description_ru missing, mirror from description
+      if ('description' in obj && !('description_ru' in obj)) {
+        obj.description_ru = (obj as { description: string }).description;
+      }
+      // F57: composition_hint is dead — strip it so old DB rows parse cleanly
+      delete obj.composition_hint;
+      return obj;
     }
     return raw;
   },
@@ -42,7 +48,6 @@ export const SceneSchema = z.preprocess(
     tier_at_gen: z.enum(['economy', 'premium']).nullable().default(null),
 
     // Preserved pre-existing fields:
-    composition_hint: z.string().optional(),
     config_overrides: z
       .object({
         tier: z.enum(['economy', 'premium']).optional(),
