@@ -32,12 +32,24 @@ function getAssetUrl(v: SceneAssetVersion): string | null {
     : `/api/scene-asset?path=${encodeURIComponent(v.storage.path)}`;
 }
 
+const JOB_KIND_LABEL_SHORT: Record<string, string> = {
+  first_frame: 'Кадр',
+  video: 'Видео',
+  voice: 'Голос',
+  final_clip: 'Сборка',
+  last_frame_extract: 'Continuity',
+  master_clip: 'Master',
+};
+
 export function SceneThumbnailColumn({ projectId, scene, activeJob }: Props) {
   const [mode, setMode] = useState<Mode>(() =>
     scene.video_versions.length > 0 ? 'video' : 'first_frame',
   );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const activeJobLabel = activeJob
+    ? (JOB_KIND_LABEL_SHORT[activeJob.kind] ?? activeJob.kind)
+    : null;
 
   const versions = mode === 'first_frame' ? scene.first_frame_versions : scene.video_versions;
   const activeId =
@@ -96,12 +108,14 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob }: Props) {
         {isActiveJob ? (
           <div className="thumb-loading">
             <div className="spinner" />
+            <span className="thumb-loading-label">{activeJobLabel ?? '…'}</span>
             <button
               type="button"
               className="cancel-btn"
               onClick={handleCancel}
               disabled={pending}
               aria-label="Отменить генерацию"
+              title="Отменить fal job"
             >
               ✕
             </button>
