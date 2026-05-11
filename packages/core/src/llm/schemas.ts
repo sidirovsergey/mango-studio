@@ -105,8 +105,8 @@ export const ScriptGenSchema = z.object({
   scenes: z
     .array(SceneSchema)
     .min(2)
-    .max(8)
-    .describe('2-8 сцен, в сумме укладывающихся в target_duration_sec'),
+    .max(20)
+    .describe('2-20 сцен, в сумме укладывающихся в target_duration_sec (cadence: 15s→3, 30s→6, 60s→10-12, 90s→14-18)'),
   characters: z
     .array(ScriptCharacterActionSchema)
     .min(1)
