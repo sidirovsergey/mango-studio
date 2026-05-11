@@ -18,8 +18,14 @@ interface Props {
 }
 
 export function SceneCard(props: Props) {
+  const num = String(props.index + 1).padStart(2, '0');
   return (
-    <article className="scene-row">
+    <article className="scene-row" data-scene-index={num}>
+      <aside className="scene-anchor" aria-hidden>
+        <span className="scene-anchor-num">{num}</span>
+        <span className="scene-anchor-rule" />
+        <span className="scene-anchor-label">scene</span>
+      </aside>
       <SceneThumbnailColumn {...props} />
       <SceneSidePanel {...props} />
     </article>

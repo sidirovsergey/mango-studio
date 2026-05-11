@@ -31,20 +31,20 @@ type ActionResult = { ok: boolean; error?: string };
 const MODEL_LABEL: Record<string, string> = {
   'fal-ai/bytedance/seedance/v1/lite/image-to-video': 'Seedance 1 Lite',
   'fal-ai/kling-video/v2.5-turbo/standard/image-to-video': 'Kling 2.5 Turbo',
-  'fal-ai/ltx-video': 'LTX (preview)',
+  'fal-ai/ltx-video': 'LTX preview',
   'bytedance/seedance-2.0/image-to-video': 'Seedance 2.0 Pro',
   'fal-ai/veo3.1/image-to-video': 'Veo 3.1',
-  'fal-ai/kling-video/v2.5-turbo/pro/image-to-video': 'Kling 2.5 Turbo Pro',
+  'fal-ai/kling-video/v2.5-turbo/pro/image-to-video': 'Kling 2.5 Pro',
 };
 
 const COST_HINT_LABEL: Record<'low' | 'medium' | 'high', string> = {
-  low: '~$0.18',
-  medium: '~$0.30',
-  high: '~$0.40',
+  low: '$0.18',
+  medium: '$0.30',
+  high: '$0.40',
 };
 
 const JOB_KIND_LABEL: Record<string, string> = {
-  first_frame: 'первый кадр',
+  first_frame: 'кадр',
   video: 'видео',
   voice: 'озвучку',
   final_clip: 'финальный клип',
@@ -91,20 +91,26 @@ export function SceneSidePanel({ projectId, scene, index, tier, activeJob }: Pro
       const meta = getVideoModelMeta(modelId);
       if (meta) return COST_HINT_LABEL[meta.cost_hint];
     }
-    return tier === 'premium' ? '~$0.40' : '~$0.18';
+    return tier === 'premium' ? '$0.40' : '$0.18';
+  })();
+
+  const sceneTitle = (() => {
+    const text = scene.description;
+    const firstSentence = text.split(/(?<=[.!?])\s/)[0] ?? text;
+    return firstSentence.length > 90 ? `${firstSentence.slice(0, 88)}…` : firstSentence;
   })();
 
   return (
     <div className="side-panel" data-scene-id={scene.scene_id}>
-      <div className="row-head">
-        <span className="scene-num">#{index + 1}</span>
-        <span className="scene-name" title={scene.description}>
-          {scene.description.slice(0, 64)}
-          {scene.description.length > 64 ? '…' : ''}
-        </span>
+      <header className="row-head">
+        <div className="row-head-title">
+          <span className="scene-title-name" title={scene.description}>
+            {sceneTitle}
+          </span>
+        </div>
         <button
           type="button"
-          className="ml-auto pill tier-toggle"
+          className="tier-toggle"
           title="Сменить тариф для этой сцены"
           onClick={() =>
             onAction(() =>
@@ -117,34 +123,38 @@ export function SceneSidePanel({ projectId, scene, index, tier, activeJob }: Pro
           }
           disabled={lockedByGen}
         >
-          {tier === 'premium' ? '💎 Премиум' : '🪙 Эконом'} ▾
+          <span className={`tier-dot ${tier}`} aria-hidden />
+          {tier === 'premium' ? 'PREMIUM' : 'ECONOMY'}
         </button>
-      </div>
+      </header>
 
       {isGenerating && (
         <div className="gen-banner" role="status" aria-live="polite">
           <span className="spinner inline-spinner" aria-hidden />
           <span className="gen-banner-text">
-            Генерируется <strong>{genKindLabel}</strong> — обычно 30-90 секунд. Управление сценой
-            заблокировано до завершения.
+            <span className="gen-banner-tag">LIVE</span>
+            генерируется <strong>{genKindLabel}</strong> · 30-90 секунд · управление залочено
           </span>
         </div>
       )}
 
-      <div className="sect">
-        <div className="sect-label">📝 Описание + диалог</div>
-        <div className="sect-body">
-          «{scene.description}»
-          {scene.dialogue && (
-            <p className="dialogue">
-              <strong>{scene.dialogue.speaker}:</strong> «{scene.dialogue.text}»
-            </p>
-          )}
+      <section className="note-section">
+        <div className="note-label">
+          <span>Описание · диалог</span>
+          <span className="note-meta">SCENE {String(index + 1).padStart(2, '0')}</span>
         </div>
-      </div>
+        <p className="scene-desc">{scene.description}</p>
+        {scene.dialogue && (
+          <p className="scene-dialogue">
+            <span className="dialogue-speaker">{scene.dialogue.speaker}</span>
+            <span className="dialogue-rule" aria-hidden />
+            <em>«{scene.dialogue.text}»</em>
+          </p>
+        )}
+      </section>
 
       <PromptSection
-        label="🖼️ Промпт первого кадра"
+        label="Промпт первого кадра"
         prompt={activeFrame?.prompt ?? null}
         version={
           activeFrame ? versionLabel(scene.first_frame_versions, activeFrame.version_id) : null
@@ -154,55 +164,52 @@ export function SceneSidePanel({ projectId, scene, index, tier, activeJob }: Pro
       />
 
       <PromptSection
-        label="🎬 Промпт видео"
+        label="Промпт видео"
         prompt={activeVideo?.prompt ?? null}
         version={activeVideo ? versionLabel(scene.video_versions, activeVideo.version_id) : null}
         onOpen={() => setPromptModal('video')}
         disabled={lockedByGen}
       />
 
-      <div className="action-row" role="group" aria-label="Действия со сценой">
-        <ActionButton
-          icon="✏️"
-          label="Переписать текст"
-          sub="через LLM · ~$0.001"
-          disabled={pending || lockedByGen}
-          onClick={() =>
-            onAction(() =>
-              regenSceneTextAction({ project_id: projectId, scene_id: scene.scene_id }),
-            )
-          }
-          variant="ghost"
-        />
-        <ActionButton
-          icon="🖼️"
-          label={activeFrame ? 'Перегенерить кадр' : 'Сгенерировать кадр'}
-          sub="~$0.02 · nano-banana"
-          disabled={pending || lockedByGen}
-          onClick={() =>
-            onAction(() =>
-              generateFirstFrameAction({ project_id: projectId, scene_id: scene.scene_id }),
-            )
-          }
-          variant="ghost"
-        />
-        <ActionButton
-          icon="🎬"
+      <section className="action-strip" aria-label="Действия со сценой">
+        <div className="action-strip-left">
+          <SecondaryAction
+            label="Текст"
+            cost="$0.001"
+            disabled={pending || lockedByGen}
+            onClick={() =>
+              onAction(() =>
+                regenSceneTextAction({ project_id: projectId, scene_id: scene.scene_id }),
+              )
+            }
+          />
+          <SecondaryAction
+            label={activeFrame ? 'Кадр' : 'Создать кадр'}
+            cost="$0.02"
+            disabled={pending || lockedByGen}
+            onClick={() =>
+              onAction(() =>
+                generateFirstFrameAction({ project_id: projectId, scene_id: scene.scene_id }),
+              )
+            }
+          />
+        </div>
+        <PrimaryAction
           label={activeVideo ? 'Перегенерить видео' : 'Сгенерировать видео'}
-          sub={activeFrame ? `${videoCostHint} · самая дорогая операция` : 'нужен first_frame'}
+          cost={videoCostHint}
+          subLabel={activeFrame ? 'IMG → VIDEO' : 'нужен first_frame'}
           disabled={pending || lockedByGen || !activeFrame}
           onClick={() =>
             onAction(() =>
               generateSceneVideoAction({ project_id: projectId, scene_id: scene.scene_id }),
             )
           }
-          variant="destructive"
-          title={!activeFrame ? 'Сначала сгенерируй кадр' : 'Видео — самая дорогая операция'}
+          title={!activeFrame ? 'Сначала сгенерируй кадр' : undefined}
         />
-      </div>
+      </section>
 
-      <div className="controls-row">
-        <ModelPill
+      <section className="controls-strip" aria-label="Параметры сцены">
+        <ModelControl
           projectId={projectId}
           sceneId={scene.scene_id}
           currentModel={scene.config_overrides?.model}
@@ -210,36 +217,36 @@ export function SceneSidePanel({ projectId, scene, index, tier, activeJob }: Pro
           disabled={lockedByGen}
           onError={setError}
         />
-        <DurationPill
+        <DurationControl
           projectId={projectId}
           sceneId={scene.scene_id}
           duration={scene.duration_sec}
           disabled={lockedByGen}
         />
-        <AudioModePill
+        <AudioModeControl
           projectId={projectId}
           sceneId={scene.scene_id}
           mode={scene.audio_mode ?? 'auto'}
           disabled={lockedByGen}
         />
-        <ContinuityPill
+        <ContinuityControl
           projectId={projectId}
           sceneId={scene.scene_id}
           source={scene.first_frame_source}
           index={index}
           disabled={lockedByGen}
         />
-        <UploadPill
+        <UploadControl
           projectId={projectId}
           sceneId={scene.scene_id}
           disabled={lockedByGen}
           onError={setError}
         />
-      </div>
+      </section>
 
       {error && (
         <div className="scene-error" role="alert">
-          ⚠ {error}
+          <span className="scene-error-tag">ERR</span> {error}
         </div>
       )}
 
@@ -276,60 +283,82 @@ interface PromptSectionProps {
 
 function PromptSection({ label, prompt, version, onOpen, disabled }: PromptSectionProps) {
   return (
-    <div className="sect">
-      <div className="sect-label">
+    <section className="note-section">
+      <div className="note-label">
         <span>{label}</span>
-        <div className="sect-label-right">
-          {version && <span className="sect-version">{version}</span>}
+        <span className="note-meta">
+          {version && <span className="version-chip">{version}</span>}
           <button
             type="button"
-            className="icon-btn"
+            className="open-btn"
             onClick={onOpen}
             disabled={disabled}
-            title="Открыть полный промпт + редактировать"
+            title="Открыть и редактировать промпт"
           >
-            ✏️ Открыть
+            редактировать{' '}
+            <span className="arrow" aria-hidden>
+              ↗
+            </span>
           </button>
-        </div>
+        </span>
       </div>
-      <div className="prompt-text" aria-label={label}>
-        {prompt ?? '— ещё не сгенерировано —'}
-      </div>
-    </div>
+      <p className={`prompt-body${prompt ? '' : ' empty'}`}>
+        {prompt ?? '— ещё не сгенерирован —'}
+      </p>
+    </section>
   );
 }
 
-interface ActionButtonProps {
-  icon: string;
+interface SecondaryActionProps {
   label: string;
-  sub: string;
-  variant: 'ghost' | 'destructive';
+  cost: string;
+  disabled: boolean;
+  onClick: () => void;
+}
+
+function SecondaryAction({ label, cost, disabled, onClick }: SecondaryActionProps) {
+  return (
+    <button type="button" className="action-secondary" onClick={onClick} disabled={disabled}>
+      <span className="action-label">{label}</span>
+      <span className="action-cost">{cost}</span>
+    </button>
+  );
+}
+
+interface PrimaryActionProps {
+  label: string;
+  cost: string;
+  subLabel: string;
   disabled: boolean;
   title?: string;
   onClick: () => void;
 }
 
-function ActionButton({ icon, label, sub, variant, disabled, title, onClick }: ActionButtonProps) {
+function PrimaryAction({ label, cost, subLabel, disabled, title, onClick }: PrimaryActionProps) {
   return (
     <button
       type="button"
-      className={`gen-btn gen-btn-${variant}`}
+      className="action-primary"
       onClick={onClick}
       disabled={disabled}
       title={title}
     >
-      <span className="gen-btn-icon" aria-hidden>
-        {icon}
+      <span className="action-primary-marker" aria-hidden>
+        <span className="action-primary-dot" />
+        <span className="action-primary-tape">REC</span>
       </span>
-      <span className="gen-btn-body">
-        <span className="gen-btn-label">{label}</span>
-        <span className="gen-btn-sub">{sub}</span>
+      <span className="action-primary-body">
+        <span className="action-primary-label">{label}</span>
+        <span className="action-primary-meta">
+          <span>{subLabel}</span>
+          <span className="action-primary-cost">{cost}</span>
+        </span>
       </span>
     </button>
   );
 }
 
-interface ModelPillProps {
+interface ModelControlProps {
   projectId: string;
   sceneId: string;
   currentModel: string | undefined;
@@ -338,7 +367,14 @@ interface ModelPillProps {
   onError: (msg: string) => void;
 }
 
-function ModelPill({ projectId, sceneId, currentModel, tier, disabled, onError }: ModelPillProps) {
+function ModelControl({
+  projectId,
+  sceneId,
+  currentModel,
+  tier,
+  disabled,
+  onError,
+}: ModelControlProps) {
   const [pending, startT] = useTransition();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -373,21 +409,25 @@ function ModelPill({ projectId, sceneId, currentModel, tier, disabled, onError }
   };
 
   return (
-    <div className="pill-wrap" ref={ref}>
+    <div className="control" ref={ref}>
+      <span className="control-label">Модель</span>
       <button
         type="button"
-        className={`pill pill-model${open ? ' open' : ''}`}
+        className={`control-value${open ? ' open' : ''}`}
         onClick={() => setOpen((x) => !x)}
         disabled={disabled || pending}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        🎬 {currentLabel} ▾
+        {currentLabel}{' '}
+        <span className="control-caret" aria-hidden>
+          ▾
+        </span>
       </button>
       {open && (
-        <div className="pill-popover" role="listbox" aria-label="Video model" tabIndex={-1}>
+        <div className="control-popover" role="listbox" aria-label="Video model" tabIndex={-1}>
           <div className="popover-head">
-            Модель видео · {tier === 'premium' ? 'Премиум' : 'Эконом'}
+            видео-модель · {tier === 'premium' ? 'Premium' : 'Economy'}
           </div>
           {models.map((m) => {
             const meta = getVideoModelMeta(m);
@@ -401,9 +441,12 @@ function ModelPill({ projectId, sceneId, currentModel, tier, disabled, onError }
                 className={`popover-item${isActive ? ' active' : ''}`}
                 onClick={() => handleSelect(m)}
               >
-                <span className="item-label">{MODEL_LABEL[m] ?? m.split('/').pop()}</span>
-                <span className="item-meta">
-                  {meta?.has_native_audio ? '🎵' : '🔇'} {meta && COST_HINT_LABEL[meta.cost_hint]}
+                <span className="popover-item-label">{MODEL_LABEL[m] ?? m.split('/').pop()}</span>
+                <span className="popover-item-meta">
+                  <span className={`tag${meta?.has_native_audio ? ' tag-audio' : ' tag-silent'}`}>
+                    {meta?.has_native_audio ? 'audio' : 'silent'}
+                  </span>
+                  <span className="tag">{meta && COST_HINT_LABEL[meta.cost_hint]}</span>
                 </span>
               </button>
             );
@@ -414,7 +457,7 @@ function ModelPill({ projectId, sceneId, currentModel, tier, disabled, onError }
   );
 }
 
-function DurationPill({
+function DurationControl({
   projectId,
   sceneId,
   duration,
@@ -429,39 +472,38 @@ function DurationPill({
   const [val, setVal] = useState(duration);
   const id = useId();
   return (
-    <label className="pill pill-duration" htmlFor={id}>
-      ⏱{' '}
-      <input
-        id={id}
-        type="number"
-        min={1}
-        max={30}
-        value={val}
-        onChange={(e) => {
-          const v = Number(e.target.value);
-          setVal(v);
-        }}
-        onBlur={() => {
-          if (val !== duration) {
-            startT(async () => {
-              await setSceneDurationAction({
-                project_id: projectId,
-                scene_id: sceneId,
-                duration_sec: val,
+    <div className="control">
+      <span className="control-label">Длит.</span>
+      <span className="control-value control-value-static">
+        <input
+          id={id}
+          type="number"
+          min={1}
+          max={30}
+          value={val}
+          onChange={(e) => setVal(Number(e.target.value))}
+          onBlur={() => {
+            if (val !== duration) {
+              startT(async () => {
+                await setSceneDurationAction({
+                  project_id: projectId,
+                  scene_id: sceneId,
+                  duration_sec: val,
+                });
               });
-            });
-          }
-        }}
-        disabled={disabled || pending}
-        className="duration-input"
-        aria-label="Длительность сцены, секунд"
-      />{' '}
-      сек
-    </label>
+            }
+          }}
+          disabled={disabled || pending}
+          className="duration-input"
+          aria-label="Длительность сцены, секунд"
+        />
+        <span className="control-suffix">сек</span>
+      </span>
+    </div>
   );
 }
 
-function AudioModePill({
+function AudioModeControl({
   projectId,
   sceneId,
   mode,
@@ -474,37 +516,40 @@ function AudioModePill({
 }) {
   const [, startT] = useTransition();
   const opts: { id: 'auto' | 'native' | 'silent_tts'; label: string; title: string }[] = [
-    { id: 'auto', label: '🤖 auto', title: 'Автодетект: кириллица → TTS, иначе native' },
-    { id: 'native', label: '🎵 native', title: 'Принудительно использовать native-audio модель' },
-    { id: 'silent_tts', label: '🔇 TTS', title: 'Принудительно silent video + ElevenLabs TTS' },
+    { id: 'auto', label: 'auto', title: 'Автодетект: кириллица → TTS, иначе native' },
+    { id: 'native', label: 'native', title: 'Принудительно native-audio (Seedance 2.0 / Veo)' },
+    { id: 'silent_tts', label: 'TTS', title: 'Принудительно silent + ElevenLabs TTS' },
   ];
   return (
-    <div className="pill-segment" role="group" aria-label="Аудио режим">
-      {opts.map((o) => (
-        <button
-          key={o.id}
-          type="button"
-          className={`pill-seg-item${mode === o.id ? ' active' : ''}`}
-          disabled={disabled || mode === o.id}
-          title={o.title}
-          onClick={() =>
-            startT(async () => {
-              await setSceneAudioModeAction({
-                project_id: projectId,
-                scene_id: sceneId,
-                audio_mode: o.id,
-              });
-            })
-          }
-        >
-          {o.label}
-        </button>
-      ))}
+    <div className="control">
+      <span className="control-label">Аудио</span>
+      <div className="seg" role="group" aria-label="Аудио режим">
+        {opts.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            className={`seg-item${mode === o.id ? ' active' : ''}`}
+            disabled={disabled || mode === o.id}
+            title={o.title}
+            onClick={() =>
+              startT(async () => {
+                await setSceneAudioModeAction({
+                  project_id: projectId,
+                  scene_id: sceneId,
+                  audio_mode: o.id,
+                });
+              })
+            }
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
 
-function ContinuityPill({
+function ContinuityControl({
   projectId,
   sceneId,
   source,
@@ -521,31 +566,37 @@ function ContinuityPill({
   if (index === 0 || source === 'user_upload') return null;
   const isAuto = source === 'auto_continuity';
   return (
-    <button
-      type="button"
-      className="pill"
-      onClick={() =>
-        startT(async () => {
-          await toggleSceneContinuityAction({
-            project_id: projectId,
-            scene_id: sceneId,
-            source: isAuto ? 'manual_text2img' : 'auto_continuity',
-          });
-        })
-      }
-      title={
-        isAuto
-          ? 'Continuity: первый кадр — last_frame предыдущей сцены'
-          : 'Manual: первый кадр генерируется с нуля'
-      }
-      disabled={disabled}
-    >
-      🔗 {isAuto ? 'continuity' : 'manual start'}
-    </button>
+    <div className="control">
+      <span className="control-label">Кадр-ref</span>
+      <button
+        type="button"
+        className="control-value"
+        onClick={() =>
+          startT(async () => {
+            await toggleSceneContinuityAction({
+              project_id: projectId,
+              scene_id: sceneId,
+              source: isAuto ? 'manual_text2img' : 'auto_continuity',
+            });
+          })
+        }
+        title={
+          isAuto
+            ? 'Continuity: первый кадр = last_frame предыдущей сцены'
+            : 'Manual: первый кадр генерируется с нуля'
+        }
+        disabled={disabled}
+      >
+        {isAuto ? 'continuity' : 'manual'}{' '}
+        <span className="control-caret" aria-hidden>
+          ▾
+        </span>
+      </button>
+    </div>
   );
 }
 
-function UploadPill({
+function UploadControl({
   projectId,
   sceneId,
   disabled,
@@ -585,28 +636,34 @@ function UploadPill({
   };
 
   return (
-    <div className="pill-wrap" ref={wrapRef}>
+    <div className="control" ref={wrapRef}>
+      <span className="control-label">Замена</span>
       <button
         type="button"
-        className={`pill${open ? ' open' : ''}`}
+        className={`control-value${open ? ' open' : ''}`}
         onClick={() => setOpen((x) => !x)}
         disabled={disabled || pending}
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        ⬆ {pending ? 'загружаю…' : 'загрузить'}
+        {pending ? 'загружаю…' : 'загрузить'}{' '}
+        <span className="control-caret" aria-hidden>
+          ▾
+        </span>
       </button>
       {open && (
-        <div className="pill-popover small" role="menu" tabIndex={-1}>
-          <div className="popover-head">Заменить ассет</div>
+        <div className="control-popover small" role="menu" tabIndex={-1}>
+          <div className="popover-head">заменить ассет своим файлом</div>
           <button
             type="button"
             className="popover-item"
             role="menuitem"
             onClick={() => imageRef.current?.click()}
           >
-            <span className="item-label">🖼️ Свой первый кадр</span>
-            <span className="item-meta">PNG/JPG</span>
+            <span className="popover-item-label">Первый кадр</span>
+            <span className="popover-item-meta">
+              <span className="tag">PNG · JPG · WEBP</span>
+            </span>
           </button>
           <button
             type="button"
@@ -614,8 +671,10 @@ function UploadPill({
             role="menuitem"
             onClick={() => videoRef.current?.click()}
           >
-            <span className="item-label">🎬 Своё видео</span>
-            <span className="item-meta">MP4/MOV</span>
+            <span className="popover-item-label">Видео клип</span>
+            <span className="popover-item-meta">
+              <span className="tag">MP4 · MOV · WEBM</span>
+            </span>
           </button>
         </div>
       )}
