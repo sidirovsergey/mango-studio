@@ -44,7 +44,13 @@ function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initi
 
   const totalDuration = scenes.reduce((sum, s) => sum + (s.duration_sec ?? 0), 0);
 
-  const readySceneCount = scenes.filter((s) => s.final_clip !== null).length;
+  // A scene is "ready for master" when it has at least an active video version
+  // (final_clip is the muxed video+voice composition, but the master concat can
+  // fall back to using the raw active video URL when final_clip is missing —
+  // e.g. legacy scenes generated before the mux pipeline existed).
+  const isSceneReady = (s: (typeof scenes)[number]) =>
+    s.final_clip !== null || s.video_active_version_id !== null;
+  const readySceneCount = scenes.filter(isSceneReady).length;
   const allScenesReady = scenes.length > 0 && readySceneCount === scenes.length;
   const masterInFlight = jobs.some(
     (j) => j.kind === 'master_clip' && ['pending', 'running'].includes(j.status),
