@@ -1,4 +1,5 @@
 import { VOICE_POOL } from '../media/voices';
+import { SCRIPT_EXAMPLES } from './examples/script-author';
 import type { ChatMessage, RefineSceneInput, ScriptGenInput } from './provider';
 import type { Character } from './types';
 
@@ -18,70 +19,153 @@ const STYLE_LABEL: Record<ScriptGenInput['style'], string> = {
   clay_art: 'Клей-арт — пластилиновая анимация, фактурные поверхности, лёгкая «несовершенность»',
 };
 
-export const SCRIPT_SYSTEM_PROMPT = `Ты — Mango, AI-режиссёр коротких мультиков.
-Твоя задача — превратить идею пользователя в готовый сценарий из 2-8 сцен.
-
-Главные принципы:
-- Каждая сцена — единый план действия, описанный достаточно подробно для генерации видео.
-- Длительности сцен в сумме должны примерно равняться target_duration_sec (±15%).
-- dialogue (реплика сцены) — не у каждой сцены, только где она работает на драматургию.
-- character_ids — id персонажей, видимых в сцене. Должны соответствовать персонажам из characters[].
-- Заголовок — короткий, цепляющий, без штампов.
-- Персонажи — 1-3 главных, описанных одной строкой каждый.
-- Пиши по-русски, естественным современным языком.
-
-Верни ТОЛЬКО валидный JSON без markdown-блоков и пояснений, строго по схеме:
-{
-  "title": "заголовок мультика (до 120 символов)",
-  "scenes": [
-    {
-      "scene_id": "s1",
-      "description": "подробное описание сцены для генерации видео",
-      "duration_sec": 8,
-      "dialogue": { "speaker": "narrator", "text": "закадровый текст" },
-      "character_ids": [],
-      "first_frame_source": "auto_continuity",
-      "audio_mode": "auto",
-      "first_frame_versions": [],
-      "first_frame_active_version_id": null,
-      "video_versions": [],
-      "video_active_version_id": null,
-      "voice_audio_versions": [],
-      "voice_audio_active_version_id": null,
-      "last_frame": null,
-      "final_clip": null
-    }
-  ],
-  "characters": [
-    {
-      "action": "add",
-      "name": "Имя персонажа",
-      "description": "краткое описание внешности и характера",
-      "voice_id": "21m00Tcm4TlvDq8ikWAM",
-      "voice_label": "Rachel"
-    }
-  ],
-  "narrator_voice": { "tts_voice_id": "21m00Tcm4TlvDq8ikWAM" },
-  "master_clip_versions": [],
-  "master_clip_active_version_id": null
+export interface BuildScriptPromptContext {
+  existingCharacters?: Pick<Character, 'id' | 'name' | 'description'>[];
+  tier?: 'economy' | 'premium';
 }
 
-Правила для полей:
-- dialogue.speaker — 'narrator' для закадрового текста ИЛИ id персонажа из characters[] для реплики этого персонажа. dialogue: null если сцена немая.
-- character_ids — пустой массив [] если в сцене никого нет (только окружение); иначе ['c1', 'c2'] (используй id из characters действий 'keep'/'add' — для 'add' id'ы появятся после применения, в первой генерации можно оставить пустыми).
-- first_frame_source — всегда 'auto_continuity'.
-- audio_mode — всегда 'auto' при генерации (резолвер сам выберет native vs silent_tts по языку диалога и модели). Используй 'native' только если уверен, что диалог английский и сцена пойдёт через premium-модель с native audio.
-- *_versions поля и *_active_version_id — ВСЕГДА пустые массивы / null при генерации (заполняются медиа-pipeline'ом по мере прохождения jobs).
-- last_frame, final_clip, master_clip_versions, master_clip_active_version_id — ВСЕГДА null / [] при генерации.
-- narrator_voice.tts_voice_id — ElevenLabs voice_id; если не уверен — используй placeholder '21m00Tcm4TlvDq8ikWAM' (Rachel, multilingual).
+/**
+ * Builds the full script-author prompt as a single XML-structured string.
+ * Combines system-level instructions, cadence table, arc patterns, output schema,
+ * few-shot examples, and the concrete user task — all in one prompt per
+ * Grok best-practice (long-context: structured XML with query last).
+ */
+export function buildScriptPrompt(
+  input: ScriptGenInput,
+  ctx: BuildScriptPromptContext = {},
+): string {
+  const tier = ctx.tier ?? 'economy';
+  const tierConstraints =
+    tier === 'economy'
+      ? 'scene durations must be 5 or 10 s only'
+      : 'scene durations 4–12 s (integer), flexible';
 
-Голоса персонажей (voice pool, multilingual-v2):
+  const styleHuman = STYLE_LABEL[input.style] ?? input.style;
+
+  const existingCharactersBlock = ctx.existingCharacters?.length
+    ? `
+<existing_characters>
+СУЩЕСТВУЮЩИЕ ПЕРСОНАЖИ (id + имя + описание) — сохраняй их id'ы при перегенерации, не пересоздавай:
+${ctx.existingCharacters.map((c) => `- ${c.id}: ${c.name} (${c.description})`).join('\n')}
+
+В output поле "characters" — массив discriminated union действий:
+- Для каждого существующего, который остаётся — { "action": "keep", "id": "<тот же uuid>" }.
+- Для нового — { "action": "add", "name": ..., "description": ..., "appearance": {...}, "personality"?: ... } (id сгенерируется на сервере).
+- Для удаления — { "action": "remove", "id": "<uuid существующего>" }.
+
+Удаляй персонажей ТОЛЬКО если сюжет фундаментально не требует их. Малые правки тона / описания НЕ требуют add/remove — используй keep.
+</existing_characters>`
+    : `
+<characters_hint>
+В output поле "characters" — массив действий для первой генерации:
+[{ "action": "add", "name": "Имя", "description": "описание", "appearance": {} }]
+</characters_hint>`;
+
+  return `<role>You are Mango — Screenwriter & Storyboard Author. Convert the user's idea into a structured shot list with concrete cinematography direction. Russian narrative; English mirrors for downstream models.</role>
+
+<engine_constraints>
+- Duration: ${input.duration_sec}s
+- Aspect ratio: ${input.format}
+- Style: ${styleHuman}
+- Tier: ${tier}  (economy = no native audio, scene durations 5 or 10s only; premium = native audio, durations 4-12s flexible)
+- Tier constraint: ${tierConstraints}
+</engine_constraints>
+
+<cadence_table>
+| Duration | Scene count target |
+|---|---|
+| 15s | 3 |
+| 20s | 4 |
+| 30s | 6 |
+| 40s | 8 |
+| 60s | 10-12 |
+| 90s | 14-18 |
+</cadence_table>
+
+<arc_patterns>
+- ≤15s: Hook → Build → Payoff
+- 20-40s: Hook → Setup → Rising → Payoff
+- 60-90s: Hook → Setup → Rising → Climax → Payoff → CTA
+</arc_patterns>
+
+<output_schema>
+Return ONLY valid JSON without markdown fences or explanations, strictly matching this schema:
+{
+  "title": "...",
+  "tier": "economy" | "premium",
+  "visual_theme": { "palette": [hex×3-6], "lighting": "...", "lens": "...", "motion": "...", "mood": "..." },
+  "narrator_voice": { ... },    // see <voice_pool> section for narrator_voice field details
+  "scenes": [{
+    "scene_id": "s1",
+    "description": "...",
+    "description_ru": "...",
+    "description_en": "...",
+    "duration_sec": 5,
+    "dialogue": null | { "speaker": "narrator" | character_name, "text": "..." },
+    "character_ids": ["c1"],
+    "composition": { "shot_size": "...", "angle": "...", "framing_notes": "..." },
+    "camera_movement": { "kind": "...", "speed": "...", "lens_character": "..." },
+    "lighting": { "recipe": "...", "time_of_day": "...", "key_direction": "..." },
+    "audio_direction": { "ambient": "...", "music": "...", "sfx": [], "voice_notes": "..." },
+    "arc_role": "hook|setup|rising|climax|payoff|cta|beat",
+    "tier_at_gen": "economy|premium",
+    "first_frame_source": "auto_continuity",
+    "audio_mode": "auto",
+    "first_frame_versions": [], "first_frame_active_version_id": null,
+    "video_versions": [], "video_active_version_id": null,
+    "voice_audio_versions": [], "voice_audio_active_version_id": null,
+    "last_frame": null, "final_clip": null
+  }, ...],
+  "characters": [
+    { "action": "add", "name": "...", "description": "...", "appearance": {...}, "personality": "..." },
+    ...
+  ],
+  "master_clip_versions": [], "master_clip_active_version_id": null
+}
+
+Field rules:
+- dialogue.speaker — 'narrator' for voice-over OR character name for character dialogue. dialogue: null if scene is silent.
+- character_ids — empty [] if no characters in scene; otherwise list character names (for 'add' actions names are used as references until ids are assigned by server).
+- description — same text as description_ru (legacy mirror field).
+- description_ru — Russian, vivid, cinematic prose.
+- description_en — English translation of description_ru for downstream image/video models.
+- first_frame_source — always 'auto_continuity'.
+- audio_mode — always 'auto' at generation time (resolver picks native vs silent_tts by dialogue language and model). Use 'native' only for confirmed English dialogue in premium tier.
+- *_versions fields and *_active_version_id — ALWAYS empty arrays / null at generation time.
+- last_frame, final_clip, master_clip_versions, master_clip_active_version_id — ALWAYS null / [] at generation time.
+- tier_at_gen — set to the current tier: "${tier}".
+- narrator_voice — see &lt;voice_pool&gt; section for narrator_voice field specification.
+- characters[].action:'add' — only fields: name, description, appearance (optional), personality (optional). Do NOT add voice fields here — character voices are assigned later via the Director set_character_voice tool.
+</output_schema>
+
+<voice_pool>
+narrator_voice schema: { "tts_voice_id": "<id from pool below>", "persona": "7-axis free-text description of voice character (tone, pace, warmth, gender, age, accent, style)" }
+narrator_voice.tts_voice_id must be one of the ElevenLabs ids listed below (pick the one that best fits the mood and genre):
 ${VOICE_POOL_LINES}
+Note: characters[].action:'add' does NOT carry a voice field — character voices are assigned later via the Director tool.
+</voice_pool>
 
-Правила назначения голосов персонажам:
-- Каждому персонажу с действием 'add' назначь voice_id + voice_label из пула выше.
-- Подбирай голос под пол и тон описания. Если описание не уточняет — раздавай голоса так, чтобы у разных говорящих персонажей в одном сценарии были разные voice_id (избегай дубликатов).
-- Если у проекта только один говорящий персонаж и нет особых требований — используй Rachel (21m00Tcm4TlvDq8ikWAM) как нейтральный default.`;
+<examples>
+  <example duration="15" arc="hook-build-payoff">
+    <input>Idea: «утренний ритуал кота»</input>
+    <output>
+${SCRIPT_EXAMPLES.fifteen_sec}
+    </output>
+  </example>
+  <example duration="60" arc="full">
+    <input>Idea: «кот-астронавт ищет потерянную звезду»</input>
+    <output>
+${SCRIPT_EXAMPLES.sixty_sec}
+    </output>
+  </example>
+</examples>
+${existingCharactersBlock}
+
+<task>
+User idea: «${input.user_prompt}»
+Author a structured shot list per the schema and examples above. Russian for \`description_ru\` and \`dialogue.text\`; English for \`description_en\`. Lock \`visual_theme\` once and reference it from each scene's \`lighting\` and \`camera_movement\` for continuity. Use cinematic verbs (Dolly In, Crane Up, Orbit, Tracking) — not "cinematic motion". Scene count must match the cadence_table for ${input.duration_sec}s. Each scene duration_sec must satisfy tier "${tier}" constraint: ${tierConstraints}.
+</task>`;
+}
 
 export function buildScriptUserPrompt(input: ScriptGenInput): string {
   return `Идея пользователя: «${input.user_prompt}»
@@ -92,38 +176,6 @@ export function buildScriptUserPrompt(input: ScriptGenInput): string {
 - Визуальный стиль: ${STYLE_LABEL[input.style]}
 
 Сгенерируй сценарий по этой идее, соблюдая параметры. Верни JSON по схеме.`;
-}
-
-export interface BuildScriptPromptContext {
-  existingCharacters?: Pick<Character, 'id' | 'name' | 'description'>[];
-}
-
-export function buildScriptPrompt(
-  input: ScriptGenInput,
-  ctx: BuildScriptPromptContext = {},
-): string {
-  const existingBlock = ctx.existingCharacters?.length
-    ? `
-
-СУЩЕСТВУЮЩИЕ ПЕРСОНАЖИ (id + имя + описание) — сохраняй их id'ы при перегенерации, не пересоздавай:
-${ctx.existingCharacters.map((c) => `- ${c.id}: ${c.name} (${c.description})`).join('\n')}
-
-В output поле "characters" — массив discriminated union действий:
-- Для каждого существующего, который остаётся — { "action": "keep", "id": "<тот же uuid>" }.
-- Для нового — { "action": "add", "name": ..., "description": ..., "appearance": {...}, "personality"?: ... } (id сгенерируется на сервере).
-- Для удаления — { "action": "remove", "id": "<uuid существующего>" }.
-
-Удаляй персонажей ТОЛЬКО если сюжет фундаментально не требует их. Малые правки тона / описания НЕ требуют add/remove — используй keep.
-`
-    : `
-
-В output поле "characters" — массив действий для первой генерации:
-[{ "action": "add", "name": "Имя", "description": "описание", "appearance": {} }]
-`;
-
-  return `${SCRIPT_SYSTEM_PROMPT}${existingBlock}
-
-${buildScriptUserPrompt(input)}`;
 }
 
 export const REFINE_SYSTEM_PROMPT = `Ты — Mango, AI-режиссёр.

@@ -181,3 +181,51 @@ describe('buildDirectorSystemPrompt — characters context', () => {
     expect(out).toMatch(/final_clip/i);
   });
 });
+
+describe('buildScriptPrompt XML structure (T2)', () => {
+  it('buildScriptPrompt produces XML structure with tier-aware engine_constraints', () => {
+    const p = buildScriptPrompt(
+      {
+        user_prompt: 'Кот теряет звезду',
+        duration_sec: 30,
+        format: '9:16',
+        style: '3d_pixar',
+      },
+      { tier: 'premium' },
+    );
+    expect(p).toContain('<role>');
+    expect(p).toContain('<engine_constraints>');
+    expect(p).toContain('Tier: premium');
+    expect(p).toContain('<cadence_table>');
+    expect(p).toContain('| 30s | 6 |');
+    expect(p).toContain('<arc_patterns>');
+    expect(p).toContain('<output_schema>');
+    expect(p).toContain('"composition"');
+    expect(p).toContain('"camera_movement"');
+    expect(p).toContain('"arc_role"');
+    expect(p).toContain('<examples>');
+    expect(p).toContain('Утренний кот');      // 15s example title
+    expect(p).toContain('Космокот');          // 60s example title
+    expect(p).toContain('<task>');
+    expect(p).toContain('Кот теряет звезду'); // user_prompt interpolated
+  });
+
+  it('buildScriptPrompt defaults tier to economy when omitted', () => {
+    const p = buildScriptPrompt(
+      { user_prompt: 'тест', duration_sec: 15, format: '9:16', style: '3d_pixar' },
+    );
+    expect(p).toContain('Tier: economy');
+  });
+
+  it('buildScriptPrompt no longer emits stale voice_id/voice_label fields for characters', () => {
+    const p = buildScriptPrompt(
+      { user_prompt: 'тест', duration_sec: 15, format: '9:16', style: '3d_pixar' },
+    );
+    // The new <output_schema> for action:'add' must NOT mention voice_id or voice_label
+    // (the discriminated union doesn't accept them).
+    const outputSchemaStart = p.indexOf('<output_schema>');
+    const outputSchemaEnd = p.indexOf('</output_schema>');
+    const outputSchemaBlock = p.slice(outputSchemaStart, outputSchemaEnd);
+    expect(outputSchemaBlock).not.toMatch(/voice_id|voice_label/);
+  });
+});
