@@ -1,11 +1,13 @@
 'use client';
 
 import type { MasterClipVersion } from '@mango/core';
-import { StageGate } from '../StageGate';
 import { StageHead } from '../shared/StageHead';
 import { useStage04 } from './scenes/Stage04Provider';
 
 interface Props {
+  /** Kept for API compatibility — gating is now derived from live script
+   * state instead of `project.status`, which often lags behind reality
+   * (e.g. user has generated scenes but the column was never advanced). */
   projectId: string;
   projectStatus: string;
 }
@@ -16,15 +18,11 @@ function resolveUrl(clip: MasterClipVersion): string | null {
   return `/api/storage/${s.path}`;
 }
 
-export function StageFinal({ projectStatus }: Props) {
-  const unlocked = ['scenes_ready', 'final_ready'].includes(projectStatus);
-
+export function StageFinal(_: Props) {
   return (
     <section className="stage" data-stage id="finalStage">
       <StageHead num="05" title="Финал" />
-      <StageGate unlocked={unlocked} scrollToStageId="scenesStage" hint="Сначала собери все сцены">
-        <StageFinalBody />
-      </StageGate>
+      <StageFinalBody />
     </section>
   );
 }
@@ -35,6 +33,25 @@ function StageFinalBody() {
   const versions = script?.master_clip_versions ?? [];
   const activeId = script?.master_clip_active_version_id ?? null;
   const activeMaster = versions.find((m) => m.version_id === activeId) ?? null;
+
+  // No scenes yet — softest empty state, points back to earlier stages.
+  // Replaces the old StageGate (`project.status` based) which often left
+  // users locked out even when scenes were actually generated.
+  if (scenes.length === 0) {
+    return (
+      <div className="final-state final-state-empty">
+        <div className="final-state-icon" aria-hidden>
+          ▶
+        </div>
+        <h3 className="final-state-title">Финал появится после сборки сцен</h3>
+        <p className="final-state-sub">
+          Сгенерируй сцены в Stage 04 «Сцены», затем нажми «Финализировать ролик».
+          <br />
+          Готовый mp4 окажется здесь — с превью, скачиванием и историей версий.
+        </p>
+      </div>
+    );
+  }
 
   const masterJob = jobs
     .filter((j) => j.kind === 'master_clip' && ['pending', 'running'].includes(j.status))
