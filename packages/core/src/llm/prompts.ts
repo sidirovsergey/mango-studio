@@ -1,5 +1,6 @@
 import { VOICE_POOL } from '../media/voices';
 import { SCRIPT_EXAMPLES } from './examples/script-author';
+import { REFINE_EXAMPLES } from './examples/refine-scene';
 import type { ChatMessage, RefineSceneInput, ScriptGenInput } from './provider';
 import type { Character } from './types';
 
@@ -178,11 +179,62 @@ export function buildScriptUserPrompt(input: ScriptGenInput): string {
 Сгенерируй сценарий по этой идее, соблюдая параметры. Верни JSON по схеме.`;
 }
 
-export const REFINE_SYSTEM_PROMPT = `Ты — Mango, AI-режиссёр.
-Тебе дано описание одной сцены и инструкция от пользователя как её улучшить.
-Верни ОДНО предложение — обновлённое описание сцены, в том же стиле и тоне.
-Только новое описание, без префиксов вроде "Вот улучшенная версия:".`;
+/**
+ * REFINE_SYSTEM_PROMPT — system role for the structured scene-patch path.
+ * The full prompt is assembled via buildRefinePrompt(ctx).
+ *
+ * Legacy 1-sentence path: buildRefineUserPrompt (kept for back-compat until 1.4.B.T5 swaps callers).
+ */
+export const REFINE_SYSTEM_PROMPT = `<role>Mango — Scene Editor. Revise one scene's structured fields per the user's instruction, preserving all unspecified fields. Honour visual_theme — only change look/feel fields if explicitly asked.</role>`;
 
+export interface RefineSceneContext {
+  /** The full structured scene object (will be JSON-serialised). */
+  scene: unknown;
+  /** Visual theme from the script; pass null if not available. */
+  visual_theme?: unknown | null;
+  /** Short summary of the preceding scene, e.g. "Кот просыпается". */
+  prev_scene_summary?: string;
+  /** Short summary of the following scene. */
+  next_scene_summary?: string;
+  /** The user's refinement instruction. */
+  instruction: string;
+}
+
+/**
+ * Builds the full structured refine prompt for a single scene.
+ * Returns the complete XML-wrapped prompt ready to send as the user message
+ * when using REFINE_SYSTEM_PROMPT as the system prompt.
+ *
+ * Added in Phase 1.4.B.T3. Callers will be switched in 1.4.B.T5.
+ */
+export function buildRefinePrompt(ctx: RefineSceneContext): string {
+  const themeJson = ctx.visual_theme ? JSON.stringify(ctx.visual_theme) : 'null';
+  const sceneJson = JSON.stringify(ctx.scene);
+  const prev = ctx.prev_scene_summary ?? '(no previous scene)';
+  const next = ctx.next_scene_summary ?? '(no next scene)';
+  return `${REFINE_SYSTEM_PROMPT}
+
+<visual_theme>${themeJson}</visual_theme>
+
+<surrounding_scenes>
+  <prev>${prev}</prev>
+  <current>${sceneJson}</current>
+  <next>${next}</next>
+</surrounding_scenes>
+
+<examples>
+${REFINE_EXAMPLES.tone_change}
+${REFINE_EXAMPLES.composition_change}
+</examples>
+
+<instruction>${ctx.instruction}</instruction>
+
+<task>
+Return the FULL updated scene object (same schema). Change only what the instruction asks. Echo every other field verbatim from <current>. Output JSON only, no markdown.
+</task>`;
+}
+
+/** @deprecated Legacy 1-sentence refine path — kept until 1.4.B.T5 swaps callers. */
 export function buildRefineUserPrompt(input: RefineSceneInput): string {
   return `Текущее описание сцены: «${input.current}»
 

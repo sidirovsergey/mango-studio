@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildDirectorSystemPrompt, buildScriptPrompt } from './prompts';
+import { buildDirectorSystemPrompt, buildRefinePrompt, buildScriptPrompt } from './prompts';
 
 describe('buildScriptPrompt с existingCharacters', () => {
   const baseInput = {
@@ -227,5 +227,59 @@ describe('buildScriptPrompt XML structure (T2)', () => {
     const outputSchemaEnd = p.indexOf('</output_schema>');
     const outputSchemaBlock = p.slice(outputSchemaStart, outputSchemaEnd);
     expect(outputSchemaBlock).not.toMatch(/voice_id|voice_label/);
+  });
+});
+
+describe('buildRefinePrompt (1.4.B.T3)', () => {
+  it('produces XML structure with visual_theme + surrounding scenes + instruction', () => {
+    const p = buildRefinePrompt({
+      scene: { scene_id: 's2', description: 'x', description_ru: 'x', duration_sec: 5 },
+      visual_theme: { palette: ['#000'], lighting: 'noir', lens: '50mm', motion: 'static', mood: 'tense' },
+      prev_scene_summary: 'кот спит',
+      next_scene_summary: 'кот просыпается',
+      instruction: 'сделай страшнее',
+    });
+    expect(p).toContain('<role>');
+    expect(p).toContain('<visual_theme>');
+    expect(p).toContain('"palette":["#000"]');
+    expect(p).toContain('<surrounding_scenes>');
+    expect(p).toContain('<prev>кот спит</prev>');
+    expect(p).toContain('<next>кот просыпается</next>');
+    expect(p).toContain('<examples>');
+    expect(p).toContain('сделай страшнее');
+    expect(p).toContain('<instruction>сделай страшнее</instruction>');
+    expect(p).toContain('<task>');
+  });
+
+  it('handles null visual_theme + missing surrounding scenes', () => {
+    const p = buildRefinePrompt({
+      scene: { scene_id: 's1', description: 'x', description_ru: 'x', duration_sec: 5 },
+      instruction: 'shorten it',
+    });
+    expect(p).toContain('<visual_theme>null</visual_theme>');
+    expect(p).toContain('<prev>(no previous scene)</prev>');
+    expect(p).toContain('<next>(no next scene)</next>');
+  });
+
+  it('embeds both REFINE_EXAMPLES in the output', () => {
+    const p = buildRefinePrompt({
+      scene: { scene_id: 's3', description: 'x', description_ru: 'x', duration_sec: 5 },
+      instruction: 'test',
+    });
+    // Both example XML blocks should be present
+    expect(p).toContain('сделай страшнее, ночью');
+    expect(p).toContain('extreme close-up');
+  });
+
+  it('REFINE_SYSTEM_PROMPT is the <role> XML line, not the old Russian sentence', () => {
+    const p = buildRefinePrompt({
+      scene: { scene_id: 's4', description: 'x', description_ru: 'x', duration_sec: 5 },
+      instruction: 'test',
+    });
+    // Must contain the new XML role
+    expect(p).toContain('<role>Mango — Scene Editor');
+    // Must NOT contain the old 1-sentence Russian prompt text
+    expect(p).not.toContain('Верни ОДНО предложение');
+    expect(p).not.toContain('AI-режиссёр.');
   });
 });
