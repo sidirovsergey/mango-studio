@@ -342,6 +342,10 @@
   .topbar {
     padding: 0 12px;
     height: 56px;
+    gap: 8px;
+  }
+  .topbar-right {
+    gap: 8px;
   }
   .brand-name {
     display: none;
@@ -367,5 +371,53 @@
   }
   .topbar .cta svg {
     display: none;
+  }
+}
+
+/* Phone-width polish. Topbar needs to wrap into two rows: brand+CTA on top,
+   format/tier/auto-mode below. We can't physically fit 5 controls in one row
+   under 540px. */
+@media (max-width: 540px) {
+  .topbar {
+    height: auto;
+    min-height: 56px;
+    padding: 8px 10px;
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .topbar-right {
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .seg { padding: 2px; }
+  .seg button {
+    padding: 4px 8px;
+    font-size: 10.5px;
+  }
+  /* Auto-mode label compresses to just the checkbox: span text hidden,
+     toggle stays clickable. */
+  .auto-mode-toggle span {
+    display: none;
+  }
+  .topbar .cta {
+    padding: 8px 12px;
+    font-size: 12px;
+    margin-left: auto;
+  }
+  .workspace {
+    padding: 14px 12px 100px;
+  }
+  .stage {
+    padding: 16px 14px;
+    border-radius: 16px;
+  }
+  /* Tighter section heads */
+  .stage-head {
+    gap: 10px;
+  }
+  .stage-title {
+    font-size: 16px;
   }
 }
