@@ -77,6 +77,59 @@ describe('SceneSchema (1.3.5 versioned)', () => {
   });
 });
 
+it('Scene accepts new cinematography fields, all nullable', () => {
+  const scene = SceneSchema.parse({
+    scene_id: 's1',
+    description: 'placeholder',
+    description_ru: 'Кот идёт по кухне',
+    description_en: 'A cat walks through the kitchen',
+    duration_sec: 5,
+    dialogue: null,
+    character_ids: ['c1'],
+    composition: { shot_size: 'medium', angle: 'eye_level' },
+    camera_movement: { kind: 'dolly_in', speed: 'slow' },
+    lighting: { recipe: 'warm key + cool rim' },
+    audio_direction: { ambient: 'kitchen room tone' },
+    arc_role: 'setup',
+    tier_at_gen: 'premium',
+    first_frame_versions: [],
+    first_frame_active_version_id: null,
+    video_versions: [],
+    video_active_version_id: null,
+    voice_audio_versions: [],
+    voice_audio_active_version_id: null,
+    last_frame: null,
+    final_clip: null,
+    first_frame_source: 'auto_continuity',
+    audio_mode: 'auto',
+  });
+  expect(scene.composition?.shot_size).toBe('medium');
+  expect(scene.description_en).toContain('cat');
+});
+
+it('Scene accepts legacy shape without new fields', () => {
+  const scene = SceneSchema.parse({
+    scene_id: 's1',
+    description: 'Кот идёт по кухне',
+    duration_sec: 5,
+    dialogue: null,
+    character_ids: ['c1'],
+    first_frame_source: 'auto_continuity',
+    audio_mode: 'auto',
+    first_frame_versions: [],
+    first_frame_active_version_id: null,
+    video_versions: [],
+    video_active_version_id: null,
+    voice_audio_versions: [],
+    voice_audio_active_version_id: null,
+    last_frame: null,
+    final_clip: null,
+  });
+  expect(scene.composition).toBeNull();
+  expect(scene.description_ru).toBe('Кот идёт по кухне'); // back-compat: copy from description
+  expect(scene.description_en).toBeNull();
+});
+
 describe('ScriptGenSchema (1.3.5 master_clip versioned)', () => {
   const baseScene = {
     scene_id: 's1',
