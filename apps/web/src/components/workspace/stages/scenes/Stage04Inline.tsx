@@ -1,9 +1,10 @@
 'use client';
 
 import { usePollJobs } from '@/hooks/use-poll-jobs';
+import { generateMasterClipAction } from '@/server/actions/generateMasterClipAction';
 import '@/styles/storyboard-inline.css';
 import type { Database } from '@mango/db';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { CostMeter } from './CostMeter';
 import { CostWarningToast } from './CostWarningToast';
 import { MasterClipModal } from './MasterClipModal';
@@ -21,6 +22,8 @@ interface Stage04InlineProps {
 function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initialScript'>) {
   const { script, jobs } = useStage04();
   const [showMaster, setShowMaster] = useState(false);
+  const [masterError, setMasterError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
   usePollJobs(projectId);
 
   const scenes = script?.scenes ?? [];
@@ -41,6 +44,62 @@ function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initi
 
   const totalDuration = scenes.reduce((sum, s) => sum + (s.duration_sec ?? 0), 0);
 
+  // Master clip readiness
+  const readySceneCount = scenes.filter((s) => s.final_clip !== null).length;
+  const allScenesReady = scenes.length > 0 && readySceneCount === scenes.length;
+  const masterInFlight = jobs.some(
+    (j) => j.kind === 'master_clip' && ['pending', 'running'].includes(j.status),
+  );
+
+  const handleMasterClick = () => {
+    setMasterError(null);
+    if (masterInFlight) return;
+    if (activeMaster) {
+      setShowMaster(true);
+      return;
+    }
+    if (!allScenesReady) return;
+    startTransition(async () => {
+      const r = await generateMasterClipAction({ project_id: projectId });
+      if (!r.ok) {
+        setMasterError(r.error ?? 'не удалось запустить финализацию');
+      }
+    });
+  };
+
+  const masterButton = (() => {
+    if (masterInFlight) {
+      return {
+        label: '🎬 Финализирую…',
+        disabled: true,
+        title: 'Идёт сборка master_clip — это 10-30 секунд',
+        busy: true,
+      };
+    }
+    if (activeMaster) {
+      return {
+        label: '🎬 Открыть ролик',
+        disabled: false,
+        title: 'Готовый master_clip — открыть превью + скачать',
+        busy: false,
+      };
+    }
+    if (!allScenesReady) {
+      return {
+        label: '🎬 Финализировать ролик',
+        disabled: true,
+        title: `${readySceneCount}/${scenes.length} сцен готовы — нужно сгенерировать видео и финальные клипы для всех сцен`,
+        busy: false,
+      };
+    }
+    return {
+      label: pending ? '🎬 Запускаю…' : '🎬 Финализировать ролик',
+      disabled: pending,
+      title: 'Склеить все сцены в финальный ролик через ffmpeg (~$0.005)',
+      busy: pending,
+    };
+  })();
+
   return (
     <section className="stage-04-inline">
       <header className="stage-04-header">
@@ -50,19 +109,36 @@ function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initi
         </div>
         <div className="stage-sub">
           {scenes.length} сцен · {totalDuration}с · {tier === 'premium' ? 'Премиум' : 'Эконом'}
+          {scenes.length > 0 && (
+            <span className="readiness">
+              {' · '}
+              <strong className={allScenesReady ? 'ready' : 'pending'}>
+                {readySceneCount}/{scenes.length}
+              </strong>{' '}
+              готово к сборке
+            </span>
+          )}
         </div>
         <div className="stage-04-cluster">
-          <CostMeter projectId={projectId} />
+          <CostMeter projectId={projectId} jobs={jobs} />
           <button
             type="button"
-            className="btn primary"
-            onClick={() => setShowMaster(true)}
-            disabled={!activeMaster}
+            className={`btn primary master-btn${masterButton.busy ? ' busy' : ''}`}
+            onClick={handleMasterClick}
+            disabled={masterButton.disabled}
+            title={masterButton.title}
+            aria-busy={masterButton.busy}
           >
-            🎬 Финализировать ролик
+            {masterButton.label}
           </button>
         </div>
       </header>
+
+      {masterError && (
+        <div className="master-error" role="alert">
+          ⚠ {masterError}
+        </div>
+      )}
 
       <div className="scene-list">
         {scenes.map((scene, i) => (
@@ -81,7 +157,7 @@ function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initi
         )}
       </div>
 
-      <CostWarningToast projectId={projectId} />
+      <CostWarningToast projectId={projectId} jobs={jobs} />
 
       {showMaster && activeMaster && (
         <MasterClipModal
