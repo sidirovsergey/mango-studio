@@ -45,6 +45,12 @@ const COST_HINT_LABEL: Record<'low' | 'medium' | 'high', string> = {
   high: '$0.40',
 };
 
+function speakerLabel(speaker: string): string {
+  const norm = speaker.trim().toLowerCase();
+  if (!norm || norm === 'narrator' || norm === 'нарратор') return 'рассказчик';
+  return speaker;
+}
+
 const JOB_KIND_LABEL: Record<string, string> = {
   first_frame: 'кадр',
   video: 'видео',
@@ -154,9 +160,8 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
         <p className="scene-desc">{scene.description}</p>
         {scene.dialogue && (
           <p className="scene-dialogue">
-            <span className="dialogue-speaker">{scene.dialogue.speaker}</span>
-            <span className="dialogue-rule" aria-hidden />
             <em>«{scene.dialogue.text}»</em>
+            <span className="dialogue-speaker">— {speakerLabel(scene.dialogue.speaker)}</span>
           </p>
         )}
       </section>
@@ -182,35 +187,33 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
       />
 
       <section className="action-strip" aria-label="Действия со сценой">
-        <div className="action-strip-left">
-          <SecondaryAction
-            icon={<IconPencil size={14} />}
-            label="Текст"
-            cost="$0.001"
-            disabled={pending || lockedByGen}
-            onClick={() =>
-              onAction(() =>
-                regenSceneTextAction({ project_id: projectId, scene_id: scene.scene_id }),
-              )
-            }
-          />
-          <SecondaryAction
-            icon={<IconFrame size={14} />}
-            label={activeFrame ? 'Кадр' : 'Создать кадр'}
-            cost="$0.02"
-            disabled={pending || lockedByGen}
-            onClick={() =>
-              onAction(() =>
-                generateFirstFrameAction({ project_id: projectId, scene_id: scene.scene_id }),
-              )
-            }
-          />
-        </div>
-        <PrimaryAction
-          icon={activeVideo ? <IconRefresh size={18} /> : <IconPlay size={18} />}
+        <ActionTile
+          icon={<IconPencil size={13} />}
+          label="Перегенерить текст"
+          cost="$0.001"
+          disabled={pending || lockedByGen}
+          onClick={() =>
+            onAction(() =>
+              regenSceneTextAction({ project_id: projectId, scene_id: scene.scene_id }),
+            )
+          }
+        />
+        <ActionTile
+          icon={<IconFrame size={13} />}
+          label={activeFrame ? 'Перегенерить кадр' : 'Создать кадр'}
+          cost="$0.02"
+          disabled={pending || lockedByGen}
+          onClick={() =>
+            onAction(() =>
+              generateFirstFrameAction({ project_id: projectId, scene_id: scene.scene_id }),
+            )
+          }
+        />
+        <ActionTile
+          primary
+          icon={activeVideo ? <IconRefresh size={14} /> : <IconPlay size={14} />}
           label={activeVideo ? 'Перегенерить видео' : 'Сгенерировать видео'}
           cost={videoCostHint}
-          subLabel={activeFrame ? 'IMG → VIDEO' : 'нужен first_frame'}
           disabled={pending || lockedByGen || !activeFrame}
           onClick={() =>
             onAction(() =>
@@ -325,65 +328,38 @@ function PromptSection({ kind, label, prompt, version, onOpen, disabled }: Promp
   );
 }
 
-interface SecondaryActionProps {
+interface ActionTileProps {
   icon: React.ReactNode;
   label: string;
   cost: string;
   disabled: boolean;
   onClick: () => void;
-}
-
-function SecondaryAction({ icon, label, cost, disabled, onClick }: SecondaryActionProps) {
-  return (
-    <button type="button" className="action-secondary" onClick={onClick} disabled={disabled}>
-      <span className="action-secondary-icon" aria-hidden>
-        {icon}
-      </span>
-      <span className="action-secondary-body">
-        <span className="action-label">{label}</span>
-        <span className="action-cost">{cost}</span>
-      </span>
-    </button>
-  );
-}
-
-interface PrimaryActionProps {
-  icon: React.ReactNode;
-  label: string;
-  cost: string;
-  subLabel: string;
-  disabled: boolean;
+  primary?: boolean;
   title?: string;
-  onClick: () => void;
 }
 
-function PrimaryAction({
+function ActionTile({
   icon,
   label,
   cost,
-  subLabel,
   disabled,
-  title,
   onClick,
-}: PrimaryActionProps) {
+  primary = false,
+  title,
+}: ActionTileProps) {
   return (
     <button
       type="button"
-      className="action-primary"
+      className={`action-tile${primary ? ' primary' : ''}`}
       onClick={onClick}
       disabled={disabled}
       title={title}
     >
-      <span className="action-primary-icon" aria-hidden>
+      <span className="action-tile-icon" aria-hidden>
         {icon}
       </span>
-      <span className="action-primary-body">
-        <span className="action-primary-label">{label}</span>
-        <span className="action-primary-meta">
-          <span>{subLabel}</span>
-          <span className="action-primary-cost">{cost}</span>
-        </span>
-      </span>
+      <span className="action-tile-label">{label}</span>
+      <span className="action-tile-cost">{cost}</span>
     </button>
   );
 }
@@ -544,37 +520,83 @@ function AudioModeControl({
   mode: 'native' | 'silent_tts' | 'auto';
   disabled: boolean;
 }) {
-  const [, startT] = useTransition();
+  const [pending, startT] = useTransition();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   const opts: { id: 'auto' | 'native' | 'silent_tts'; label: string; title: string }[] = [
-    { id: 'auto', label: 'auto', title: 'Автодетект: кириллица → TTS, иначе native' },
+    { id: 'auto', label: 'авто', title: 'Автодетект: кириллица → TTS, иначе native' },
     { id: 'native', label: 'native', title: 'Принудительно native-audio (Seedance 2.0 / Veo)' },
     { id: 'silent_tts', label: 'TTS', title: 'Принудительно silent + ElevenLabs TTS' },
   ];
+  const current = opts.find((o) => o.id === mode) ?? opts[0]!;
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('mousedown', onClick);
+    window.addEventListener('keydown', onEsc);
+    return () => {
+      window.removeEventListener('mousedown', onClick);
+      window.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+
+  const handleSelect = (id: 'auto' | 'native' | 'silent_tts') => {
+    setOpen(false);
+    if (id === mode) return;
+    startT(async () => {
+      await setSceneAudioModeAction({
+        project_id: projectId,
+        scene_id: sceneId,
+        audio_mode: id,
+      });
+    });
+  };
+
   return (
-    <div className="control">
+    <div className="control" ref={ref}>
       <span className="control-label">Аудио</span>
-      <div className="seg" role="group" aria-label="Аудио режим">
-        {opts.map((o) => (
-          <button
-            key={o.id}
-            type="button"
-            className={`seg-item${mode === o.id ? ' active' : ''}`}
-            disabled={disabled || mode === o.id}
-            title={o.title}
-            onClick={() =>
-              startT(async () => {
-                await setSceneAudioModeAction({
-                  project_id: projectId,
-                  scene_id: sceneId,
-                  audio_mode: o.id,
-                });
-              })
-            }
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
+      <button
+        type="button"
+        className={`control-value${open ? ' open' : ''}`}
+        onClick={() => setOpen((x) => !x)}
+        disabled={disabled || pending}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        {current.label}{' '}
+        <span className="control-caret" aria-hidden>
+          ▾
+        </span>
+      </button>
+      {open && (
+        <div
+          className="control-popover small"
+          role="listbox"
+          aria-label="Аудио режим"
+          tabIndex={-1}
+        >
+          <div className="popover-head">аудио режим</div>
+          {opts.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              role="option"
+              aria-selected={mode === o.id}
+              className={`popover-item${mode === o.id ? ' active' : ''}`}
+              onClick={() => handleSelect(o.id)}
+              title={o.title}
+            >
+              <span className="popover-item-label">{o.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

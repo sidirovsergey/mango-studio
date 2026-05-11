@@ -137,10 +137,7 @@ function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initi
             title={masterButton.title}
             aria-busy={masterButton.busy}
           >
-            <span className="master-btn-marker" aria-hidden>
-              <span className="master-btn-dot" />
-              <span className="master-btn-tag">MASTER</span>
-            </span>
+            <span className="master-btn-dot" aria-hidden />
             <span className="master-btn-label">{masterButton.label}</span>
           </button>
         </div>
