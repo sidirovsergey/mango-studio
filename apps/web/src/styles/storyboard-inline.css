@@ -1,12 +1,14 @@
 /* apps/web/src/styles/storyboard-inline.css
- * Stage 04 — production notebook treatment aligned with landing's mango-glass language.
+ * Stage 04 — aligned with studio system (workspace.css).
  *
- * Typography: Fraunces serif (scene descriptions + big anchor numerals),
- * Manrope display (headings, buttons), Geist Mono (tags, costs, version chips).
+ * Typography: Manrope (titles, body, buttons), Inter (running text),
+ * Geist Mono (tags, costs, version chips, scene numerals).
+ * No Fraunces — it stays scoped to Stage 03 .script-summary. Stage section
+ * mark + title are rendered by <StageHead> from the parent (.stage-num +
+ * .stage-title patterns from workspace.css), so this stylesheet only adds
+ * the toolbar row and the scene rows below.
  * Surfaces: glass-card (white-translucent + backdrop-filter) on cream, hairline
- * dashed rules between sections — no nested rounded boxes. Primary CTAs use
- * mango-gradient (matching .landing-send). Dark ink-900 is reserved for body
- * text, not for buttons.
+ * dashed rules between sections. Primary CTAs use mango-gradient.
  */
 
 /* === Stage section shell === */
@@ -36,39 +38,18 @@
     0 50px 90px -40px rgba(245, 118, 0, 0.18);
 }
 
-/* === Stage 04 header === */
-.stage-04-header {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 28px;
-  align-items: end;
-  padding-bottom: 22px;
-  margin-bottom: 28px;
+/* === Toolbar (stats + cost + master CTA). No duplicate stage header —
+   <StageHead num="04" title="Сцены" /> from parent renders the canonical
+   .stage-num + .stage-title pattern from workspace.css. === */
+.stage-04-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding-bottom: 18px;
+  margin-bottom: 24px;
   border-bottom: 1px dashed var(--rule);
-}
-.stage-04-mark { display: flex; align-items: baseline; gap: 18px; }
-.stage-04-num {
-  font-family: var(--font-serif), 'Fraunces', Georgia, serif;
-  font-weight: 400;
-  font-style: italic;
-  font-size: clamp(54px, 5.6vw, 84px);
-  line-height: 0.85;
-  letter-spacing: -0.03em;
-  font-feature-settings: 'lnum', 'tnum';
-  font-variation-settings: 'opsz' 144;
-  background: linear-gradient(120deg, var(--mango-500, #F57600), var(--mango-700, #A84800));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.stage-04-mark-text { display: flex; flex-direction: column; gap: 4px; padding-bottom: 4px; }
-.stage-04-title {
-  margin: 0;
-  font-family: var(--font-display), 'Manrope', system-ui, sans-serif;
-  font-weight: 700;
-  font-size: 24px;
-  letter-spacing: -0.02em;
-  color: var(--ink-900, #1A1207);
 }
 .stage-04-sub {
   margin: 0;
@@ -77,8 +58,8 @@
   gap: 8px;
   flex-wrap: wrap;
   font-family: var(--font-mono), 'Geist Mono', ui-monospace, monospace;
-  font-size: 11.5px;
-  letter-spacing: 0.05em;
+  font-size: 11px;
+  letter-spacing: 0.06em;
   color: var(--ink-dim);
   text-transform: uppercase;
 }
@@ -132,16 +113,16 @@
 .master-btn {
   display: inline-grid;
   grid-template-columns: auto 1fr;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
-  padding: 11px 20px 11px 14px;
+  padding: 9px 16px 9px 12px;
   border: 0;
-  border-radius: 14px;
+  border-radius: 12px;
   background: linear-gradient(180deg, var(--mango-400, #FF9026), var(--mango-600, #D85F00));
   color: white;
   font-family: var(--font-display), 'Manrope', system-ui, sans-serif;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   letter-spacing: -0.005em;
   cursor: pointer;
   transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 240ms;
@@ -239,9 +220,8 @@
   padding: 40px;
   text-align: center;
   color: var(--ink-dim);
-  font-style: italic;
-  font-family: var(--font-serif), 'Fraunces', Georgia, serif;
-  font-size: 15px;
+  font-family: var(--font-sans), 'Inter', system-ui, sans-serif;
+  font-size: 14px;
   border: 1px dashed var(--rule);
   border-radius: 14px;
 }
@@ -249,12 +229,12 @@
 /* === Scene row === */
 .scene-row {
   display: grid;
-  grid-template-columns: 64px 178px 1fr;
-  gap: 24px;
-  padding: 22px 24px;
+  grid-template-columns: 178px 1fr;
+  gap: 22px;
+  padding: 20px 22px;
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(26, 18, 7, 0.06);
-  border-radius: 18px;
+  border-radius: 16px;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.9) inset,
     0 1px 2px rgba(26, 18, 7, 0.03),
@@ -267,40 +247,25 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Anchor column */
-.scene-anchor {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding-top: 2px;
-  user-select: none;
-}
-.scene-anchor-num {
-  font-family: var(--font-serif), 'Fraunces', Georgia, serif;
-  font-weight: 400;
-  font-style: italic;
-  font-size: 56px;
-  line-height: 0.85;
-  letter-spacing: -0.04em;
-  font-feature-settings: 'lnum', 'tnum';
-  font-variation-settings: 'opsz' 144;
-  background: linear-gradient(120deg, var(--mango-500, #F57600), var(--mango-700, #A84800));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.scene-anchor-rule {
-  width: 28px; height: 1px;
-  background: var(--mango-400, #FF9026);
-  margin-top: 6px;
-}
-.scene-anchor-label {
+/* Scene-number chip — same language as workspace.css .stage-num. */
+.scene-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-family: var(--font-mono), 'Geist Mono', ui-monospace, monospace;
-  font-size: 9px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--ink-dim);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  color: var(--mango-700, #A84800);
+  background: linear-gradient(180deg, #fff6e2, #ffe9c8);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 0 0 1px rgba(245, 118, 0, 0.18),
+    0 6px 12px -6px rgba(245, 118, 0, 0.35);
+  flex-shrink: 0;
 }
 
 /* === Thumbnail column === */
@@ -463,19 +428,18 @@
 }
 .row-head {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 14px;
-  align-items: baseline;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
 }
-.row-head-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.row-head-title { display: flex; align-items: center; min-width: 0; }
 .scene-title-name {
-  font-family: var(--font-serif), 'Fraunces', Georgia, serif;
-  font-style: italic;
-  font-weight: 400;
-  font-size: 24px;
-  letter-spacing: -0.018em;
+  font-family: var(--font-display), 'Manrope', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
   color: var(--ink-900, #1A1207);
-  line-height: 1.2;
+  line-height: 1.35;
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -624,13 +588,12 @@
 
 .scene-desc {
   margin: 0;
-  font-family: var(--font-serif), 'Fraunces', Georgia, serif;
-  font-size: 17px;
+  font-family: var(--font-sans), 'Inter', system-ui, sans-serif;
+  font-size: 14px;
   line-height: 1.55;
   font-weight: 400;
-  color: var(--ink-900, #1A1207);
-  letter-spacing: 0.005em;
-  font-variation-settings: 'opsz' 24;
+  color: var(--ink-800, #2C2114);
+  letter-spacing: -0.003em;
 }
 .scene-dialogue {
   margin: 6px 0 0;
@@ -638,11 +601,11 @@
   grid-template-columns: auto auto 1fr;
   gap: 10px;
   align-items: baseline;
-  font-family: var(--font-serif), 'Fraunces', Georgia, serif;
-  font-size: 15.5px;
-  line-height: 1.45;
+  font-family: var(--font-sans), 'Inter', system-ui, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.5;
   color: var(--ink-800, #2C2114);
-  padding: 10px 14px;
+  padding: 9px 13px;
   background: rgba(255, 247, 236, 0.65);
   border-left: 2px solid var(--mango-400, #FF9026);
   border-radius: 0 10px 10px 0;
@@ -650,7 +613,7 @@
 .dialogue-speaker {
   font-family: var(--font-mono), 'Geist Mono', ui-monospace, monospace;
   font-style: normal;
-  font-size: 10.5px;
+  font-size: 10px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--mango-700, #A84800);
@@ -1119,15 +1082,11 @@
 }
 .modal-head h3 {
   margin: 0;
-  font-family: var(--font-serif), 'Fraunces', Georgia, serif;
-  font-style: italic;
-  font-size: 22px;
-  font-weight: 400;
+  font-family: var(--font-display), 'Manrope', system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 700;
   letter-spacing: -0.015em;
-  background: linear-gradient(120deg, var(--mango-500, #F57600), var(--mango-700, #A84800));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--ink-900, #1A1207);
 }
 .modal-close {
   background: rgba(255, 255, 255, 0.65);
@@ -1309,17 +1268,13 @@
 
 /* === Responsive === */
 @media (max-width: 1100px) {
-  .scene-row { grid-template-columns: 48px 158px 1fr; gap: 18px; padding: 18px 20px; }
-  .scene-anchor-num { font-size: 44px; }
+  .scene-row { grid-template-columns: 158px 1fr; gap: 18px; padding: 18px 20px; }
   .action-strip { grid-template-columns: 1fr; }
   .action-strip-left { flex-wrap: wrap; }
 }
 @media (max-width: 760px) {
-  .stage-04-header { grid-template-columns: 1fr; gap: 18px; align-items: start; }
+  .stage-04-toolbar { align-items: flex-start; }
   .stage-04-cluster { justify-content: space-between; }
   .scene-row { grid-template-columns: 1fr; padding-bottom: 24px; }
-  .scene-anchor { flex-direction: row; align-items: baseline; gap: 14px; }
-  .scene-anchor-num { font-size: 36px; }
-  .scene-anchor-rule { display: none; }
   .controls-strip { gap: 16px 22px; }
 }
