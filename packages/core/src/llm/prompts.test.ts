@@ -182,6 +182,42 @@ describe('buildDirectorSystemPrompt — characters context', () => {
   });
 });
 
+describe('buildScriptPrompt tier plumbing (T5)', () => {
+  const baseInput = {
+    user_prompt: 'тест',
+    duration_sec: 30,
+    format: '9:16' as const,
+    style: '3d_pixar' as const,
+  };
+
+  it('tier:economy emits economy in engine_constraints + task reinforcement', () => {
+    const p = buildScriptPrompt(baseInput, { tier: 'economy' });
+    expect(p).toContain('Tier: economy');
+    // tier constraint variable used in <task> reinforcement
+    expect(p).toContain('scene durations must be 5 or 10 s only');
+    // economy task line does NOT mention flexible premium rule
+    const taskStart = p.indexOf('<task>');
+    const taskBlock = p.slice(taskStart);
+    expect(taskBlock).toContain('5 or 10 s only');
+  });
+
+  it('tier:premium emits premium in engine_constraints + task reinforcement', () => {
+    const p = buildScriptPrompt(baseInput, { tier: 'premium' });
+    expect(p).toContain('Tier: premium');
+    // tier constraint variable used in <task> reinforcement
+    expect(p).toContain('scene durations 4–12 s (integer), flexible');
+    const taskStart = p.indexOf('<task>');
+    const taskBlock = p.slice(taskStart);
+    expect(taskBlock).toContain('4–12 s');
+  });
+
+  it('omitting tier defaults to economy constraints', () => {
+    const p = buildScriptPrompt(baseInput);
+    expect(p).toContain('Tier: economy');
+    expect(p).toContain('scene durations must be 5 or 10 s only');
+  });
+});
+
 describe('buildScriptPrompt XML structure (T2)', () => {
   it('buildScriptPrompt produces XML structure with tier-aware engine_constraints', () => {
     const p = buildScriptPrompt(

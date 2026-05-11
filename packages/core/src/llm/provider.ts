@@ -24,6 +24,8 @@ export interface ScriptGenInput {
   style: StyleName;
   /** Existing active characters to pass as context for character-aware generation */
   existingCharacters?: Array<{ id: string; name: string; description: string }>;
+  /** Project-level tier; controls engine_constraints in the script prompt. Defaults to 'economy'. */
+  tier?: 'economy' | 'premium';
 }
 
 export interface Scene {

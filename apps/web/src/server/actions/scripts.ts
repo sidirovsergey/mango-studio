@@ -25,7 +25,7 @@ async function loadProjectForGeneration(projectId: string) {
   const supabase = await getServerSupabase();
   const { data, error } = await supabase
     .from('projects')
-    .select('id, user_id, idea, style, format, target_duration_sec, script')
+    .select('id, user_id, idea, style, format, target_duration_sec, script, tier')
     .eq('id', projectId)
     .single();
   if (error || !data) throw new Error(`loadProjectForGeneration: ${error?.message ?? 'not found'}`);
@@ -66,6 +66,7 @@ export async function generateScriptAction(
       format: project.format as '9:16' | '16:9' | '1:1',
       duration_sec: project.target_duration_sec,
       style: project.style as '3d_pixar' | '2d_drawn' | 'clay_art',
+      tier: (project.tier ?? 'economy') as 'economy' | 'premium',
       // First generation — no existing characters
       existingCharacters: [],
     });
@@ -122,6 +123,7 @@ export async function regenScriptAction(
       format: project.format as '9:16' | '16:9' | '1:1',
       duration_sec: project.target_duration_sec,
       style: project.style as '3d_pixar' | '2d_drawn' | 'clay_art',
+      tier: (project.tier ?? 'economy') as 'economy' | 'premium',
       existingCharacters: existingForPrompt,
     });
     const mergedCharacters = applyCharacterActions(existingCharacters, result.output.characters);
@@ -194,6 +196,7 @@ export async function refineScriptAction(
       format: project.format as '9:16' | '16:9' | '1:1',
       duration_sec: project.target_duration_sec,
       style: project.style as '3d_pixar' | '2d_drawn' | 'clay_art',
+      tier: (project.tier ?? 'economy') as 'economy' | 'premium',
       existingCharacters: existingForPrompt,
     });
     const mergedCharacters = applyCharacterActions(existingCharacters, result.output.characters);

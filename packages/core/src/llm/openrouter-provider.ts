@@ -79,6 +79,7 @@ export class OpenRouterLLMProvider implements LLMProvider {
     const start = Date.now();
     const fullPrompt = buildScriptPrompt(input, {
       existingCharacters: input.existingCharacters,
+      tier: input.tier ?? 'economy',
     });
     try {
       const { text, usage } = await generateText({
