@@ -44,7 +44,6 @@ function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initi
 
   const totalDuration = scenes.reduce((sum, s) => sum + (s.duration_sec ?? 0), 0);
 
-  // Master clip readiness
   const readySceneCount = scenes.filter((s) => s.final_clip !== null).length;
   const allScenesReady = scenes.length > 0 && readySceneCount === scenes.length;
   const masterInFlight = jobs.some(
@@ -70,73 +69,92 @@ function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initi
   const masterButton = (() => {
     if (masterInFlight) {
       return {
-        label: '🎬 Финализирую…',
+        label: 'Финализирую…',
         disabled: true,
         title: 'Идёт сборка master_clip — это 10-30 секунд',
         busy: true,
+        variant: 'busy' as const,
       };
     }
     if (activeMaster) {
       return {
-        label: '🎬 Открыть ролик',
+        label: 'Открыть ролик',
         disabled: false,
         title: 'Готовый master_clip — открыть превью + скачать',
         busy: false,
+        variant: 'ready' as const,
       };
     }
     if (!allScenesReady) {
       return {
-        label: '🎬 Финализировать ролик',
+        label: 'Финализировать ролик',
         disabled: true,
         title: `${readySceneCount}/${scenes.length} сцен готовы — нужно сгенерировать видео и финальные клипы для всех сцен`,
         busy: false,
+        variant: 'idle' as const,
       };
     }
     return {
-      label: pending ? '🎬 Запускаю…' : '🎬 Финализировать ролик',
+      label: pending ? 'Запускаю…' : 'Финализировать ролик',
       disabled: pending,
       title: 'Склеить все сцены в финальный ролик через ffmpeg (~$0.005)',
       busy: pending,
+      variant: 'active' as const,
     };
   })();
 
   return (
     <section className="stage-04-inline">
       <header className="stage-04-header">
-        <div className="stage-title">
-          <span className="stage-num">04</span>
-          <span>Сцены</span>
-        </div>
-        <div className="stage-sub">
-          {scenes.length} сцен · {totalDuration}с · {tier === 'premium' ? 'Премиум' : 'Эконом'}
-          {scenes.length > 0 && (
-            <span className="readiness">
-              {' · '}
-              <strong className={allScenesReady ? 'ready' : 'pending'}>
-                {readySceneCount}/{scenes.length}
-              </strong>{' '}
-              готово к сборке
-            </span>
-          )}
+        <div className="stage-04-mark">
+          <span className="stage-04-num">04</span>
+          <div className="stage-04-mark-text">
+            <h2 className="stage-04-title">Сцены</h2>
+            <p className="stage-04-sub">
+              <span>{scenes.length} сцен</span>
+              <span className="dot" aria-hidden>
+                ·
+              </span>
+              <span>{totalDuration} сек</span>
+              <span className="dot" aria-hidden>
+                ·
+              </span>
+              <span>{tier === 'premium' ? 'Premium' : 'Economy'}</span>
+              {scenes.length > 0 && (
+                <>
+                  <span className="dot" aria-hidden>
+                    ·
+                  </span>
+                  <span className={`readiness ${allScenesReady ? 'ready' : 'pending'}`}>
+                    {readySceneCount} / {scenes.length} готово к сборке
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
         </div>
         <div className="stage-04-cluster">
           <CostMeter projectId={projectId} jobs={jobs} />
           <button
             type="button"
-            className={`btn primary master-btn${masterButton.busy ? ' busy' : ''}`}
+            className={`master-btn master-btn-${masterButton.variant}${masterButton.busy ? ' busy' : ''}`}
             onClick={handleMasterClick}
             disabled={masterButton.disabled}
             title={masterButton.title}
             aria-busy={masterButton.busy}
           >
-            {masterButton.label}
+            <span className="master-btn-marker" aria-hidden>
+              <span className="master-btn-dot" />
+              <span className="master-btn-tag">MASTER</span>
+            </span>
+            <span className="master-btn-label">{masterButton.label}</span>
           </button>
         </div>
       </header>
 
       {masterError && (
         <div className="master-error" role="alert">
-          ⚠ {masterError}
+          <span className="scene-error-tag">ERR</span> {masterError}
         </div>
       )}
 
