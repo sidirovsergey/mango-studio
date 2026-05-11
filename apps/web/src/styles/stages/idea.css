@@ -98,18 +98,46 @@
   font-weight: 600;
 }
 
+/* Idea card — was raw paragraph + icon button floating beside it. Now a
+   proper framed card (same visual language as Stage 03 .script-summary):
+   cream gradient bg, mango rule on the left edge, edit-pencil docked
+   in top-right corner. */
 .idea-text-row {
   margin-top: 16px;
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  position: relative;
+  padding: 14px 48px 14px 20px;
+  background: linear-gradient(180deg, var(--cream), #fff6e2);
+  border: 1px solid rgba(245, 118, 0, 0.12);
+  border-radius: 14px;
+  transition: border-color 200ms, box-shadow 200ms;
+}
+.idea-text-row::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--mango-300), var(--mango-500));
+}
+.idea-text-row:hover {
+  border-color: rgba(245, 118, 0, 0.28);
+  box-shadow: 0 6px 14px -8px rgba(245, 118, 0, 0.3);
+}
+.idea-text-row > .icon-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
 }
 .idea-text {
-  flex: 1;
   margin: 0;
-  color: var(--ink-700);
-  font-size: 14px;
+  color: var(--ink-800);
+  font-family: 'Fraunces', serif;
+  font-weight: 400;
+  font-size: 16px;
   line-height: 1.55;
+  letter-spacing: -0.005em;
 }
 .idea-edit-textarea {
   width: 100%;

@@ -155,32 +155,74 @@
   font-size: 18px;
 }
 
+/* Mobile char-card — explicit two-column grid so avatar lives on the left
+   at proper size, name + description on the right, actions span below.
+   Description gets its own framed pill so it no longer floats as raw text. */
 @media (max-width: 900px) {
   .char-grid {
     grid-template-columns: 1fr;
-  }
-  .char-card {
-    flex-direction: row;
-    align-items: center;
-    padding: 12px;
     gap: 12px;
   }
+  .char-card {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      'avatar info'
+      'actions actions';
+    align-items: start;
+    padding: 14px;
+    gap: 14px;
+    flex-direction: initial; /* override the base column flex */
+  }
   .char-avatar {
+    grid-area: avatar;
     margin: 0 !important;
-    width: 56px !important;
-    height: 56px !important;
-    font-size: 28px !important;
-    flex-shrink: 0;
+    width: 64px !important;
+    height: 64px !important;
+    font-size: 30px !important;
+    align-self: center;
   }
   .char-info {
-    flex: 1;
+    grid-area: info;
     text-align: left !important;
+    min-width: 0;
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
+  .char-name {
+    font-size: 15px;
+    line-height: 1.25;
+  }
+  /* Description is now a framed mini-card — was raw text floating before. */
   .char-desc {
+    margin-top: 0 !important;
     min-height: 0 !important;
+    padding: 8px 10px;
+    background: rgba(255, 250, 240, 0.6);
+    border: 1px solid rgba(245, 118, 0, 0.10);
+    border-radius: 10px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ink-700);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
   .char-actions {
+    grid-area: actions;
     margin-top: 0 !important;
+    justify-content: flex-start;
+    gap: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed rgba(26, 18, 7, 0.06);
+  }
+  /* Icon-btn size up to 36px for touch-friendly targets on mobile */
+  .char-actions .icon-btn {
+    width: 36px;
+    height: 36px;
   }
   .char-add {
     padding: 16px;
@@ -188,44 +230,30 @@
     flex-direction: row;
   }
   .char-add .plus {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     font-size: 16px;
   }
 }
 
-/* Phone width — char-card lays out as horizontal row with avatar on left,
-   info + actions on right. Actions wrap below info if names are long. */
 @media (max-width: 540px) {
   .char-card {
-    padding: 10px;
-    gap: 10px;
-    flex-wrap: wrap;
+    padding: 12px;
+    gap: 12px;
   }
   .char-avatar {
-    width: 48px !important;
-    height: 48px !important;
-    font-size: 24px !important;
-  }
-  .char-info {
-    min-width: 0;
+    width: 56px !important;
+    height: 56px !important;
+    font-size: 28px !important;
   }
   .char-name {
-    font-size: 13.5px;
+    font-size: 14px;
   }
   .char-desc {
-    font-size: 11px;
-    line-height: 1.35;
-    /* Allow text to wrap to multiple lines but cap to 2 with ellipsis */
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    font-size: 11.5px;
   }
-  .char-actions {
-    width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    gap: 6px;
+  .char-actions .icon-btn {
+    width: 34px;
+    height: 34px;
   }
 }
