@@ -13,7 +13,7 @@ import { type Character, getActiveVideoModels, getVideoModelMeta } from '@mango/
 import type { Database } from '@mango/db';
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { PromptEditorModal } from './PromptEditorModal';
-import type { SceneView } from './Stage04Provider';
+import { type SceneView, useStage04 } from './Stage04Provider';
 import { IconClapper, IconFrame, IconNote, IconPencil, IconPlay, IconRefresh } from './icons';
 
 type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
@@ -248,7 +248,16 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
           }
           onClick={() =>
             runScopedAction('video', () =>
-              generateSceneVideoAction({ project_id: projectId, scene_id: scene.scene_id }),
+              generateSceneVideoAction({
+                project_id: projectId,
+                scene_id: scene.scene_id,
+                // Pass the model from client state explicitly — guarantees that
+                // even if setSceneModelAction's revalidate hasn't propagated yet,
+                // fal.ai is called with the model the user just picked.
+                ...(scene.config_overrides?.model
+                  ? { model_override: scene.config_overrides.model }
+                  : {}),
+              }),
             )
           }
         />
@@ -427,6 +436,7 @@ function ModelControl({
   const [pending, startT] = useTransition();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const { script, setScript } = useStage04();
 
   const models = getActiveVideoModels(tier);
   const currentLabel = currentModel
@@ -451,9 +461,29 @@ function ModelControl({
 
   const handleSelect = (model: string) => {
     setOpen(false);
+    // Optimistic update — the poll loop only runs every 5s, so without this
+    // the user could click "Generate" before the new model is reflected in
+    // client state. generateSceneVideoAction reads from DB so the server
+    // is consistent, but client UX would lag. We mutate the script in-place
+    // so the dropdown label updates immediately AND scene.config_overrides
+    // is fresh when the next action fires.
+    if (script) {
+      setScript({
+        ...script,
+        scenes: script.scenes.map((s) =>
+          s.scene_id === sceneId
+            ? { ...s, config_overrides: { ...(s.config_overrides ?? {}), model } }
+            : s,
+        ),
+      });
+    }
     startT(async () => {
       const r = await setSceneModelAction({ project_id: projectId, scene_id: sceneId, model });
-      if (!r.ok && 'error' in r && r.error) onError(r.error);
+      if (!r.ok && 'error' in r && r.error) {
+        onError(r.error);
+        // Revert optimistic update on failure
+        if (script) setScript(script);
+      }
     });
   };
 

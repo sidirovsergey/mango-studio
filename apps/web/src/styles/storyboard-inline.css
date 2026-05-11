@@ -28,7 +28,9 @@
   padding: 28px 32px 36px;
   margin-bottom: 24px;
   position: relative;
-  overflow: hidden;
+  /* Note: NO overflow:hidden — popovers from controls inside scenes need to
+     extend past the section bounds. Background gradient is naturally clipped
+     by border-radius. */
   backdrop-filter: saturate(140%) blur(10px);
   -webkit-backdrop-filter: saturate(140%) blur(10px);
   box-shadow:
@@ -217,16 +219,23 @@
   grid-template-columns: 178px 1fr;
   gap: 22px;
   padding: 20px 22px;
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(26, 18, 7, 0.06);
   border-radius: 16px;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.9) inset,
     0 1px 2px rgba(26, 18, 7, 0.03),
     0 8px 20px -10px rgba(26, 18, 7, 0.10);
-  backdrop-filter: blur(6px);
+  /* IMPORTANT: do NOT use backdrop-filter here — it establishes a new
+     stacking context, which causes popovers from controls in the previous
+     scene-row to paint BEHIND the next scene-row. Slightly higher bg
+     opacity (0.88 vs 0.78) compensates for the missing blur. */
   animation: scene-fade-in 320ms ease-out;
 }
+/* Raise the scene-row that has an open popover above its siblings so the
+   popover paints over them naturally. Set via JS by adding `.has-open-popover`
+   to the row when any control inside opens its dropdown. */
+.scene-row.has-open-popover { position: relative; z-index: 10; }
 @keyframes scene-fade-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -1239,8 +1248,44 @@
   .action-strip > .action-tile.primary { grid-column: 1 / -1; }
 }
 @media (max-width: 760px) {
+  .stage-04-inline { padding: 22px 18px 28px; }
   .stage-04-toolbar { align-items: flex-start; }
   .stage-04-cluster { justify-content: space-between; }
   .scene-row { grid-template-columns: 1fr; padding-bottom: 24px; }
   .controls-strip { gap: 16px 22px; }
+  .control-popover { min-width: 240px; }
+}
+@media (max-width: 540px) {
+  .stage-04-inline { padding: 18px 14px 24px; border-radius: 18px; }
+  /* Toolbar stacks vertically — stats on top, cluster (cost + master) below
+     spanning full width. Master button grows so it never overflows viewport. */
+  .stage-04-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .stage-04-cluster {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .cost-meter { flex: 1 1 auto; justify-content: space-between; }
+  .master-btn {
+    flex: 1 1 100%;
+    justify-content: center;
+    padding: 10px 18px;
+  }
+  /* All three action tiles stack vertically full-width so labels never get
+     clipped on narrow screens. */
+  .action-strip { grid-template-columns: 1fr; }
+  .action-strip > .action-tile.primary { grid-column: auto; }
+  .action-tile { min-height: 56px; }
+  .scene-row { padding: 16px 14px; border-radius: 14px; }
+  .scene-list { gap: 18px; }
+  /* Popover anchored to right side of viewport, can't overflow narrow screens. */
+  .control-popover {
+    min-width: 0;
+    width: calc(100vw - 32px);
+    max-width: 320px;
+  }
 }

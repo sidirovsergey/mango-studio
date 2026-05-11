@@ -21,9 +21,16 @@ type FinalClip = {
   };
 };
 
+type SceneAssetVersion = {
+  version_id: string;
+  storage: StoredAsset;
+};
+
 type SceneShape = {
   scene_id: string;
   final_clip?: FinalClip | null;
+  video_versions?: SceneAssetVersion[];
+  video_active_version_id?: string | null;
 };
 
 type ScriptShape = { scenes: SceneShape[] };
@@ -62,17 +69,52 @@ export async function generateMasterClipAction(
   const script = project.script as unknown as ScriptShape;
   if (!script) return { ok: false, error: 'project has no script' };
 
-  const allHaveFinalClip = script.scenes.every((s) => s.final_clip != null);
-  if (!allHaveFinalClip) {
-    return { ok: false, error: 'not all scenes have final_clip yet' };
+  // A scene contributes to master either via its muxed final_clip (preferred —
+  // includes voice audio) OR via the raw active video version (fallback for
+  // legacy scenes generated before the mux pipeline existed, or for silent
+  // scenes where no voice TTS was rendered).
+  type ResolvedClip = {
+    scene_id: string;
+    url: string;
+    video_version_id: string;
+    voice_audio_version_id: string | null;
+  };
+  const resolved: ResolvedClip[] = [];
+  for (const s of script.scenes) {
+    if (s.final_clip) {
+      resolved.push({
+        scene_id: s.scene_id,
+        url: urlOfStorage(s.final_clip.storage),
+        video_version_id: s.final_clip.composed_from.video_version_id,
+        voice_audio_version_id: s.final_clip.composed_from.voice_audio_version_id,
+      });
+      continue;
+    }
+    const activeVid =
+      s.video_active_version_id && s.video_versions
+        ? s.video_versions.find((v) => v.version_id === s.video_active_version_id)
+        : null;
+    if (activeVid) {
+      resolved.push({
+        scene_id: s.scene_id,
+        url: urlOfStorage(activeVid.storage),
+        video_version_id: activeVid.version_id,
+        voice_audio_version_id: null,
+      });
+      continue;
+    }
+    return {
+      ok: false,
+      error: `scene ${s.scene_id} has no final_clip and no active video version`,
+    };
   }
 
-  const composed = script.scenes.map((s) => ({
-    scene_id: s.scene_id,
-    video_version_id: s.final_clip!.composed_from.video_version_id,
-    voice_audio_version_id: s.final_clip!.composed_from.voice_audio_version_id,
+  const composed = resolved.map((r) => ({
+    scene_id: r.scene_id,
+    video_version_id: r.video_version_id,
+    voice_audio_version_id: r.voice_audio_version_id,
   }));
-  const clip_urls = script.scenes.map((s) => urlOfStorage(s.final_clip!.storage));
+  const clip_urls = resolved.map((r) => r.url);
 
   const provider = getMediaProvider();
   const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
