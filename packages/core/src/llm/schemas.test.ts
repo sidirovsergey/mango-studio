@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SceneSchema, ScriptGenSchema } from './schemas';
+import { NarratorVoiceSchema, SceneSchema, ScriptGenSchema } from './schemas';
 
 describe('SceneSchema (1.3.5 versioned)', () => {
   it('accepts empty version arrays', () => {
@@ -211,4 +211,28 @@ describe('ScriptGenSchema (1.3.5 master_clip versioned)', () => {
     expect(script.visual_theme).toBeNull();
     expect(script.tier).toBeNull();
   });
+});
+
+it('NarratorVoice accepts full settings (persona + voice_settings)', () => {
+  const v = NarratorVoiceSchema.parse({
+    tts_voice_id: 'rachel_v3',
+    persona: 'мягкий женский голос, тёплый',
+    stability: 0.6,
+    similarity_boost: 0.75,
+    style: 0.2,
+    speed: 1.0,
+  });
+  expect(v.persona).toContain('тёплый');
+  expect(v.stability).toBe(0.6);
+});
+
+it('NarratorVoice accepts minimal {tts_voice_id} (back-compat)', () => {
+  const v = NarratorVoiceSchema.parse({ tts_voice_id: 'rachel_v3' });
+  expect(v.tts_voice_id).toBe('rachel_v3');
+  expect(v.persona).toBeUndefined();
+  expect(v.stability).toBeUndefined();
+});
+
+it('NarratorVoice rejects stability outside 0-1', () => {
+  expect(() => NarratorVoiceSchema.parse({ tts_voice_id: 'x', stability: 1.5 })).toThrow();
 });

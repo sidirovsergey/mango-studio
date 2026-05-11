@@ -85,7 +85,14 @@ export type Scene = z.infer<typeof SceneSchema>;
 
 export const NarratorVoiceSchema = z.object({
   tts_voice_id: z.string(),
+  // Preserved pre-existing field:
   description: z.string().optional(),
+  // New voice-settings fields (F35-F38):
+  persona: z.string().optional(),
+  stability: z.number().min(0).max(1).optional(),
+  similarity_boost: z.number().min(0).max(1).optional(),
+  style: z.number().min(0).optional(),
+  speed: z.number().min(0).optional(),
 });
 
 export const ScriptGenSchema = z.object({
