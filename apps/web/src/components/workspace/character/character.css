@@ -311,3 +311,41 @@
 .tier-toggle button.active {
   background: var(--mango-500); color: white; font-weight: 600;
 }
+
+@media (max-width: 540px) {
+  .char-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 14px 14px 0 0;
+    align-self: flex-end;
+    margin-bottom: 0;
+  }
+  .char-modal-backdrop { align-items: flex-end; }
+  .char-modal-body { padding: 18px; gap: 18px; }
+  .char-modal-bottom-bar {
+    padding: 12px 18px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .char-modal-close {
+    top: 12px;
+    right: 12px;
+    width: 30px;
+    height: 30px;
+  }
+  .char-name-input { font-size: 20px; }
+  .refs-grid {
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 6px;
+  }
+  .char-modal-section-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  /* Voice picker: stack label + select on narrow */
+  .voice-picker {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}

@@ -266,3 +266,37 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+@media (max-width: 540px) {
+  .idea-summary {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .meta-tile {
+    padding: 10px 12px;
+  }
+  .idea-text-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  /* Reference thumbnails: smaller + tighter packing. */
+  .ref-add,
+  .ref-thumb {
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+  }
+  .ref-strip {
+    gap: 6px;
+  }
+  /* Hover-to-reveal x button doesn't work on touch — always show. */
+  .ref-thumb .ref-x {
+    opacity: 1;
+  }
+  /* Popover anchored to viewport instead of meta-tile to avoid right-edge clip. */
+  .meta-popover {
+    min-width: 0;
+    width: calc(100vw - 48px);
+    max-width: 280px;
+  }
+}

@@ -225,3 +225,50 @@
   flex-direction: column;
   justify-content: center;
 }
+
+/* ─── Mobile ─────────────────────────────────────────────────────────
+   Beat grid base: `auto 50px auto 1fr auto` (num | duration | arrow | text | act).
+   Won't fit phone width. Below 900px we collapse the arrow column; below
+   540px we stack into two rows: header (num + duration) then body (text
+   spanning full width). */
+@media (max-width: 900px) {
+  .script-summary {
+    font-size: 16px;
+    padding: 14px 16px 14px 20px;
+  }
+  .beat {
+    grid-template-columns: auto auto 1fr auto;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+  .beat-arrow { display: none; }
+  .beat .beat-text-input { grid-column: 3 / 4; }
+}
+@media (max-width: 540px) {
+  .script-summary {
+    font-size: 15px;
+    padding: 12px 14px 12px 18px;
+    line-height: 1.5;
+  }
+  /* Two-row beat layout: row 1 = num + duration justified, row 2 = full text */
+  .beat {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      'num . duration'
+      'text text text';
+    gap: 6px 10px;
+    padding: 10px 12px;
+  }
+  .beat-num { grid-area: num; margin-top: 0; }
+  .beat-duration { grid-area: duration; margin-top: 0; }
+  .beat-text { grid-area: text; }
+  .beat .beat-text-input {
+    grid-column: 1 / -1;
+    grid-row: 2 / 3;
+  }
+  /* Hover-revealed action chip: always show on touch */
+  .beat-act { display: none; }
+  /* Refine form actions on one line still — already fits */
+  .refine-form { padding: 8px; }
+  .refine-form textarea { font-size: 13px; min-height: 64px; }
+}
