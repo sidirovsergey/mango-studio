@@ -3,6 +3,7 @@
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
 import { useEffect, useState, useTransition } from 'react';
+import { createPortal } from 'react-dom';
 import { useStage04 } from './Stage04Provider';
 
 type Kind = 'first_frame' | 'video';
@@ -31,7 +32,6 @@ export function PromptEditorModal({ projectId, sceneId, kind, onClose }: Props) 
     setText(active?.prompt ?? '');
   }, [active?.prompt]);
 
-  // Esc / backdrop close
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -40,7 +40,17 @@ export function PromptEditorModal({ projectId, sceneId, kind, onClose }: Props) 
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // Lock body scroll while open.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   if (!scene) return null;
+  if (typeof document === 'undefined') return null;
 
   const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
 
@@ -61,7 +71,7 @@ export function PromptEditorModal({ projectId, sceneId, kind, onClose }: Props) 
     });
   };
 
-  return (
+  return createPortal(
     <div
       className="prompt-modal-backdrop"
       onClick={onClose}
@@ -85,6 +95,9 @@ export function PromptEditorModal({ projectId, sceneId, kind, onClose }: Props) 
           </button>
         </div>
         <textarea
+          ref={(el) => {
+            if (el && document.activeElement !== el) el.focus();
+          }}
           className="prompt-textarea"
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -92,7 +105,15 @@ export function PromptEditorModal({ projectId, sceneId, kind, onClose }: Props) 
           spellCheck={false}
         />
         <div className="modal-meta">
-          {wordCount} слов · модель: {active?.model ?? '—'}
+          <span>{wordCount} слов</span>
+          <span className="dot">·</span>
+          <span>модель: {active?.model ?? '—'}</span>
+          {active && (
+            <>
+              <span className="dot">·</span>
+              <span>версия от {new Date(active.generated_at).toLocaleString('ru-RU')}</span>
+            </>
+          )}
         </div>
         {error && <div className="modal-error">⚠ {error}</div>}
         <div className="modal-foot">
@@ -101,14 +122,25 @@ export function PromptEditorModal({ projectId, sceneId, kind, onClose }: Props) 
           </button>
           <button
             type="button"
-            className="btn primary"
+            className={`btn primary regen-cta${pending ? ' busy' : ''}`}
             onClick={handleApply}
             disabled={pending || text.trim().length === 0}
+            aria-busy={pending}
           >
-            {pending ? '...' : '▶ Применить и regen'}
+            {pending ? (
+              <>
+                <span className="spinner inline-spinner" /> Запускаю…
+              </>
+            ) : (
+              <>
+                ▶ Применить и сгенерировать{' '}
+                <span className="cta-cost">~$0.{kind === 'video' ? '20' : '02'}</span>
+              </>
+            )}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

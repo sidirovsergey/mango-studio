@@ -1,21 +1,24 @@
 'use client';
 
 import { getProjectCostAction } from '@/server/actions/getProjectCostAction';
+import type { Database } from '@mango/db';
 import { useEffect, useState } from 'react';
-import { useStage04 } from './Stage04Provider';
+
+type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 
 interface Props {
   projectId: string;
+  jobs: MediaJobRow[];
 }
 
 const THRESHOLD_USD = Number(process.env.NEXT_PUBLIC_COST_WARN_THRESHOLD_USD ?? '10');
 
-export function CostWarningToast({ projectId }: Props) {
-  const { jobs } = useStage04();
+export function CostWarningToast({ projectId, jobs }: Props) {
   const [show, setShow] = useState(false);
   const [cost, setCost] = useState(0);
+  const completedCount = jobs.filter((j) => j.status === 'completed').length;
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: jobs.length is the change trigger
+  // biome-ignore lint/correctness/useExhaustiveDependencies: change triggers
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -30,7 +33,7 @@ export function CostWarningToast({ projectId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [projectId, jobs.length]);
+  }, [projectId, jobs.length, completedCount]);
 
   if (!show) return null;
 
@@ -42,7 +45,6 @@ export function CostWarningToast({ projectId }: Props) {
   };
 
   const handleStop = () => {
-    // Soft warning only — closing without ack so the next submit may re-trigger.
     setShow(false);
   };
 

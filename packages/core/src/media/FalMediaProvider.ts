@@ -33,6 +33,59 @@ function formatAspectFor(model: string, format: DossierFormat | '9:16'): string 
   return format;
 }
 
+/**
+ * Approximate cost per call for models fal does not return pricing for.
+ * Fallback so the cost meter is order-of-magnitude correct rather than $0
+ * when fal omits `pricing` from queue.result.
+ */
+const MODEL_COST_FALLBACK_USD: Record<string, number> = {
+  'fal-ai/nano-banana': 0.02,
+  'fal-ai/nano-banana-2': 0.02,
+  'fal-ai/nano-banana-2/edit': 0.02,
+  'fal-ai/nano-banana-pro': 0.06,
+  'fal-ai/nano-banana-pro/edit': 0.06,
+  'fal-ai/bytedance/seedance/v1/lite/image-to-video': 0.18,
+  'fal-ai/bytedance/seedance-2.0/image-to-video': 0.4,
+  'fal-ai/veo3.1/image-to-video': 0.5,
+  'fal-ai/kling-video/v2.5-turbo/pro/image-to-video': 0.35,
+  'fal-ai/ffmpeg-api/extract-frame': 0.001,
+  'fal-ai/ffmpeg-api/merge-videos': 0.002,
+  'fal-ai/ffmpeg-api/merge-audio-video': 0.002,
+  'fal-ai/elevenlabs/tts/multilingual-v2': 0.03,
+};
+
+function estimateCostUsd(model: string): number | null {
+  if (MODEL_COST_FALLBACK_USD[model] !== undefined) return MODEL_COST_FALLBACK_USD[model];
+  if (model.includes('image-to-video') || model.includes('video')) return 0.25;
+  if (model.includes('image') || model.includes('banana')) return 0.02;
+  if (model.includes('ffmpeg')) return 0.002;
+  if (model.includes('elevenlabs') || model.includes('tts')) return 0.03;
+  return null;
+}
+
+/**
+ * fal returns pricing in multiple shapes depending on model + API surface.
+ * Try every known path. Returns null if none match — caller can apply estimate.
+ */
+function extractCostUsd(resp: unknown): number | null {
+  if (!resp || typeof resp !== 'object') return null;
+  const r = resp as Record<string, unknown>;
+  const topPricing = r.pricing as { total_cost_usd?: unknown; cost_usd?: unknown } | undefined;
+  if (typeof topPricing?.total_cost_usd === 'number') return topPricing.total_cost_usd;
+  if (typeof topPricing?.cost_usd === 'number') return topPricing.cost_usd;
+  const data = r.data as Record<string, unknown> | undefined;
+  const dataPricing = data?.pricing as { total_cost_usd?: unknown; cost_usd?: unknown } | undefined;
+  if (typeof dataPricing?.total_cost_usd === 'number') return dataPricing.total_cost_usd;
+  if (typeof dataPricing?.cost_usd === 'number') return dataPricing.cost_usd;
+  const metrics = r.metrics as { cost_usd?: unknown; total_cost_usd?: unknown } | undefined;
+  if (typeof metrics?.cost_usd === 'number') return metrics.cost_usd;
+  if (typeof metrics?.total_cost_usd === 'number') return metrics.total_cost_usd;
+  if (typeof r.cost_usd === 'number') return r.cost_usd as number;
+  const billing = r.billing as { amount_usd?: unknown } | undefined;
+  if (typeof billing?.amount_usd === 'number') return billing.amount_usd;
+  return null;
+}
+
 export class FalMediaProvider implements MediaProvider {
   constructor(private opts: FalMediaProviderOptions) {
     fal.config({ credentials: opts.apiKey });
@@ -178,7 +231,6 @@ export class FalMediaProvider implements MediaProvider {
     try {
       const resp = await fal.queue.result(model, { requestId: fal_request_id });
       const data = (resp as { data?: Record<string, unknown> }).data ?? {};
-      const pricing = (resp as { pricing?: { total_cost_usd?: number } }).pricing;
 
       const primary_url =
         (data.images as Array<{ url: string }> | undefined)?.[0]?.url ??
@@ -196,10 +248,21 @@ export class FalMediaProvider implements MediaProvider {
         );
       }
 
+      const extracted = extractCostUsd(resp);
+      const cost_usd = extracted ?? estimateCostUsd(model);
+      if (extracted === null) {
+        console.warn(
+          `[fal] no cost_usd in result for model=${model} request_id=${fal_request_id}; ` +
+            `using estimate=${cost_usd}; ` +
+            `top-keys=${Object.keys((resp as object) ?? {}).join(',')}; ` +
+            `data-keys=${Object.keys(data).join(',')}`,
+        );
+      }
+
       return {
         primary_url,
         last_frame_url: (data.last_frame_url as string | undefined) ?? undefined,
-        cost_usd: pricing?.total_cost_usd ?? null,
+        cost_usd,
         latency_ms: 0,
       };
     } catch (raw) {
