@@ -105,9 +105,9 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
     }
     if (activeMaster) {
       return {
-        label: 'Открыть в Финале',
+        label: 'Открыть ролик',
         disabled: false,
-        title: 'Прокрутить к Stage 05 «Финал» — там готовый ролик и кнопка скачать',
+        title: 'Готовый master_clip — открыть превью в секции «Финал»',
         busy: false,
         variant: 'ready' as const,
       };
