@@ -287,20 +287,65 @@
   text-transform: uppercase;
   text-align: center;
 }
+/* Thumb generation state — dark scrim with subtle ambient mango glow,
+   spinner + two-line label centred, cancel button anchored top-right. */
 .thumb-loading {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 100%;
-  gap: 10px;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: white;
-  background: linear-gradient(180deg, rgba(26, 18, 7, 0.55), rgba(26, 18, 7, 0.80));
+  background:
+    radial-gradient(80% 70% at 50% 40%, rgba(245, 118, 0, 0.18), transparent 70%),
+    linear-gradient(180deg, rgba(26, 18, 7, 0.70), rgba(26, 18, 7, 0.88));
+}
+.thumb-loading-core {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  text-align: center;
 }
 .thumb-loading-label {
-  font-family: var(--font-mono), 'Geist Mono', ui-monospace, monospace;
-  font-size: 10.5px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  font-family: var(--font-display), 'Manrope', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: white;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  margin-top: 2px;
 }
+.thumb-loading-sub {
+  font-family: var(--font-mono), 'Geist Mono', ui-monospace, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+}
+/* Cancel pill — top-right, glass; replaces the centred tiny circle look */
+.thumb-cancel {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink-800, #2C2114);
+  font-size: 12px;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition: background 160ms, transform 160ms;
+  z-index: 2;
+}
+.thumb-cancel:hover:not(:disabled) { background: white; transform: scale(1.05); }
+.thumb-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
 .thumb-badges {
   position: absolute; top: 8px; left: 8px;
   display: flex; gap: 4px; pointer-events: none;
@@ -1288,4 +1333,226 @@
     width: calc(100vw - 32px);
     max-width: 320px;
   }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Stage 05 — Финал (inline master clip player)
+   Three states: empty (no master) → busy (job in flight) → ready (video).
+   Visual language matches storyboard glass-card surfaces. The player itself
+   is a 9:16-aware frame on a mango-tinted backdrop — hero of the stage.
+   ───────────────────────────────────────────────────────────────────── */
+.final-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 64px 32px;
+  border: 1px dashed rgba(26, 18, 7, 0.12);
+  border-radius: 18px;
+  background:
+    radial-gradient(70% 80% at 50% 0%, rgba(255, 211, 148, 0.10), transparent 60%),
+    rgba(255, 255, 255, 0.55);
+  text-align: center;
+}
+.final-state-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--mango-600, #D85F00);
+  background: linear-gradient(180deg, #fff6e2, #ffe9c8);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 0 0 1px rgba(245, 118, 0, 0.18),
+    0 8px 20px -8px rgba(245, 118, 0, 0.35);
+  margin-bottom: 6px;
+  padding-left: 4px; /* nudge play triangle visually */
+}
+.final-state-title {
+  margin: 0;
+  font-family: var(--font-display), 'Manrope', system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--ink-900, #1A1207);
+}
+.final-state-sub {
+  margin: 0;
+  max-width: 460px;
+  font-family: var(--font-sans), 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(74, 53, 32, 0.75);
+}
+
+/* Busy variant — large spinner + same anatomy */
+.final-state-busy {
+  background:
+    radial-gradient(70% 80% at 50% 0%, rgba(245, 118, 0, 0.10), transparent 60%),
+    rgba(255, 255, 255, 0.65);
+  border-color: rgba(245, 118, 0, 0.25);
+  border-style: solid;
+}
+.final-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(245, 118, 0, 0.18);
+  border-top-color: var(--mango-500, #F57600);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 6px;
+}
+
+/* ─── Ready state ───────────────────────────────────────────────────── */
+.final-ready {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.final-stale {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(245, 118, 0, 0.08);
+  border: 1px solid rgba(245, 118, 0, 0.22);
+  color: var(--mango-700, #A84800);
+  font-family: var(--font-sans), 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.final-stale-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--mango-500, #F57600);
+  color: white;
+  font-family: var(--font-display), 'Manrope', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* Player frame — 9:16 hero with mango ambient glow */
+.final-player-frame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  border-radius: 20px;
+  background:
+    radial-gradient(60% 60% at 50% 0%, rgba(255, 211, 148, 0.16), transparent 65%),
+    linear-gradient(180deg, rgba(26, 18, 7, 0.06), rgba(26, 18, 7, 0.10));
+  border: 1px solid rgba(26, 18, 7, 0.06);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 20px 50px -30px rgba(245, 118, 0, 0.40);
+}
+.final-player-video {
+  max-width: 360px;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  background: #0c0905;
+  border-radius: 14px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.20) inset,
+    0 12px 32px -10px rgba(26, 18, 7, 0.55);
+  display: block;
+}
+.final-player-empty {
+  width: 280px;
+  aspect-ratio: 9 / 16;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(26, 18, 7, 0.30);
+  color: rgba(255, 255, 255, 0.7);
+  font-family: var(--font-mono), 'Geist Mono', ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Meta + download row */
+.final-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+}
+.final-meta-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono), 'Geist Mono', ui-monospace, monospace;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: rgba(74, 53, 32, 0.78);
+}
+.final-meta-line .dot { color: rgba(26, 18, 7, 0.25); }
+.final-meta-tag {
+  font-family: var(--font-mono), 'Geist Mono', ui-monospace, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, var(--mango-400, #FF9026), var(--mango-600, #D85F00));
+  color: white;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-weight: 600;
+}
+.final-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--mango-400, #FF9026), var(--mango-600, #D85F00));
+  color: white;
+  font-family: var(--font-display), 'Manrope', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.50) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.08) inset,
+    0 8px 20px -6px rgba(245, 118, 0, 0.45);
+  transition: transform 200ms, box-shadow 200ms;
+}
+.final-download:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.08) inset,
+    0 14px 30px -8px rgba(245, 118, 0, 0.60);
+}
+.final-download:active { transform: scale(0.98); }
+.final-download::before {
+  content: '⬇';
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 540px) {
+  .final-state { padding: 40px 18px; }
+  .final-player-frame { padding: 14px; border-radius: 16px; }
+  .final-meta { flex-direction: column; align-items: stretch; padding: 14px; }
+  .final-download { justify-content: center; }
 }
