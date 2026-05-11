@@ -22,6 +22,7 @@ interface Props {
   projectId: string;
   scene: SceneView;
   index: number;
+  sceneNum?: string;
   characters: Character[];
   activeJob: MediaJobRow | null;
   tier: 'economy' | 'premium';
@@ -57,7 +58,8 @@ const JOB_KIND_LABEL: Record<string, string> = {
   storage_mirror: 'mirror в storage',
 };
 
-export function SceneSidePanel({ projectId, scene, index, tier, activeJob }: Props) {
+export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, activeJob }: Props) {
+  const num = sceneNum ?? String(index + 1).padStart(2, '0');
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [promptModal, setPromptModal] = useState<'first_frame' | 'video' | null>(null);
@@ -104,6 +106,9 @@ export function SceneSidePanel({ projectId, scene, index, tier, activeJob }: Pro
   return (
     <div className="side-panel" data-scene-id={scene.scene_id}>
       <header className="row-head">
+        <span className="scene-mark" aria-hidden>
+          {num}
+        </span>
         <div className="row-head-title">
           <span className="scene-title-name" title={scene.description}>
             {sceneTitle}

@@ -105,34 +105,28 @@ function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initi
 
   return (
     <section className="stage-04-inline">
-      <header className="stage-04-header">
-        <div className="stage-04-mark">
-          <span className="stage-04-num">04</span>
-          <div className="stage-04-mark-text">
-            <h2 className="stage-04-title">Сцены</h2>
-            <p className="stage-04-sub">
-              <span>{scenes.length} сцен</span>
+      <div className="stage-04-toolbar">
+        <p className="stage-04-sub">
+          <span>{scenes.length} сцен</span>
+          <span className="dot" aria-hidden>
+            ·
+          </span>
+          <span>{totalDuration} сек</span>
+          <span className="dot" aria-hidden>
+            ·
+          </span>
+          <span>{tier === 'premium' ? 'Premium' : 'Economy'}</span>
+          {scenes.length > 0 && (
+            <>
               <span className="dot" aria-hidden>
                 ·
               </span>
-              <span>{totalDuration} сек</span>
-              <span className="dot" aria-hidden>
-                ·
+              <span className={`readiness ${allScenesReady ? 'ready' : 'pending'}`}>
+                {readySceneCount} / {scenes.length} готово к сборке
               </span>
-              <span>{tier === 'premium' ? 'Premium' : 'Economy'}</span>
-              {scenes.length > 0 && (
-                <>
-                  <span className="dot" aria-hidden>
-                    ·
-                  </span>
-                  <span className={`readiness ${allScenesReady ? 'ready' : 'pending'}`}>
-                    {readySceneCount} / {scenes.length} готово к сборке
-                  </span>
-                </>
-              )}
-            </p>
-          </div>
-        </div>
+            </>
+          )}
+        </p>
         <div className="stage-04-cluster">
           <CostMeter projectId={projectId} jobs={jobs} />
           <button
@@ -150,7 +144,7 @@ function Stage04InlineInner({ projectId, tier }: Omit<Stage04InlineProps, 'initi
             <span className="master-btn-label">{masterButton.label}</span>
           </button>
         </div>
-      </header>
+      </div>
 
       {masterError && (
         <div className="master-error" role="alert">
