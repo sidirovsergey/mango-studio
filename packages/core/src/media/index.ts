@@ -80,3 +80,26 @@ export {
 export type { VideoModelMeta } from './video-models';
 
 export { buildFirstFramePrompt, buildVideoPrompt, buildVoicePrompt } from './video-prompts';
+
+export {
+  ShotSizeSchema,
+  CameraAngleSchema,
+  CompositionSchema,
+  CameraMovementKindSchema,
+  CameraMovementSchema,
+  LightingSchema,
+  AudioDirectionSchema,
+  ArcRoleSchema,
+  VisualThemeSchema,
+} from './cinematography-schemas';
+export type {
+  ShotSize,
+  CameraAngle,
+  Composition,
+  CameraMovementKind,
+  CameraMovement,
+  Lighting,
+  AudioDirection,
+  ArcRole,
+  VisualTheme,
+} from './cinematography-schemas';

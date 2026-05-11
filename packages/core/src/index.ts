@@ -131,6 +131,29 @@ export {
   type NarratorVoiceLike,
 } from './media/audio-mode';
 
+export {
+  ShotSizeSchema,
+  CameraAngleSchema,
+  CompositionSchema,
+  CameraMovementKindSchema,
+  CameraMovementSchema,
+  LightingSchema,
+  AudioDirectionSchema,
+  ArcRoleSchema,
+  VisualThemeSchema,
+} from './media/cinematography-schemas';
+export type {
+  ShotSize,
+  CameraAngle,
+  Composition,
+  CameraMovementKind,
+  CameraMovement,
+  Lighting,
+  AudioDirection,
+  ArcRole,
+  VisualTheme,
+} from './media/cinematography-schemas';
+
 // NOTE: `ScriptGenSchema`/`ScriptSchema`/`SceneSchema` (from `./llm/schemas`)
 // and `upgradeScene`/`upgradeScript`/`downgradeScript` (from `./llm/migration`)
 // are deliberately NOT re-exported here — both files have client-incompatible
