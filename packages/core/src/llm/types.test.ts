@@ -63,4 +63,35 @@ describe('CharacterSchema', () => {
     expect(out.dossier?.format).toBe('16:9');
     expect(out.reference_images).toHaveLength(1);
   });
+
+  it('Character.dossier accepts reference_image', () => {
+    const c = CharacterSchema.parse({
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      name: 'Тест',
+      dossier: {
+        storage: { kind: 'fal_passthrough', url: 'https://v3.fal.media/x.png' },
+        model: 'fal-ai/nano-banana-2',
+        format: '16:9',
+        quality: '1080p',
+        generated_at: '2026-04-30T10:00:00Z',
+        reference_image: { kind: 'fal_passthrough', url: 'https://v3.fal.media/ref.png' },
+      },
+    });
+    expect(c.dossier?.reference_image).toBeDefined();
+  });
+
+  it('Character.dossier without reference_image still parses (back-compat)', () => {
+    const c = CharacterSchema.parse({
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      name: 'Тест',
+      dossier: {
+        storage: { kind: 'fal_passthrough', url: 'https://v3.fal.media/x.png' },
+        model: 'fal-ai/nano-banana-2',
+        format: '16:9',
+        quality: '1080p',
+        generated_at: '2026-04-30T10:00:00Z',
+      },
+    });
+    expect(c.dossier?.reference_image).toBeFalsy(); // null OR undefined OK
+  });
 });
