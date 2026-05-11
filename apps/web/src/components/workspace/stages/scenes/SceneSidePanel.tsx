@@ -14,6 +14,7 @@ import type { Database } from '@mango/db';
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { PromptEditorModal } from './PromptEditorModal';
 import type { SceneView } from './Stage04Provider';
+import { IconClapper, IconFrame, IconNote, IconPencil, IconPlay, IconRefresh } from './icons';
 
 type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 
@@ -140,8 +141,10 @@ export function SceneSidePanel({ projectId, scene, index, tier, activeJob }: Pro
 
       <section className="note-section">
         <div className="note-label">
-          <span>Описание · диалог</span>
-          <span className="note-meta">SCENE {String(index + 1).padStart(2, '0')}</span>
+          <span className="note-label-text">
+            <IconNote size={12} className="note-label-icon" />
+            Описание · диалог
+          </span>
         </div>
         <p className="scene-desc">{scene.description}</p>
         {scene.dialogue && (
@@ -154,6 +157,7 @@ export function SceneSidePanel({ projectId, scene, index, tier, activeJob }: Pro
       </section>
 
       <PromptSection
+        kind="frame"
         label="Промпт первого кадра"
         prompt={activeFrame?.prompt ?? null}
         version={
@@ -164,6 +168,7 @@ export function SceneSidePanel({ projectId, scene, index, tier, activeJob }: Pro
       />
 
       <PromptSection
+        kind="video"
         label="Промпт видео"
         prompt={activeVideo?.prompt ?? null}
         version={activeVideo ? versionLabel(scene.video_versions, activeVideo.version_id) : null}
@@ -174,6 +179,7 @@ export function SceneSidePanel({ projectId, scene, index, tier, activeJob }: Pro
       <section className="action-strip" aria-label="Действия со сценой">
         <div className="action-strip-left">
           <SecondaryAction
+            icon={<IconPencil size={14} />}
             label="Текст"
             cost="$0.001"
             disabled={pending || lockedByGen}
@@ -184,6 +190,7 @@ export function SceneSidePanel({ projectId, scene, index, tier, activeJob }: Pro
             }
           />
           <SecondaryAction
+            icon={<IconFrame size={14} />}
             label={activeFrame ? 'Кадр' : 'Создать кадр'}
             cost="$0.02"
             disabled={pending || lockedByGen}
@@ -195,6 +202,7 @@ export function SceneSidePanel({ projectId, scene, index, tier, activeJob }: Pro
           />
         </div>
         <PrimaryAction
+          icon={activeVideo ? <IconRefresh size={18} /> : <IconPlay size={18} />}
           label={activeVideo ? 'Перегенерить видео' : 'Сгенерировать видео'}
           cost={videoCostHint}
           subLabel={activeFrame ? 'IMG → VIDEO' : 'нужен first_frame'}
@@ -274,6 +282,7 @@ function versionLabel(
 // ---------------- Sub-components ----------------
 
 interface PromptSectionProps {
+  kind: 'frame' | 'video';
   label: string;
   prompt: string | null;
   version: string | null;
@@ -281,11 +290,15 @@ interface PromptSectionProps {
   disabled: boolean;
 }
 
-function PromptSection({ label, prompt, version, onOpen, disabled }: PromptSectionProps) {
+function PromptSection({ kind, label, prompt, version, onOpen, disabled }: PromptSectionProps) {
+  const Icon = kind === 'frame' ? IconFrame : IconClapper;
   return (
     <section className="note-section">
       <div className="note-label">
-        <span>{label}</span>
+        <span className="note-label-text">
+          <Icon size={12} className="note-label-icon" />
+          {label}
+        </span>
         <span className="note-meta">
           {version && <span className="version-chip">{version}</span>}
           <button
@@ -295,10 +308,8 @@ function PromptSection({ label, prompt, version, onOpen, disabled }: PromptSecti
             disabled={disabled}
             title="Открыть и редактировать промпт"
           >
-            редактировать{' '}
-            <span className="arrow" aria-hidden>
-              ↗
-            </span>
+            <IconPencil size={11} />
+            редактировать
           </button>
         </span>
       </div>
@@ -310,22 +321,29 @@ function PromptSection({ label, prompt, version, onOpen, disabled }: PromptSecti
 }
 
 interface SecondaryActionProps {
+  icon: React.ReactNode;
   label: string;
   cost: string;
   disabled: boolean;
   onClick: () => void;
 }
 
-function SecondaryAction({ label, cost, disabled, onClick }: SecondaryActionProps) {
+function SecondaryAction({ icon, label, cost, disabled, onClick }: SecondaryActionProps) {
   return (
     <button type="button" className="action-secondary" onClick={onClick} disabled={disabled}>
-      <span className="action-label">{label}</span>
-      <span className="action-cost">{cost}</span>
+      <span className="action-secondary-icon" aria-hidden>
+        {icon}
+      </span>
+      <span className="action-secondary-body">
+        <span className="action-label">{label}</span>
+        <span className="action-cost">{cost}</span>
+      </span>
     </button>
   );
 }
 
 interface PrimaryActionProps {
+  icon: React.ReactNode;
   label: string;
   cost: string;
   subLabel: string;
@@ -334,7 +352,15 @@ interface PrimaryActionProps {
   onClick: () => void;
 }
 
-function PrimaryAction({ label, cost, subLabel, disabled, title, onClick }: PrimaryActionProps) {
+function PrimaryAction({
+  icon,
+  label,
+  cost,
+  subLabel,
+  disabled,
+  title,
+  onClick,
+}: PrimaryActionProps) {
   return (
     <button
       type="button"
@@ -343,9 +369,8 @@ function PrimaryAction({ label, cost, subLabel, disabled, title, onClick }: Prim
       disabled={disabled}
       title={title}
     >
-      <span className="action-primary-marker" aria-hidden>
-        <span className="action-primary-dot" />
-        <span className="action-primary-tape">REC</span>
+      <span className="action-primary-icon" aria-hidden>
+        {icon}
       </span>
       <span className="action-primary-body">
         <span className="action-primary-label">{label}</span>
