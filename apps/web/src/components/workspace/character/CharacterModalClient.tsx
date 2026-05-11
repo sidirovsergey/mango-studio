@@ -20,7 +20,7 @@ type Patch = {
   name?: string;
   description?: string;
   full_prompt?: string;
-  voice?: { description?: string; tts_provider?: 'grok' | 'elevenlabs' };
+  voice?: { tts_provider?: 'grok' | 'elevenlabs' };
 };
 
 export function CharacterModalClient({
@@ -52,7 +52,6 @@ export function CharacterModalClient({
   const [promptSynced, setPromptSynced] = useState(false);
   const [regenSuggested, setRegenSuggested] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
-  const [voiceDesc, setVoiceDesc] = useState(character.voice.description ?? '');
   const [ttsProvider, setTtsProvider] = useState<'grok' | 'elevenlabs'>(
     character.voice.tts_provider ?? 'elevenlabs',
   );
@@ -204,16 +203,6 @@ export function CharacterModalClient({
 
       <section className="char-modal-section">
         <div className="char-modal-section-title">Голос</div>
-        <input
-          className="voice-input"
-          value={voiceDesc}
-          onChange={(e) => setVoiceDesc(e.target.value)}
-          onBlur={() =>
-            voiceDesc !== (character.voice.description ?? '') &&
-            saveField({ voice: { description: voiceDesc, tts_provider: ttsProvider } })
-          }
-          placeholder="например: тёплый баритон, спокойная уверенность"
-        />
         <VoicePicker projectId={projectId} character={character} />
         <div className="tts-provider-toggle">
           <label>
@@ -223,7 +212,7 @@ export function CharacterModalClient({
               checked={ttsProvider === 'grok'}
               onChange={() => {
                 setTtsProvider('grok');
-                saveField({ voice: { description: voiceDesc, tts_provider: 'grok' } });
+                saveField({ voice: { tts_provider: 'grok' } });
               }}
             />
             Grok
@@ -235,12 +224,11 @@ export function CharacterModalClient({
               checked={ttsProvider === 'elevenlabs'}
               onChange={() => {
                 setTtsProvider('elevenlabs');
-                saveField({ voice: { description: voiceDesc, tts_provider: 'elevenlabs' } });
+                saveField({ voice: { tts_provider: 'elevenlabs' } });
               }}
             />
             ElevenLabs
           </label>
-          <span className="tts-note">(генерация TTS будет в Phase 1.3)</span>
         </div>
       </section>
 
