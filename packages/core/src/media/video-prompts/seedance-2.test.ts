@@ -90,15 +90,23 @@ describe('buildSeedance2Prompt — basic 10s structured scene', () => {
     expect(result.image_refs[0]).toEqual(baseFirstFrame);
   });
 
-  it('emits [SCENE] block with lighting recipe', () => {
+  it('emits [SCENE] block with Lighting:, Time:, Key: lines from lighting object', () => {
     const { prompt } = buildSeedance2Prompt(makeInput());
     expect(prompt).toContain('[SCENE]');
-    expect(prompt).toContain('golden hour rim, soft fill from below');
+    expect(prompt).toContain('Lighting: golden hour rim, soft fill from below');
+    expect(prompt).toContain('Time: late afternoon');
+    expect(prompt).toContain('Key: back-right');
   });
 
-  it('emits [SCENE] block with content from description_en', () => {
+  it('[SCENE] block does NOT duplicate description_en (description is ACTION only)', () => {
     const { prompt } = buildSeedance2Prompt(makeInput());
-    expect(prompt).toContain('ginger cat');
+    // [SCENE] ends before [SUBJECT]; description should appear in [ACTION], not [SCENE]
+    const sceneEnd = prompt.indexOf('[SUBJECT]');
+    const sceneBlock = prompt.slice(0, sceneEnd);
+    // The full description_en should NOT be in the SCENE block
+    expect(sceneBlock).not.toContain('ginger cat looks into the camera');
+    // But lighting IS in the SCENE block
+    expect(sceneBlock).toContain('Lighting:');
   });
 
   it('emits [SUBJECT] block with character name, description, and @Image1', () => {
@@ -183,13 +191,15 @@ describe('buildSeedance2Prompt — time-segment cardinality', () => {
     expect(prompt).not.toMatch(/0–\d+s:/);
   });
 
-  it('7s scene: exactly two time-segment lines', () => {
+  it('7s scene: exactly two time-segment lines with pinned boundaries (0–3s:, 3–7s:)', () => {
     const input = makeInput({
       scene: { ...fullScene10s, duration_sec: 7, dialogue: null },
     });
     const { prompt } = buildSeedance2Prompt(input);
     const segmentMatches = prompt.match(/\d+–\d+s:/g) ?? [];
     expect(segmentMatches).toHaveLength(2);
+    expect(prompt).toContain('0–3s:');
+    expect(prompt).toContain('3–7s:');
   });
 
   it('10s scene: exactly three time-segment lines (0–3s:, 3–7s:, 7–10s:)', () => {
@@ -215,10 +225,59 @@ describe('buildSeedance2Prompt — time-segment cardinality', () => {
     const segmentMatches = prompt.match(/\d+–\d+s:/g) ?? [];
     expect(segmentMatches).toHaveLength(3);
   });
+
+  it('15s scene (malformed, over cap): segments clamped to [0–4s:, 4–8s:, 8–12s:], duration_sec still 15', () => {
+    const input = makeInput({
+      scene: { ...fullScene10s, duration_sec: 15, dialogue: null },
+    });
+    const result = buildSeedance2Prompt(input);
+    expect(result.duration_sec).toBe(15);
+    expect(result.aspect_ratio).toBe('9:16');
+    expect(result.prompt).toContain('0–4s:');
+    expect(result.prompt).toContain('4–8s:');
+    expect(result.prompt).toContain('8–12s:');
+    const segmentMatches = result.prompt.match(/\d+–\d+s:/g) ?? [];
+    expect(segmentMatches).toHaveLength(3);
+  });
 });
 
 // ---------------------------------------------------------------------------
-// 3. Audio mode variants
+// 3. [ACTION] sentence distribution
+// ---------------------------------------------------------------------------
+
+describe('buildSeedance2Prompt — [ACTION] sentence distribution', () => {
+  it('3 sentences in 10s scene: each segment gets one sentence, no duplication', () => {
+    const input = makeInput({
+      scene: {
+        ...fullScene10s,
+        description_en: 'Cat sits at the window. Light shifts across the floor. Cat lifts a paw.',
+        dialogue: null,
+      },
+    });
+    const { prompt } = buildSeedance2Prompt(input);
+    // Segments: 0–3s, 3–7s, 7–10s
+    expect(prompt).toMatch(/0–3s:.*Cat sits at the window/);
+    expect(prompt).toMatch(/3–7s:.*Light shifts across the floor/);
+    expect(prompt).toMatch(/7–10s:.*Cat lifts a paw/);
+  });
+
+  it('single-sentence 10s scene: segment 0 has the sentence, segments 1+2 have continuation fallback', () => {
+    const input = makeInput({
+      scene: {
+        ...fullScene10s,
+        description_en: 'Cat sits at the window.',
+        dialogue: null,
+      },
+    });
+    const { prompt } = buildSeedance2Prompt(input);
+    expect(prompt).toMatch(/0–3s:.*Cat sits at the window/);
+    expect(prompt).toMatch(/3–7s:.*continued action from previous beat/);
+    expect(prompt).toMatch(/7–10s:.*continued action from previous beat/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. Audio mode variants
 // ---------------------------------------------------------------------------
 
 describe('buildSeedance2Prompt — audio_mode variants', () => {
@@ -388,7 +447,7 @@ describe('buildSeedance2Prompt — [SUBJECT] block edge cases', () => {
     expect(prompt).toContain('@Image1');
   });
 
-  it('multiple characters: lists all names + descriptions + @Image1', () => {
+  it('multiple characters: lists all names + descriptions + @Image1 with Subject: prefix', () => {
     const input = makeInput({
       characters_in_scene: [
         { id: 'c1', name: 'Кот', description: 'ginger tabby cat' },
@@ -401,6 +460,7 @@ describe('buildSeedance2Prompt — [SUBJECT] block edge cases', () => {
     expect(prompt).toContain('Пёс');
     expect(prompt).toContain('black labrador dog');
     expect(prompt).toContain('@Image1');
+    expect(prompt).toMatch(/Subject: .* together in frame/);
   });
 });
 
@@ -409,17 +469,24 @@ describe('buildSeedance2Prompt — [SUBJECT] block edge cases', () => {
 // ---------------------------------------------------------------------------
 
 describe('buildSeedance2Prompt — description fallback', () => {
-  it('uses description_en when present', () => {
+  it('uses description_en in [ACTION] when present', () => {
     const { prompt } = buildSeedance2Prompt(makeInput());
-    expect(prompt).toContain('ginger cat looks into the camera');
+    // description_en appears in the ACTION block
+    const actionIdx = prompt.indexOf('[ACTION]');
+    const cameraIdx = prompt.indexOf('[CAMERA]');
+    const actionBlock = prompt.slice(actionIdx, cameraIdx);
+    expect(actionBlock).toContain('ginger cat looks into the camera');
   });
 
-  it('falls back to description when description_en is absent', () => {
+  it('falls back to description in [ACTION] when description_en is absent', () => {
     const input = makeInput({
       scene: { ...fullScene10s, description_en: undefined },
     });
     const { prompt } = buildSeedance2Prompt(input);
-    // Falls back to Russian description
-    expect(prompt).toContain('Рыжий кот');
+    // Falls back to Russian description in ACTION block
+    const actionIdx = prompt.indexOf('[ACTION]');
+    const cameraIdx = prompt.indexOf('[CAMERA]');
+    const actionBlock = prompt.slice(actionIdx, cameraIdx);
+    expect(actionBlock).toContain('Рыжий кот');
   });
 });

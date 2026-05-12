@@ -95,10 +95,20 @@ function timeSegments(durationSec: number): Array<[number, number]> {
     ];
   }
   // 11–12s: 3 segments (0–4s, 4–8s, 8–end)
+  if (durationSec <= 12) {
+    return [
+      [0, 4],
+      [4, 8],
+      [8, durationSec],
+    ];
+  }
+  // Scene durations are capped at 12s by SceneSchema. This branch is a defense
+  // for malformed input — segments are clamped to a 12s timeline, not the raw
+  // duration.
   return [
     [0, 4],
     [4, 8],
-    [8, durationSec],
+    [8, 12],
   ];
 }
 
@@ -111,11 +121,29 @@ function formatSegment(start: number, end: number): string {
 // ---------------------------------------------------------------------------
 
 function buildSceneBlock(input: VideoPromptInput): string {
-  const desc = input.scene.description_en ?? input.scene.description;
-  const lightingLine = input.scene.lighting?.recipe
-    ? `; lighting: ${input.scene.lighting.recipe}`
-    : '';
-  return `[SCENE]\n${desc}${lightingLine}`;
+  const { lighting } = input.scene;
+
+  if (!lighting) {
+    return '[SCENE]\nEnvironment: cinematic naturalistic setting';
+  }
+
+  const lines: string[] = [];
+  if (lighting.recipe) {
+    lines.push(`Lighting: ${lighting.recipe}`);
+  }
+  if (lighting.time_of_day) {
+    lines.push(`Time: ${lighting.time_of_day}`);
+  }
+  if (lighting.key_direction) {
+    lines.push(`Key: ${lighting.key_direction}`);
+  }
+
+  // If the lighting object exists but all fields are absent, fall back gracefully.
+  if (lines.length === 0) {
+    return '[SCENE]\nEnvironment: cinematic naturalistic setting';
+  }
+
+  return `[SCENE]\n${lines.join('\n')}`;
 }
 
 function buildSubjectBlock(input: VideoPromptInput): string {
@@ -129,7 +157,7 @@ function buildSubjectBlock(input: VideoPromptInput): string {
   }
   // Multiple characters
   const charList = chars.map((c) => `${c.name} — ${c.description}`).join(', ');
-  return `[SUBJECT]\n${charList}; together in frame; reference: @Image1`;
+  return `[SUBJECT]\nSubject: ${charList}; together in frame; reference: @Image1`;
 }
 
 function buildActionBlock(input: VideoPromptInput): string {
@@ -143,16 +171,16 @@ function buildActionBlock(input: VideoPromptInput): string {
 
   // Distribute description across segments.
   // Strategy: split description into sentences; assign one per segment.
-  // If fewer sentences than segments, repeat the last sentence.
-  // This is the simplest viable approach per the plan — real beat authoring
-  // lives on the LLM side (Phase 1.4.B).
+  // If fewer sentences than segments, trailing segments emit a generic
+  // continuation line rather than duplicating the last sentence.
+  // Real beat authoring lives on the LLM side (Phase 1.4.B).
   const sentences = desc
     .split(/(?<=[.!?])\s+/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 
   const segmentLines = segments.map(([start, end], i) => {
-    const text = sentences[i] ?? sentences[sentences.length - 1] ?? desc;
+    const text = sentences[i] ?? 'continued action from previous beat';
     return `${formatSegment(start, end)} ${text}`;
   });
 
