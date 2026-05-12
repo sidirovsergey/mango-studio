@@ -186,6 +186,16 @@ describe('buildLtxPrompt — dialogue rendering', () => {
     expect(out.prompt).not.toContain('Dialogue:');
   });
 
+  // 9b. lowercase-only Cyrillic dialogue → no dialogue line (gate fires on U+0440–U+044F)
+  it('skips dialogue when text is lowercase Cyrillic only (native mode)', () => {
+    const input = makeInput({
+      audio_mode: 'native',
+      scene: { ...fullScene8s, dialogue: { speaker: 'Cat', text: 'я вижу тебя.' } },
+    });
+    const out = buildLtxPrompt(input);
+    expect(out.prompt).not.toContain('Dialogue:');
+  });
+
   // 10. auto + English ASCII dialogue → dialogue rendered with em-dash U+2014
   it('renders English dialogue with em-dash U+2014 in auto mode', () => {
     const out = buildLtxPrompt(makeInput({ audio_mode: 'auto' }));

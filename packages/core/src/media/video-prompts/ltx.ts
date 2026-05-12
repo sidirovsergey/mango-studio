@@ -22,17 +22,8 @@
  *   - CAMERA_VERB (cinematic verb mapping — identical across engines)
  */
 
-import { CAMERA_VERB } from './_seedance-shared';
+import { CAMERA_VERB, containsCyrillic } from './_seedance-shared';
 import type { VideoPromptInput, VideoPromptOutput } from './types';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Returns true if the string contains any Cyrillic characters. */
-function hasCyrillic(text: string): boolean {
-  return /[Ѐ-ӿ]/.test(text);
-}
 
 // ---------------------------------------------------------------------------
 // Section builders
@@ -57,6 +48,8 @@ function buildCameraSection(input: VideoPromptInput): string {
   return `Camera: ${verb}${speedPart}${lensPart}`;
 }
 
+// Audio order: Music → Ambient → SFX. Music is the most semantically dense
+// signal for LTX (it tunes pacing); ambient and sfx are scene-flavor.
 function buildAudioSection(input: VideoPromptInput): string {
   const { audio_mode, scene } = input;
 
@@ -91,7 +84,7 @@ function buildAudioSection(input: VideoPromptInput): string {
     (audio_mode === 'native' || audio_mode === 'auto') &&
     scene.dialogue !== null &&
     scene.dialogue !== undefined &&
-    !hasCyrillic(scene.dialogue.text)
+    !containsCyrillic(scene.dialogue.text)
   ) {
     const { speaker, text } = scene.dialogue;
     // em-dash U+2014

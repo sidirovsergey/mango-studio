@@ -53,7 +53,11 @@ function buildCameraParagraph(input: VideoPromptInput): string {
  *
  * No dialogue is ever emitted (unknown engine, no guarantee it handles audio).
  */
+// Audio order: Ambient → Music → SFX. Ambient is the safest baseline for an
+// unknown engine — it sets the room tone; music + sfx are decoration on top.
 function buildAudioParagraph(input: VideoPromptInput): string | null {
+  // audio_mode 'native' and 'auto' both render the audio paragraph identically
+  // — Generic never emits dialogue, so the only branch that matters is silent_tts.
   if (input.audio_mode === 'silent_tts') {
     return null;
   }

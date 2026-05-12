@@ -1,21 +1,46 @@
 /**
- * Shared helpers for Seedance-family Director Brief builders.
+ * Shared helpers for video-prompt builders.
  *
  * Underscore prefix denotes "internal to the video-prompts module" —
  * not for import outside packages/core/src/media/video-prompts/.
  *
- * Used by: seedance-2.ts, seedance-lite.ts
- *   veo-3.1.ts imports: CAMERA_VERB, DEFAULT_AVOID, DEFAULT_PACING_LINE
- *   (label tables only — Veo block builders are NOT reused from this file)
- *   kling-2.5.ts imports: CAMERA_VERB, SHOT_SIZE_LABEL, ANGLE_LABEL,
- *     DEFAULT_AVOID, DEFAULT_PACING_LINE
- *   (label tables only — Kling beat builders are NOT reused from this file)
- *   ltx.ts imports: CAMERA_VERB (verb mapping only)
- *   generic.ts imports: CAMERA_VERB (verb mapping only)
+ * Historically named _seedance-shared because the Seedance Director Brief
+ * builders were the first consumers. Has since broadened to cover label
+ * mappings (CAMERA_VERB, SHOT_SIZE_LABEL, ANGLE_LABEL) and text-detection
+ * primitives (containsCyrillic) used across multiple engines.
+ *
+ * Used by:
+ *   seedance-2.ts          — block builders, label tables, time segments
+ *   seedance-lite.ts       — block builders, label tables, time segments
+ *   veo-3.1.ts             — CAMERA_VERB, DEFAULT_AVOID, DEFAULT_PACING_LINE,
+ *                            containsCyrillic
+ *   kling-2.5.ts           — CAMERA_VERB, SHOT_SIZE_LABEL, ANGLE_LABEL,
+ *                            DEFAULT_AVOID, DEFAULT_PACING_LINE
+ *   ltx.ts                 — CAMERA_VERB, containsCyrillic
+ *   generic.ts             — CAMERA_VERB
+ *
+ * Seedance-specific block builders (buildSceneBlock, buildSubjectBlock,
+ * buildActionBlock, buildCameraBlock, buildPacingBlock, buildAvoidLine) are
+ * NOT used by veo/kling/ltx/generic — they consume the leaf primitives only
+ * and assemble their own engine-specific block structures.
  */
 
 import type { CameraAngle, CameraMovementKind, ShotSize } from '../cinematography-schemas';
 import type { VideoPromptInput } from './types';
+
+// ---------------------------------------------------------------------------
+// Text detection (shared across engine builders)
+// ---------------------------------------------------------------------------
+
+/**
+ * True when text contains any Cyrillic codepoint (basic block U+0400–U+04FF).
+ * Used by Veo and LTX to gate dialogue rendering — engines render English
+ * audio reliably; Cyrillic audio is unproven. Engines that don't render
+ * dialogue at all (Seedance Lite, Kling, Generic) ignore this.
+ */
+export function containsCyrillic(text: string): boolean {
+  return /[Ѐ-ӿ]/.test(text);
+}
 
 // ---------------------------------------------------------------------------
 // Camera movement verb mapping (snake_case → Title Case)

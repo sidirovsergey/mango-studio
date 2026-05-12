@@ -25,17 +25,17 @@
  *   vocabulary (avoids duplicate mentions).
  */
 
-import { CAMERA_VERB, DEFAULT_AVOID, DEFAULT_PACING_LINE } from './_seedance-shared';
+import {
+  CAMERA_VERB,
+  DEFAULT_AVOID,
+  DEFAULT_PACING_LINE,
+  containsCyrillic,
+} from './_seedance-shared';
 import type { CharacterInScene, VideoPromptInput, VideoPromptOutput } from './types';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/** Returns true if the string contains any Cyrillic characters */
-function hasCyrillic(text: string): boolean {
-  return /[Ѐ-ӿ]/.test(text);
-}
 
 /** Returns true if text already contains grain, grade, or grading vocabulary */
 function alreadyHasGrainOrGrade(text: string | undefined): boolean {
@@ -115,7 +115,7 @@ function buildActionBlock(input: VideoPromptInput): string {
     input.audio_mode === 'native' &&
     input.scene.dialogue !== null &&
     input.scene.dialogue !== undefined &&
-    !hasCyrillic(input.scene.dialogue.text)
+    !containsCyrillic(input.scene.dialogue.text)
   ) {
     const { speaker, text } = input.scene.dialogue;
     lines.push(`Dialogue: ${speaker} — "${text}"`);
