@@ -17,7 +17,8 @@ describe('buildAvatarPrompt', () => {
   it('содержит ключевые слова портрета', () => {
     const out = buildAvatarPrompt(baseChar, '3d_pixar');
     // Updated: English structural directive "Portrait shot" replaced the Russian "Портрет персонажа" line (F55 polish).
-    const hasPortraitWord = out.toLowerCase().includes('portrait') || out.toLowerCase().includes('портрет');
+    const hasPortraitWord =
+      out.toLowerCase().includes('portrait') || out.toLowerCase().includes('портрет');
     expect(hasPortraitWord).toBe(true);
     expect(out.toLowerCase()).toContain('лицо');
     expect(out).toContain('1:1');
@@ -53,7 +54,8 @@ describe('buildAvatarPrompt', () => {
   // --- F52 + F55 polish tests ---
   it('содержит английскую директиву портретного кадра (F55)', () => {
     const out = buildAvatarPrompt(baseChar, '3d_pixar');
-    const hasPortrait = out.toLowerCase().includes('portrait') || out.toLowerCase().includes('head and shoulders');
+    const hasPortrait =
+      out.toLowerCase().includes('portrait') || out.toLowerCase().includes('head and shoulders');
     expect(hasPortrait).toBe(true);
   });
   it('содержит Avoid: блок с обязательными запретами (F52)', () => {
@@ -77,12 +79,13 @@ describe('buildAvatarPrompt', () => {
   });
   it('style preamble 2d_drawn содержит ссылку на Ghibli-фильм (F51)', () => {
     const out = buildAvatarPrompt(baseChar, '2d_drawn');
-    const hasGhibliFilm = out.includes('Ghibli') || out.includes('Totoro') || out.includes('Mononoke') || out.includes('Spirited Away');
+    const hasGhibliFilm =
+      out.includes('Studio Ghibli') || out.includes('Тоторо') || out.includes('Мононоке');
     expect(hasGhibliFilm).toBe(true);
   });
   it('style preamble clay_art содержит ссылку на Aardman-фильм (F51)', () => {
     const out = buildAvatarPrompt(baseChar, 'clay_art');
-    const hasAardman = out.includes('Wallace') || out.includes('Gromit') || out.includes('Aardman') || out.includes('Chicken Run');
+    const hasAardman = out.includes('Уоллес') || out.includes('Громит') || out.includes('Aardman');
     expect(hasAardman).toBe(true);
   });
 });

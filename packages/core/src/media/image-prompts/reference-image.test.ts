@@ -40,16 +40,17 @@ describe('buildReferenceImagePrompt', () => {
 
   it('style preamble is resolved to rich human-readable description (not raw enum)', () => {
     // Updated: buildReferenceImagePrompt now uses STYLE_PREAMBLE[style] for richer steering (F58 alignment).
+    // Assertions pin to unique tokens from STYLE_PREAMBLE that cannot appear in test character descriptions.
     const out3d = buildReferenceImagePrompt(baseChar, '3d_pixar');
-    expect(out3d).toContain('Pixar');
+    expect(out3d).toContain('Coco'); // specific film name from STYLE_PREAMBLE 3d_pixar
     expect(out3d).not.toContain('Style: 3d_pixar');
 
     const out2d = buildReferenceImagePrompt(baseChar, '2d_drawn');
-    expect(out2d).toContain('Ghibli');
+    expect(out2d).toContain('Studio Ghibli'); // unique studio token from STYLE_PREAMBLE 2d_drawn
     expect(out2d).not.toContain('Style: 2d_drawn');
 
     const outClay = buildReferenceImagePrompt(baseChar, 'clay_art');
-    expect(outClay).toContain('Aardman');
+    expect(outClay).toContain('Уоллес'); // Cyrillic film character from STYLE_PREAMBLE clay_art
     expect(outClay).not.toContain('Style: clay_art');
   });
 
