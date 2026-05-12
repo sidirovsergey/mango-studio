@@ -136,19 +136,21 @@ export class OpenRouterLLMProvider implements LLMProvider {
       try {
         object = ScriptGenSchema.parse(parsed);
       } catch (zodErr) {
-        // Surface the actual JSON shape that failed schema validation — invaluable
-        // when LLM drifts from the prompt's output_schema. Emit per-issue lines
-        // with the PATH front-loaded so Vercel log table preview shows the field
-        // name even when the rest gets truncated.
+        // Compact one-line summary + truncated JSON head. Sufficient to spot
+        // future LLM-output drift in Vercel logs without excessive payload.
         const zErr = zodErr as {
-          issues?: Array<{ path?: unknown[]; message?: string; code?: string }>;
+          issues?: Array<{ path?: unknown[]; code?: string }>;
         };
         const issues = Array.isArray(zErr?.issues) ? zErr.issues : [];
-        for (const issue of issues.slice(0, 5)) {
-          const path = Array.isArray(issue.path) ? issue.path.join('.') : String(issue.path ?? '');
-          console.error(`[ORL.script.zod] PATH=${path} CODE=${issue.code} MSG=${issue.message}`);
-        }
-        console.error('[ORL.script.json] LLM JSON head:', JSON.stringify(parsed).slice(0, 5000));
+        const summary = issues
+          .slice(0, 5)
+          .map((i) => {
+            const p = Array.isArray(i.path) ? i.path.join('.') : String(i.path ?? '');
+            return `${p}:${i.code}`;
+          })
+          .join(', ');
+        console.error(`[ORL.script.zod] ${issues.length} issue(s): ${summary}`);
+        console.error('[ORL.script.json head]', JSON.stringify(parsed).slice(0, 500));
         throw zodErr;
       }
       const llmUsage = await this.buildUsage(params.model, usage, start);
