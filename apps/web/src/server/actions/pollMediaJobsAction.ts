@@ -26,6 +26,7 @@ import {
 } from '@mango/core';
 import { getVideoModelMeta } from '@mango/core/media';
 import { getServerSupabase } from '@mango/db/server';
+import { generateReferenceImageAction } from './generateReferenceImageAction';
 import { mirrorSceneAssetToStorage } from './mirrorSceneAssetToStorage';
 
 /**
@@ -108,6 +109,8 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
         const requestInput = (job.request_input ?? {}) as Record<string, unknown>;
 
         let mirrorHint: MirrorHint | undefined;
+        // F53 (T3): set when character_dossier write completes and no reference_image yet.
+        let chainReferenceImageFor: { project_id: string; character_id: string } | null = null;
 
         if (job.kind === 'first_frame' && job.scene_id) {
           // Phase 1.3.5: append to first_frame_versions, set active.
@@ -364,6 +367,15 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
               updated.dossier = character.dossier
                 ? { ...dossier, avatar: character.dossier.avatar }
                 : dossier;
+              // Chain: after this write, trigger reference_image generation if not already set.
+              // We check the PRE-write state: if dossier.reference_image wasn't set before,
+              // it won't be in the newly written dossier either — dispatch the chain.
+              if (!character.dossier?.reference_image) {
+                chainReferenceImageFor = {
+                  project_id: job.project_id,
+                  character_id: job.character_id,
+                };
+              }
             } else if (job.kind === 'character_avatar') {
               const quality = (
                 typeof requestInput.quality === 'string' ? requestInput.quality : '1080p'
@@ -431,6 +443,32 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
             updated_at: new Date().toISOString(),
           })
           .eq('id', job.id);
+
+        // F53 (Task 1.4.D.T3): after dossier write completes, chain reference_image generation.
+        // Fire-and-forget: dossier is already saved above; ref-image failure must not roll it back.
+        if (chainReferenceImageFor) {
+          const chainTarget = chainReferenceImageFor;
+          void generateReferenceImageAction({
+            project_id: chainTarget.project_id,
+            character_id: chainTarget.character_id,
+          })
+            .then((r) => {
+              if (!r.ok) {
+                console.warn('[pollMediaJobs] post-dossier reference image dispatch failed', {
+                  project_id: chainTarget.project_id,
+                  character_id: chainTarget.character_id,
+                  error: r.error,
+                });
+              }
+            })
+            .catch((e: unknown) => {
+              console.warn('[pollMediaJobs] post-dossier reference image dispatch threw', {
+                project_id: chainTarget.project_id,
+                character_id: chainTarget.character_id,
+                error: e instanceof Error ? e.message : String(e),
+              });
+            });
+        }
 
         return mirrorHint;
       },
