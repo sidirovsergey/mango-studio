@@ -258,11 +258,17 @@ function VoicePicker({ projectId, character }: { projectId: string; character: C
       const r = await setCharacterVoiceAction({
         project_id: projectId,
         character_id: character.id,
-        voice_id: voice.id,
-        voice_label: voice.label,
+        tts_voice_id: voice.id,
       });
-      if (!r.ok) setError(r.error);
-      else router.refresh();
+      if (!r.ok) {
+        if (r.error === 'voice_locked') {
+          setError(r.details ?? 'Voice is locked after audio has been rendered.');
+        } else {
+          setError(r.error);
+        }
+        return;
+      }
+      router.refresh();
     });
   };
 
@@ -276,12 +282,14 @@ function VoicePicker({ projectId, character }: { projectId: string; character: C
       const r = await setCharacterVoiceAction({
         project_id: projectId,
         character_id: character.id,
-        voice_id: advId,
-        voice_label: 'Custom',
-        advanced: true,
+        tts_voice_id: advId,
       });
       if (!r.ok) {
-        setError(r.error);
+        if (r.error === 'voice_locked') {
+          setError(r.details ?? 'Voice is locked after audio has been rendered.');
+        } else {
+          setError(r.error);
+        }
         return;
       }
       setShowAdv(false);
