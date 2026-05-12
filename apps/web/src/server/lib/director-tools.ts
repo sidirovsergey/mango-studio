@@ -17,7 +17,8 @@ import { setCharacterVoiceAction } from '@/server/actions/setCharacterVoiceActio
 import { setSceneDurationAction } from '@/server/actions/setSceneDurationAction';
 import { unarchiveCharacterAction } from '@/server/actions/unarchiveCharacterAction';
 import type { Character, PendingAction } from '@mango/core';
-import { VOICE_POOL } from '@mango/core';
+import { VIDEO_MODELS, VOICE_POOL } from '@mango/core';
+import { formatCostHint } from '@mango/core/media/prompt-cost';
 import { getServerSupabase } from '@mango/db/server';
 import { tool } from 'ai';
 import type { ToolSet } from 'ai';
@@ -63,6 +64,7 @@ async function resolveScene(
   duration_sec: number;
   first_frame: unknown;
   final_clip: unknown;
+  config_overrides?: { model?: string };
 } | null> {
   const sb = await getServerSupabase();
   const { data: project, error } = await sb
@@ -78,6 +80,7 @@ async function resolveScene(
       duration_sec: number;
       first_frame: unknown;
       final_clip: unknown;
+      config_overrides?: { model?: string };
     }>;
   };
   return script.scenes?.find((s) => s.scene_id === scene_id) ?? null;
@@ -338,7 +341,7 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
           preview: {
             title: 'Перерисовать досье',
             subject: character.name,
-            summary: 'Текущая картинка будет заменена новой. Стоимость ~$0.08–0.39.',
+            summary: `Текущая картинка будет заменена новой. Стоимость ${formatCostHint(character.dossier?.model ?? 'fal-ai/nano-banana-pro')}.`,
           },
           status: 'pending',
         };
@@ -486,7 +489,7 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
           preview: {
             title: `Перегенерировать видео сцены ${scene_id}?`,
             subject: scene.description.slice(0, 60),
-            summary: 'Запустит новую video gen — ~$0.20–0.60 за сцену.',
+            summary: `Запустит новую video gen — ${formatCostHint(scene.config_overrides?.model ?? VIDEO_MODELS.premium.default)}.`,
           },
           status: 'pending',
         };
@@ -602,7 +605,7 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
           preview: {
             title: 'Финализировать ролик?',
             subject: `${totalScenes} сцен`,
-            summary: 'Склейка через ffmpeg — ~$0.005–0.01.',
+            summary: `Склейка через ffmpeg — ${formatCostHint('fal-ai/ffmpeg-api/merge-audio-video')}.`,
           },
           status: 'pending',
         };

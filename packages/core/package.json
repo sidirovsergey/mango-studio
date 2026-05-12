@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./media": "./src/media/index.ts",
+    "./media/prompt-cost": "./src/media/prompt-cost.ts",
     "./media/factory": "./src/media/factory.ts",
     "./llm": "./src/llm/index.ts",
     "./llm/factory": "./src/llm/factory.ts",
