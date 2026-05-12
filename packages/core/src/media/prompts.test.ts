@@ -131,12 +131,16 @@ describe('buildDossierPrompt', () => {
     expect(out.toLowerCase()).toContain('back view');
   });
   it('содержит Avoid: блок с обязательными запретами (F52)', () => {
+    // Dossier REQUIRES Russian cell captions, so the Avoid: list cannot ban
+    // "text in image" / "captions" generically (would contradict). Instead it
+    // bans English captions + mixed-language labels + unrequested extra text.
     const out = buildDossierPrompt(baseChar, '3d_pixar');
     expect(out).toContain('Avoid:');
-    expect(out).toContain('text in image');
-    expect(out).toContain('captions');
     expect(out).toContain('single pose');
     expect(out).toContain('environment');
+    expect(out).toContain('English captions');
+    expect(out).toContain('mixed-language labels');
+    expect(out).not.toContain('text in image');
   });
   it('не содержит «БЕЗ » (русских негативов) (F52)', () => {
     for (const style of ['3d_pixar', '2d_drawn', 'clay_art'] as Style[]) {

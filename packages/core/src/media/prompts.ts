@@ -96,5 +96,5 @@ ${STYLE_PREAMBLE[style]}
 
 КРИТИЧЕСКОЕ требование к тексту: ВСЕ подписи под ячейками model-sheet — ТОЛЬКО на русском языке кириллицей. Никаких английских слов в изображении (никаких «Joyful», «Sad», «Standing», «Action», «Head/Face», «Distinctive Feature» и т.п.). Используй ИМЕННО те русские подписи, что перечислены выше. Подписи небольшим аккуратным шрифтом под каждой ячейкой.
 
-Avoid: text in image, captions, watermarks, signature, single pose, environment, props beyond intrinsic costume, dynamic action, dramatic lighting that obscures design.`;
+Avoid: watermarks, signature, single pose, environment, props beyond intrinsic costume, dynamic action, dramatic lighting that obscures design, English captions, mixed-language labels, extra unrequested text beyond the specified Russian cell labels.`;
 }
