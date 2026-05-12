@@ -12,20 +12,21 @@ import type { StoredAsset } from '../storage/StorageProvider';
 export interface VideoPromptSceneInput {
   scene_id: string;
   description: string;
-  description_en?: string | null;
+  description_en?: string;
   duration_sec: number;
   dialogue: Dialogue | null;
-  composition?: Composition | null;
-  camera_movement?: CameraMovement | null;
-  lighting?: Lighting | null;
-  audio_direction?: AudioDirection | null;
-  arc_role?: ArcRole | null;
+  composition?: Composition;
+  camera_movement?: CameraMovement;
+  lighting?: Lighting;
+  audio_direction?: AudioDirection;
+  arc_role?: ArcRole;
 }
 
 export interface CharacterInScene {
   id: string;
   name: string;
   description: string;
+  full_prompt?: string;
 }
 
 export interface VideoPromptInput {
@@ -34,8 +35,8 @@ export interface VideoPromptInput {
   first_frame_storage: StoredAsset;
   audio_mode: AudioMode;
   characters_in_scene?: CharacterInScene[];
-  visual_theme?: VisualTheme | null;
-  tier?: 'economy' | 'premium' | null;
+  visual_theme?: VisualTheme;
+  tier?: 'economy' | 'premium';
 }
 
 export interface VideoPromptOutput {
