@@ -58,6 +58,15 @@ export function upgradeScene(legacy: LegacyScene): Scene {
   return {
     scene_id: legacy.scene_id,
     description: legacy.description,
+    // Phase-1.4 fields — defaulted for legacy rows
+    description_ru: legacy.description,
+    description_en: null,
+    composition: null,
+    camera_movement: null,
+    lighting: null,
+    audio_direction: null,
+    arc_role: null,
+    tier_at_gen: null,
     dialogue: legacy.dialogue ?? null,
     character_ids: legacy.character_ids ?? [],
     duration_sec: legacy.duration_sec,
@@ -92,9 +101,11 @@ export function upgradeScript(legacy: LegacyScript): Script {
       }
     : null;
 
-  // Build new without master_clip key
+  // Build new without master_clip key; Phase-1.4 fields defaulted for legacy rows
   const upgraded: Script = {
     title: legacy.title,
+    visual_theme: null,
+    tier: null,
     narrator_voice: legacy.narrator_voice,
     characters: legacy.characters,
     scenes: legacy.scenes.map(upgradeScene),

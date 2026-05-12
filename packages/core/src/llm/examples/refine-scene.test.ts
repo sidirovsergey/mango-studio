@@ -31,7 +31,7 @@ describe('REFINE_EXAMPLES', () => {
     // Extract the <output>...</output> JSON from the tone_change example
     const match = REFINE_EXAMPLES.tone_change.match(/<output>\s*([\s\S]*?)\s*<\/output>/);
     expect(match).not.toBeNull();
-    const outputJson = match![1].trim();
+    const outputJson = (match?.[1] ?? '').trim();
     const parsed = SceneSchema.parse(JSON.parse(outputJson));
 
     // Changed fields: description, lighting, audio_direction
@@ -50,7 +50,7 @@ describe('REFINE_EXAMPLES', () => {
   it('composition_change output parses via SceneSchema with only shot_size changed', () => {
     const match = REFINE_EXAMPLES.composition_change.match(/<output>\s*([\s\S]*?)\s*<\/output>/);
     expect(match).not.toBeNull();
-    const outputJson = match![1].trim();
+    const outputJson = (match?.[1] ?? '').trim();
     const parsed = SceneSchema.parse(JSON.parse(outputJson));
 
     // Changed field: composition.shot_size
