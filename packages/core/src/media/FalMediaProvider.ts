@@ -8,6 +8,7 @@ import type {
   DossierFormat,
   ExtractLastFrameInput,
   GenerateCharacterDossierInput,
+  GenerateCharacterReferenceImageInput,
   GenerateFirstFrameInput,
   GenerateSceneVideoInput,
   GenerateVoiceInput,
@@ -142,6 +143,16 @@ export class FalMediaProvider implements MediaProvider {
       prompt: input.prompt,
       ...editPayload,
       aspect_ratio: formatAspectFor(model, input.format),
+    });
+  }
+
+  async submitCharacterReferenceImage(
+    input: GenerateCharacterReferenceImageInput,
+    _ctx: AssetContext,
+  ): Promise<JobHandle> {
+    return this.submit(input.model, {
+      prompt: input.prompt,
+      aspect_ratio: formatAspectFor(input.model, '1:1'),
     });
   }
 

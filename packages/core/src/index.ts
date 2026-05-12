@@ -49,6 +49,7 @@ export {
   isModelInTier,
   buildDossierPrompt,
   buildAvatarPrompt,
+  buildReferenceImagePrompt,
   MediaProviderError,
   classifyMediaError,
   FalCdnPassthroughStorage,

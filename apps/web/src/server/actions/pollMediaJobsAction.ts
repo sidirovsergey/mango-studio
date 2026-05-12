@@ -388,6 +388,12 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
                 uploaded_at: generated_at,
               };
               updated.reference_images = [...(character.reference_images ?? []), newRef];
+            } else if (job.kind === 'character_reference_image') {
+              // Phase 1.4 F53: single-pose 1:1 reference image stored under dossier.reference_image.
+              if (character.dossier) {
+                updated.dossier = { ...character.dossier, reference_image: stored };
+              }
+              // If dossier hasn't landed yet (rare race), silently drop — T3 will retry.
             }
             const newCharacters = [...characters];
             newCharacters[idx] = updated;

@@ -4,6 +4,7 @@ import type {
   ConcatMasterInput,
   ExtractLastFrameInput,
   GenerateCharacterDossierInput,
+  GenerateCharacterReferenceImageInput,
   GenerateFirstFrameInput,
   GenerateSceneVideoInput,
   GenerateVoiceInput,
@@ -31,6 +32,13 @@ export class MockMediaProvider implements MediaProvider {
     _ctx: AssetContext,
   ): Promise<JobHandle> {
     return mockHandle(input.model, `dossier/${input.model}`);
+  }
+
+  async submitCharacterReferenceImage(
+    input: GenerateCharacterReferenceImageInput,
+    _ctx: AssetContext,
+  ): Promise<JobHandle> {
+    return mockHandle(input.model, 'character-reference-image');
   }
 
   async submitFirstFrame(input: GenerateFirstFrameInput, _ctx: AssetContext): Promise<JobHandle> {

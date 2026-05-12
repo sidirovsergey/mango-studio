@@ -31,6 +31,7 @@ export {
 export type { Tier } from './model-registry';
 
 export { buildDossierPrompt, buildAvatarPrompt } from './prompts';
+export { buildReferenceImagePrompt } from './image-prompts/reference-image';
 
 export { MediaProviderError, classifyMediaError } from './errors';
 export type { MediaErrorCode } from './errors';
