@@ -1,0 +1,114 @@
+/**
+ * director-state-summary.ts — Phase 1.4.F.T2
+ *
+ * Produces a compact, deterministic XML-style project state snapshot for the
+ * Director Agent system prompt (<project_state> block). No Supabase deps — pure
+ * computation from the script + characters arrays.
+ *
+ * F19 audit: Director needs to know active/archived characters and per-scene
+ * media status to make correct tool-routing decisions.
+ */
+
+import { getVoiceById } from '../media/voices';
+import type { Scene } from './schemas';
+import type { Character } from './types';
+
+// ─── Public types ─────────────────────────────────────────────────────────────
+
+export interface DirectorStateSummaryInput {
+  script: {
+    title?: string;
+    tier?: 'economy' | 'premium';
+    target_duration_sec?: number;
+    scenes: Array<Scene>;
+    characters: Array<Character>;
+  };
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const CHAR_DESC_MAX = 60;
+const SCENE_DESC_MAX = 50;
+const ARC_ROLE_WIDTH = 8;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function truncate(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  return `${text.slice(0, maxLen)}…`;
+}
+
+function padRight(text: string, width: number): string {
+  return text.length >= width ? text : text + ' '.repeat(width - text.length);
+}
+
+function resolveVoiceLabel(char: Character): string {
+  const voiceId = char.voice?.tts_voice_id;
+  if (!voiceId) return 'unset';
+  const found = getVoiceById(voiceId);
+  return found ? found.label : 'custom';
+}
+
+function sceneMediaFlags(scene: Scene): string {
+  const ff = scene.first_frame_versions && scene.first_frame_versions.length > 0 ? '✓' : '✗';
+  const vid = scene.video_versions && scene.video_versions.length > 0 ? '✓' : '✗';
+  const aud = scene.voice_audio_versions && scene.voice_audio_versions.length > 0 ? '✓' : '✗';
+  const fc = scene.final_clip != null ? '✓' : '✗';
+  return `ff${ff} vid${vid} aud${aud} fc${fc}`;
+}
+
+function formatCharacterActiveRow(char: Character): string {
+  const dossierFlag = char.dossier != null ? 'true' : 'false';
+  const voiceLabel = resolveVoiceLabel(char);
+  const desc = truncate(char.description ?? '', CHAR_DESC_MAX);
+  return `  ${char.id} | ${char.name} | dossier=${dossierFlag} | voice=${voiceLabel} | ${desc}`;
+}
+
+function formatCharacterArchivedRow(char: Character): string {
+  return `  ${char.id} | ${char.name} | архивирован`;
+}
+
+function formatSceneRow(scene: Scene): string {
+  const duration = `${scene.duration_sec}s`;
+  const arcRaw = scene.arc_role ?? '???';
+  const arc = padRight(arcRaw, ARC_ROLE_WIDTH);
+  const flags = sceneMediaFlags(scene);
+  const rawDesc = (scene.description_en ?? null) || scene.description;
+  const desc = truncate(rawDesc, SCENE_DESC_MAX);
+  return `  ${scene.scene_id} | ${duration} | ${arc} | ${flags} | "${desc}"`;
+}
+
+// ─── Main export ──────────────────────────────────────────────────────────────
+
+export function formatProjectStateSummary(input: DirectorStateSummaryInput): string {
+  const { scenes, characters } = input.script;
+
+  const activeChars = characters.filter((c) => !c.archived);
+  const archivedChars = characters.filter((c) => c.archived === true);
+
+  const parts: string[] = [];
+
+  // characters_active — always emitted
+  const activeRows = activeChars.map(formatCharacterActiveRow);
+  if (activeRows.length > 0) {
+    parts.push(`<characters_active>\n${activeRows.join('\n')}\n</characters_active>`);
+  } else {
+    parts.push('<characters_active>\n</characters_active>');
+  }
+
+  // characters_archived — only if at least one archived character
+  if (archivedChars.length > 0) {
+    const archivedRows = archivedChars.map(formatCharacterArchivedRow);
+    parts.push(`<characters_archived>\n${archivedRows.join('\n')}\n</characters_archived>`);
+  }
+
+  // scenes_summary — always emitted
+  const sceneRows = scenes.map(formatSceneRow);
+  if (sceneRows.length > 0) {
+    parts.push(`<scenes_summary>\n${sceneRows.join('\n')}\n</scenes_summary>`);
+  } else {
+    parts.push('<scenes_summary>\n</scenes_summary>');
+  }
+
+  return parts.join('\n\n');
+}
