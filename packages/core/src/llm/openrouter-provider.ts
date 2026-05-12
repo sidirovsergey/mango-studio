@@ -80,6 +80,7 @@ export class OpenRouterLLMProvider implements LLMProvider {
     const fullPrompt = buildScriptPrompt(input, {
       existingCharacters: input.existingCharacters,
       tier: input.tier ?? 'economy',
+      existingVisualTheme: input.existing_visual_theme,
     });
     try {
       const { text, usage } = await generateText({

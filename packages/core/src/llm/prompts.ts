@@ -1,3 +1,4 @@
+import type { VisualTheme } from '../media/cinematography-schemas';
 import { VOICE_POOL } from '../media/voices';
 import { formatProjectStateSummary } from './director-state-summary';
 import { DIRECTOR_AGENT_EXAMPLES } from './examples/director-agent';
@@ -26,6 +27,21 @@ const STYLE_LABEL: Record<ScriptGenInput['style'], string> = {
 export interface BuildScriptPromptContext {
   existingCharacters?: Pick<Character, 'id' | 'name' | 'description'>[];
   tier?: 'economy' | 'premium';
+  /** F24 fix: pass the project's current visual_theme so refine flows preserve it. */
+  existingVisualTheme?: VisualTheme | null;
+}
+
+function renderExistingVisualThemeBlock(theme: VisualTheme | null | undefined): string {
+  if (!theme) return '';
+  return `
+<existing_visual_theme>
+ТЕКУЩАЯ ВИЗУАЛЬНАЯ ТЕМА ПРОЕКТА (JSON):
+${JSON.stringify(theme, null, 2)}
+
+ПРЕДПОЧТЕНИЕ: сохрани этот visual_theme дословно в output. Возвращай те же значения palette, lighting, lens, motion, mood, film_look, avoid.
+
+ИСКЛЮЧЕНИЕ: только если пользовательская инструкция явно требует изменить look/feel/palette/lighting/style — тогда author новый visual_theme. Слова-триггеры для изменения: "поменяй стиль", "другая палитра", "сделай темнее/светлее", "переделай look", "верни клей-вил" и подобные.
+</existing_visual_theme>`;
 }
 
 /**
@@ -45,6 +61,12 @@ export function buildScriptPrompt(
       : 'scene durations 4–12 s (integer), flexible';
 
   const styleHuman = STYLE_LABEL[input.style] ?? input.style;
+
+  const existingVisualThemeBlock = renderExistingVisualThemeBlock(ctx.existingVisualTheme);
+
+  const themePreservationHint = ctx.existingVisualTheme
+    ? ' Если <existing_visual_theme> присутствует — копируй его поля в output без изменений, если пользователь не попросил иное.'
+    : '';
 
   const existingCharactersBlock = ctx.existingCharacters?.length
     ? `
@@ -179,10 +201,10 @@ ${SCRIPT_EXAMPLES.sixty_sec}
   </example>
 </examples>
 ${existingCharactersBlock}
-
+${existingVisualThemeBlock}
 <task>
 User idea: «${input.user_prompt}»
-Author a structured shot list per the schema and examples above. Russian for \`description_ru\` and \`dialogue.text\`; English for \`description_en\`. Lock \`visual_theme\` once and reference it from each scene's \`lighting\` and \`camera_movement\` for continuity. Use cinematic verbs (Dolly In, Crane Up, Orbit, Tracking) — not "cinematic motion". Scene count must match the cadence_table for ${input.duration_sec}s. Each scene duration_sec must satisfy tier "${tier}" constraint: ${tierConstraints}.
+Author a structured shot list per the schema and examples above. Russian for \`description_ru\` and \`dialogue.text\`; English for \`description_en\`. Lock \`visual_theme\` once and reference it from each scene's \`lighting\` and \`camera_movement\` for continuity.${themePreservationHint} Use cinematic verbs (Dolly In, Crane Up, Orbit, Tracking) — not "cinematic motion". Scene count must match the cadence_table for ${input.duration_sec}s. Each scene duration_sec must satisfy tier "${tier}" constraint: ${tierConstraints}.
 </task>`;
 }
 

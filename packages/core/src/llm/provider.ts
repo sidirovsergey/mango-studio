@@ -6,6 +6,7 @@ import type {
   SceneVideoAsset,
   VoiceAsset,
 } from '../media/scene-types';
+import type { VisualTheme } from '../media/cinematography-schemas';
 import type { AspectRatio, StyleName } from '../prompt/types';
 import type { Character } from './types';
 
@@ -28,6 +29,8 @@ export interface ScriptGenInput {
   existingCharacters?: Array<{ id: string; name: string; description: string }>;
   /** Project-level tier; controls engine_constraints in the script prompt. Defaults to 'economy'. */
   tier?: 'economy' | 'premium';
+  /** F24 fix: existing visual_theme for refine flows — preserves visual consistency across regens. Pass null/undefined on first gen. */
+  existing_visual_theme?: VisualTheme | null;
 }
 
 export interface Scene {
@@ -113,6 +116,8 @@ export interface PersistedScript {
   characters: Character[];
   narrator_voice?: NarratorVoice;
   master_clip: MasterClip | null;
+  /** Visual theme authored at script-gen time. Present after initial generation. */
+  visual_theme?: VisualTheme | null;
 }
 
 export interface ScriptGenResult {

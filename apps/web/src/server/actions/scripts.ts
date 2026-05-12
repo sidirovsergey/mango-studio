@@ -190,6 +190,10 @@ export async function refineScriptAction(
     : '';
   const augmentedPrompt = `${project.idea}\n\nДополнительные пожелания: ${instruction}${currentScenesContext}`;
 
+  // F24 fix: pass existing visual_theme so refine preserves the project's look.
+  const persistedScript = project.script as PersistedScript | null;
+  const existingVisualTheme = persistedScript?.visual_theme ?? null;
+
   try {
     const result = await llm.generateScript({
       user_prompt: augmentedPrompt,
@@ -198,6 +202,7 @@ export async function refineScriptAction(
       style: project.style as '3d_pixar' | '2d_drawn' | 'clay_art',
       tier: (project.tier ?? 'economy') as 'economy' | 'premium',
       existingCharacters: existingForPrompt,
+      existing_visual_theme: existingVisualTheme,
     });
     const mergedCharacters = applyCharacterActions(existingCharacters, result.output.characters);
     const newScript: PersistedScript = {

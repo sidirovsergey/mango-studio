@@ -476,6 +476,67 @@ describe('SCRIPT_SYSTEM_PROMPT narrator persona authoring (1.4.E.T6)', () => {
   });
 });
 
+describe('buildScriptPrompt existingVisualTheme (T6 — F24)', () => {
+  const baseInput = {
+    user_prompt: 'тест',
+    duration_sec: 30,
+    format: '9:16' as const,
+    style: '3d_pixar' as const,
+  };
+
+  const sampleTheme = {
+    palette: ['#1a1a2e', '#16213e', '#0f3460', '#e94560'],
+    lighting: 'noir backlighting with rim highlights',
+    lens: '35mm anamorphic',
+    motion: 'slow push-in',
+    mood: 'тревожный, ночной',
+    film_look: 'high contrast',
+    avoid: ['overexposure', 'warm tones'],
+  };
+
+  it('1. с existingVisualTheme — инжектит <existing_visual_theme> блок с полями темы', () => {
+    const p = buildScriptPrompt(baseInput, { existingVisualTheme: sampleTheme });
+    expect(p).toContain('<existing_visual_theme>');
+    expect(p).toContain('ТЕКУЩАЯ ВИЗУАЛЬНАЯ ТЕМА ПРОЕКТА');
+    expect(p).toContain('#1a1a2e');
+    expect(p).toContain('noir backlighting');
+    expect(p).toContain('35mm anamorphic');
+  });
+
+  it('2. без ctx — НЕ содержит <existing_visual_theme>', () => {
+    const p = buildScriptPrompt(baseInput);
+    expect(p).not.toContain('<existing_visual_theme>');
+  });
+
+  it('3. existingVisualTheme: null — НЕ содержит <existing_visual_theme>', () => {
+    const p = buildScriptPrompt(baseInput, { existingVisualTheme: null });
+    expect(p).not.toContain('<existing_visual_theme>');
+  });
+
+  it('4. с existingVisualTheme — closing instruction содержит директиву preservation', () => {
+    const p = buildScriptPrompt(baseInput, { existingVisualTheme: sampleTheme });
+    // Check closing <task> contains the preservation hint
+    const taskStart = p.indexOf('<task>');
+    expect(taskStart).toBeGreaterThan(-1);
+    const taskBlock = p.slice(taskStart);
+    expect(taskBlock).toMatch(/existing_visual_theme.*копируй|копируй.*existing_visual_theme/i);
+  });
+
+  it('5. existingVisualTheme содержит palette, lighting, lens в JSON блоке', () => {
+    const p = buildScriptPrompt(baseInput, { existingVisualTheme: sampleTheme });
+    const blockStart = p.indexOf('<existing_visual_theme>');
+    const blockEnd = p.indexOf('</existing_visual_theme>');
+    const block = p.slice(blockStart, blockEnd + '</existing_visual_theme>'.length);
+    expect(block).toContain('"palette"');
+    expect(block).toContain('"lighting"');
+    expect(block).toContain('"lens"');
+    expect(block).toContain('"motion"');
+    expect(block).toContain('"mood"');
+    expect(block).toContain('ПРЕДПОЧТЕНИЕ');
+    expect(block).toContain('ИСКЛЮЧЕНИЕ');
+  });
+});
+
 describe('CHAT_SYSTEM_PROMPT (1.4.B.T4)', () => {
   it('CHAT_SYSTEM_PROMPT strips UI-coupling vocabulary', () => {
     expect(CHAT_SYSTEM_PROMPT).not.toContain('нажми');
