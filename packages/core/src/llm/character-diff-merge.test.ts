@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { applyCharacterActions } from './character-diff-merge';
 import type { Character, ScriptCharacterAction } from './types';
 
@@ -12,6 +12,17 @@ const mkChar = (id: string, name: string, archived?: boolean): Character => ({
   dossier: null,
   reference_images: [],
   ...(archived ? { archived: true } : {}),
+});
+
+const mkCharWithVoice = (
+  id: string,
+  name: string,
+  voiceId: string,
+  extra?: Partial<Character>,
+): Character => ({
+  ...mkChar(id, name),
+  voice: { tts_voice_id: voiceId, stability: 0.5 },
+  ...extra,
 });
 
 describe('applyCharacterActions', () => {
@@ -93,5 +104,85 @@ describe('applyCharacterActions', () => {
     const result = applyCharacterActions(existing, actions);
     expect(result).toHaveLength(2);
     expect(result.find((c) => c.id === 'b')?.archived).toBe(true); // archived оставлен
+  });
+});
+
+describe('applyCharacterActions — voice canary (F37)', () => {
+  it('keep action с отсутствующим voice в действии → merge сохраняет prior voice (без предупреждения)', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const prior = mkCharWithVoice('a', 'Alice', 'voice_abc');
+    const existing = [prior];
+    const actions: ScriptCharacterAction[] = [{ action: 'keep', id: 'a' }];
+    const result = applyCharacterActions(existing, actions);
+    expect(result[0]!.voice).toEqual({ tts_voice_id: 'voice_abc', stability: 0.5 });
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('keep action с тем же voice → merge сохраняет prior voice (без предупреждения)', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const prior = mkCharWithVoice('a', 'Alice', 'voice_abc');
+    const existing = [prior];
+    // Build a keep action with a matching voice block (bypass discriminated-union strictness)
+    const actions = [
+      { action: 'keep' as const, id: 'a', voice: { tts_voice_id: 'voice_abc', stability: 0.5 } },
+    ];
+    const result = applyCharacterActions(existing, actions as ScriptCharacterAction[]);
+    expect(result[0]!.voice).toEqual({ tts_voice_id: 'voice_abc', stability: 0.5 });
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('keep action с ДРУГИМ voice в действии → merge СОХРАНЯЕТ prior voice + emits console.warn', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const prior = mkCharWithVoice('a', 'Alice', 'voice_locked');
+    const existing = [prior];
+    // Grok returns a keep action with a different voice_id
+    const actions = [
+      { action: 'keep' as const, id: 'a', voice: { tts_voice_id: 'voice_different' } },
+    ];
+    const result = applyCharacterActions(existing, actions as ScriptCharacterAction[]);
+    // Prior voice must win
+    expect(result[0]!.voice).toEqual({ tts_voice_id: 'voice_locked', stability: 0.5 });
+    // Canary warning must be emitted
+    expect(warnSpy).toHaveBeenCalledOnce();
+    const warnMsg = warnSpy.mock.calls[0]![0] as string;
+    expect(warnMsg).toContain('voice_locked');
+    expect(warnMsg).toContain('voice_different');
+    expect(warnMsg).toContain('a'); // character id
+    warnSpy.mockRestore();
+  });
+
+  it('keep action с изменённым tts_voice_id → prior voice-block (включая settings) побеждает полностью', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const prior = mkCharWithVoice('a', 'Alice', 'voice_locked');
+    // prior.voice = { tts_voice_id: 'voice_locked', stability: 0.5 }
+    const existing = [prior];
+    const actions = [
+      {
+        action: 'keep' as const,
+        id: 'a',
+        voice: { tts_voice_id: 'voice_other', stability: 0.8, similarity_boost: 0.9 },
+      },
+    ];
+    const result = applyCharacterActions(existing, actions as ScriptCharacterAction[]);
+    // The entire prior voice block wins — including stability, NOT Grok's 0.8
+    expect(result[0]!.voice).toEqual({ tts_voice_id: 'voice_locked', stability: 0.5 });
+    expect(result[0]!.voice?.stability).toBe(0.5);
+    expect((result[0]!.voice as Record<string, unknown>)?.similarity_boost).toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledOnce();
+    warnSpy.mockRestore();
+  });
+
+  it('add action НЕ блокирует voice — новый персонаж получает пустой voice объект', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const existing: Character[] = [];
+    const actions: ScriptCharacterAction[] = [
+      { action: 'add', name: 'Bob', description: 'new character', appearance: {} },
+    ];
+    const result = applyCharacterActions(existing, actions);
+    expect(result[0]!.voice).toEqual({});
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });
