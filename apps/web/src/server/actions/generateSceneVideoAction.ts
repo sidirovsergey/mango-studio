@@ -28,6 +28,7 @@ type Input = z.infer<typeof InputSchema>;
 type SceneShape = {
   scene_id: string;
   description: string;
+  description_en?: string | null;
   duration_sec: number;
   dialogue: { speaker: string; text: string } | null;
   character_ids: string[];
@@ -36,6 +37,28 @@ type SceneShape = {
   first_frame_versions?: SceneAssetVersion[];
   first_frame_active_version_id?: string | null;
   config_overrides?: { tier?: Tier; model?: string };
+  // Phase 1.4.A cinematography fields (optional — older scenes may be unpopulated)
+  composition?: unknown;
+  camera_movement?: unknown;
+  lighting?: unknown;
+  audio_direction?: unknown;
+  arc_role?: unknown;
+};
+
+type CharacterShape = {
+  id: string;
+  name: string;
+  description?: string;
+  full_prompt?: string;
+};
+
+type VisualThemeShape = Record<string, unknown> | null | undefined;
+
+type ScriptShape = {
+  scenes: SceneShape[];
+  characters?: CharacterShape[];
+  visual_theme?: VisualThemeShape;
+  tier?: Tier | null;
 };
 
 export async function generateSceneVideoAction(
@@ -69,7 +92,7 @@ export async function generateSceneVideoAction(
   if (error || !project) return { ok: false, error: 'project not found' };
   if (project.user_id !== user.id) return { ok: false, error: 'forbidden' };
 
-  const script = project.script as unknown as { scenes: SceneShape[] };
+  const script = project.script as unknown as ScriptShape;
   if (!script) return { ok: false, error: 'project has no script' };
 
   const projectTier = (project.tier ?? 'economy') as Tier;
@@ -93,6 +116,7 @@ export async function generateSceneVideoAction(
   const duration_sec = clampDurationToModel(model, scene.duration_sec);
 
   // Resolve effective audio mode (drives whether silent_tts pipeline will follow).
+  // F73 fix: pass the RESOLVED audioMode to the dispatcher — not the raw scene.audio_mode.
   const modelMeta = getVideoModelMeta(model);
   const audioMode = resolveAudioMode(
     {
@@ -102,10 +126,38 @@ export async function generateSceneVideoAction(
     { has_native_audio: modelMeta?.has_native_audio ?? false },
   );
 
+  // Project characters matching this scene's character_ids to slim CharacterInScene shape.
+  const scriptCharacters = script.characters ?? [];
+  const charactersInScene = scene.character_ids
+    .map((id) => scriptCharacters.find((c) => c.id === id))
+    .filter((c): c is CharacterShape => c !== undefined)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      description: c.description ?? '',
+      full_prompt: c.full_prompt,
+    }));
+
   const built = buildVideoPrompt({
-    scene: { ...scene, duration_sec } as never,
-    first_frame_storage: activeFrame.storage,
     model,
+    scene: {
+      scene_id: scene.scene_id,
+      description: scene.description,
+      description_en: scene.description_en ?? undefined,
+      duration_sec,
+      dialogue: scene.dialogue,
+      // Phase 1.4.A cinematography fields — undefined for older scenes; dispatcher handles absence
+      composition: scene.composition as never,
+      camera_movement: scene.camera_movement as never,
+      lighting: scene.lighting as never,
+      audio_direction: scene.audio_direction as never,
+      arc_role: scene.arc_role as never,
+    },
+    first_frame_storage: activeFrame.storage,
+    audio_mode: audioMode, // F73: resolved mode, NOT scene.audio_mode
+    characters_in_scene: charactersInScene,
+    visual_theme: script.visual_theme as never,
+    tier: script.tier ?? effectiveTier,
   });
   const prompt = input.prompt_override ?? built.prompt;
   const { image_refs, aspect_ratio } = built;

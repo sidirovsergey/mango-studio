@@ -1,6 +1,8 @@
+// buildVideoPrompt is now served by the per-engine dispatcher (F65, F73, F75).
+export { buildVideoPrompt } from './video-prompts/index';
+
 import type { Dialogue } from './scene-types';
 import type { StoredAsset } from './storage/StorageProvider';
-import { getVideoModelMeta } from './video-models';
 
 const REF_LIMIT = 5;
 
@@ -67,50 +69,6 @@ export function buildFirstFramePrompt(input: FirstFramePromptInput): {
   return {
     prompt: promptParts.join('\n\n'),
     image_refs: refs,
-  };
-}
-
-interface VideoPromptInput {
-  scene: {
-    scene_id: string;
-    description: string;
-    duration_sec: number;
-    dialogue: Dialogue | null;
-  };
-  first_frame_storage: StoredAsset;
-  model: string;
-}
-
-export function buildVideoPrompt(input: VideoPromptInput): {
-  prompt: string;
-  image_refs: StoredAsset[];
-  duration_sec: number;
-  aspect_ratio: '9:16';
-} {
-  const { scene, first_frame_storage, model } = input;
-  const meta = getVideoModelMeta(model);
-  const include_dialogue = meta?.has_native_audio === true && scene.dialogue !== null;
-
-  const motionRule =
-    scene.duration_sec <= 5
-      ? 'short cinematic motion, single beat'
-      : scene.duration_sec <= 10
-        ? 'medium cinematic motion with character action'
-        : 'extended scene with multiple beats';
-
-  const promptParts = [
-    scene.description,
-    motionRule,
-    include_dialogue && scene.dialogue
-      ? `${scene.dialogue.speaker === 'narrator' ? 'Narrator' : 'Character'} says: "${scene.dialogue.text}"`
-      : '',
-  ].filter(Boolean);
-
-  return {
-    prompt: promptParts.join('\n\n'),
-    image_refs: [first_frame_storage],
-    duration_sec: scene.duration_sec,
-    aspect_ratio: '9:16',
   };
 }
 

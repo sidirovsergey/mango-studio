@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFirstFramePrompt, buildVideoPrompt, buildVoicePrompt } from './video-prompts';
+import { buildFirstFramePrompt, buildVoicePrompt } from './video-prompts';
 
 const dolphin = {
   id: 'c1',
@@ -92,40 +92,11 @@ describe('buildFirstFramePrompt', () => {
   });
 });
 
-describe('buildVideoPrompt', () => {
-  it('image-to-video prompt with single ref + duration (silent model omits dialogue)', () => {
-    const result = buildVideoPrompt({
-      scene: {
-        scene_id: 's1',
-        description: 'Дельфин машет плавником',
-        duration_sec: 8,
-        dialogue: { speaker: 'narrator', text: 'Once upon a time' },
-      },
-      first_frame_storage: { kind: 'fal_passthrough', url: 'https://fal.cdn/ff.png' },
-      model: 'fal-ai/bytedance/seedance/v1/lite/image-to-video',
-    });
-    expect(result.image_refs).toHaveLength(1);
-    expect(result.duration_sec).toBe(8);
-    expect(result.aspect_ratio).toBe('9:16');
-    expect(result.prompt).toContain('Дельфин машет');
-    // Silent model — dialogue NOT in prompt
-    expect(result.prompt).not.toContain('Once upon a time');
-  });
-
-  it('includes dialogue in prompt for native-audio model', () => {
-    const result = buildVideoPrompt({
-      scene: {
-        scene_id: 's1',
-        description: 'Дельфин говорит',
-        duration_sec: 8,
-        dialogue: { speaker: 'narrator', text: 'Hello world' },
-      },
-      first_frame_storage: { kind: 'fal_passthrough', url: 'https://fal.cdn/ff.png' },
-      model: 'bytedance/seedance-2.0/image-to-video',
-    });
-    expect(result.prompt).toContain('Hello world');
-  });
-});
+// NOTE: buildVideoPrompt tests have been removed. The function is now a re-export
+// from packages/core/src/media/video-prompts/index.ts (the per-engine dispatcher).
+// Each per-engine builder has its own thorough test suite in video-prompts/*.test.ts,
+// and the dispatcher has its own test. Testing the old declarative contract here
+// would duplicate those tests and cover a contract that no longer exists.
 
 describe('buildVoicePrompt', () => {
   it('uses character voice_id when speaker is character', () => {
