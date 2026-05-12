@@ -26,6 +26,83 @@ describe('VOICE_POOL', () => {
     expect(VOICE_POOL.some((v) => v.gender === 'male')).toBe(true);
     expect(VOICE_POOL.some((v) => v.gender === 'female')).toBe(true);
   });
+
+  it('VOICE_POOL[0] has voice_settings_default with all 4 fields as numbers', () => {
+    const vsd = VOICE_POOL[0]!.voice_settings_default;
+    expect(typeof vsd.stability).toBe('number');
+    expect(typeof vsd.similarity_boost).toBe('number');
+    expect(typeof vsd.style).toBe('number');
+    expect(typeof vsd.speed).toBe('number');
+  });
+
+  it('every pool entry has voice_settings_default', () => {
+    for (const v of VOICE_POOL) {
+      expect(v.voice_settings_default).toBeDefined();
+      expect(typeof v.voice_settings_default.stability).toBe('number');
+      expect(typeof v.voice_settings_default.similarity_boost).toBe('number');
+      expect(typeof v.voice_settings_default.style).toBe('number');
+      expect(typeof v.voice_settings_default.speed).toBe('number');
+    }
+  });
+
+  it('per-position voice_settings_default matches spec table', () => {
+    // Position 0: Rachel (narrator default)
+    expect(VOICE_POOL[0]!.voice_settings_default).toEqual({
+      stability: 0.6,
+      similarity_boost: 0.75,
+      style: 0,
+      speed: 1.0,
+    });
+    // Position 1: Adam (male neutral)
+    expect(VOICE_POOL[1]!.voice_settings_default).toEqual({
+      stability: 0.5,
+      similarity_boost: 0.75,
+      style: 0,
+      speed: 1.0,
+    });
+    // Position 2: Domi (female young)
+    expect(VOICE_POOL[2]!.voice_settings_default).toEqual({
+      stability: 0.4,
+      similarity_boost: 0.7,
+      style: 0,
+      speed: 1.0,
+    });
+    // Position 3: Bella (female soft)
+    expect(VOICE_POOL[3]!.voice_settings_default).toEqual({
+      stability: 0.55,
+      similarity_boost: 0.75,
+      style: 0,
+      speed: 0.95,
+    });
+    // Position 4: Antoni (male warm)
+    expect(VOICE_POOL[4]!.voice_settings_default).toEqual({
+      stability: 0.5,
+      similarity_boost: 0.75,
+      style: 0,
+      speed: 1.0,
+    });
+    // Position 5: Arnold (male serious)
+    expect(VOICE_POOL[5]!.voice_settings_default).toEqual({
+      stability: 0.55,
+      similarity_boost: 0.75,
+      style: 0,
+      speed: 0.95,
+    });
+  });
+
+  it('all voice_settings_default values are within ElevenLabs valid ranges', () => {
+    for (const v of VOICE_POOL) {
+      const { stability, similarity_boost, style, speed } = v.voice_settings_default;
+      expect(stability).toBeGreaterThanOrEqual(0);
+      expect(stability).toBeLessThanOrEqual(1);
+      expect(similarity_boost).toBeGreaterThanOrEqual(0);
+      expect(similarity_boost).toBeLessThanOrEqual(1);
+      expect(style).toBeGreaterThanOrEqual(0);
+      expect(style).toBeLessThanOrEqual(1);
+      expect(speed).toBeGreaterThanOrEqual(0.7);
+      expect(speed).toBeLessThanOrEqual(1.2);
+    }
+  });
 });
 
 describe('getVoiceById', () => {

@@ -1,9 +1,17 @@
+export type VoiceSettingsDefault = {
+  stability: number;
+  similarity_boost: number;
+  style: number;
+  speed: number;
+};
+
 export type VoiceOption = {
   id: string;
   label: string;
   gender: 'male' | 'female' | 'other';
   tone: string;
   supports_ru: boolean;
+  voice_settings_default: VoiceSettingsDefault;
 };
 
 /**
@@ -12,6 +20,9 @@ export type VoiceOption = {
  * verify with `GET /v1/voices?category=premade` and a TTS sandbox
  * test on a Russian sample before swapping ids.
  */
+// voice_settings_default — narrator gets higher stability (0.6) for podcast-like consistency;
+// young/expressive voices use lower stability (0.4) for emotional range. style=0 keeps native
+// voice character (no amplification). speed 0.95 for soft/serious voices is a subtle slowdown.
 export const VOICE_POOL: VoiceOption[] = [
   {
     id: '21m00Tcm4TlvDq8ikWAM',
@@ -19,6 +30,7 @@ export const VOICE_POOL: VoiceOption[] = [
     gender: 'female',
     tone: 'нейтральный',
     supports_ru: true,
+    voice_settings_default: { stability: 0.6, similarity_boost: 0.75, style: 0, speed: 1.0 },
   },
   {
     id: 'pNInz6obpgDQGcFmaJgB',
@@ -26,6 +38,7 @@ export const VOICE_POOL: VoiceOption[] = [
     gender: 'male',
     tone: 'нейтральный',
     supports_ru: true,
+    voice_settings_default: { stability: 0.5, similarity_boost: 0.75, style: 0, speed: 1.0 },
   },
   {
     id: 'AZnzlk1XvdvUeBnXmlld',
@@ -33,6 +46,7 @@ export const VOICE_POOL: VoiceOption[] = [
     gender: 'female',
     tone: 'молодой',
     supports_ru: true,
+    voice_settings_default: { stability: 0.4, similarity_boost: 0.7, style: 0, speed: 1.0 },
   },
   {
     id: 'EXAVITQu4vr4xnSDxMaL',
@@ -40,6 +54,7 @@ export const VOICE_POOL: VoiceOption[] = [
     gender: 'female',
     tone: 'мягкий',
     supports_ru: true,
+    voice_settings_default: { stability: 0.55, similarity_boost: 0.75, style: 0, speed: 0.95 },
   },
   {
     id: 'ErXwobaYiN019PkySvjV',
@@ -47,6 +62,7 @@ export const VOICE_POOL: VoiceOption[] = [
     gender: 'male',
     tone: 'тёплый',
     supports_ru: true,
+    voice_settings_default: { stability: 0.5, similarity_boost: 0.75, style: 0, speed: 1.0 },
   },
   {
     id: 'VR6AewLTigWG4xSOukaG',
@@ -54,6 +70,7 @@ export const VOICE_POOL: VoiceOption[] = [
     gender: 'male',
     tone: 'серьёзный',
     supports_ru: true,
+    voice_settings_default: { stability: 0.55, similarity_boost: 0.75, style: 0, speed: 0.95 },
   },
 ];
 
