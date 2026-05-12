@@ -49,7 +49,7 @@ export const SceneSchema = z.preprocess(
     description_ru: z.string(),
     description_en: z.string().nullable().default(null),
     duration_sec: z.number().int().min(1).max(30),
-    dialogue: DialogueSchema.nullable(),
+    dialogue: DialogueSchema.nullable().default(null),
     character_ids: z.array(z.string()).default([]),
     composition: CompositionSchema.nullable().default(null),
     camera_movement: CameraMovementSchema.nullable().default(null),

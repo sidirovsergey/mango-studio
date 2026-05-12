@@ -113,8 +113,37 @@ export class OpenRouterLLMProvider implements LLMProvider {
         },
       });
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new SyntaxError('No JSON object found in LLM response');
-      const object = ScriptGenSchema.parse(JSON.parse(jsonMatch[0]));
+      if (!jsonMatch) {
+        console.error(
+          '[ORL.script] no JSON object in response. Raw text head:',
+          text.slice(0, 600),
+        );
+        throw new SyntaxError('No JSON object found in LLM response');
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch (jsonErr) {
+        console.error(
+          '[ORL.script] JSON.parse failed. Raw text head:',
+          text.slice(0, 600),
+          'tail:',
+          text.slice(-400),
+        );
+        throw jsonErr;
+      }
+      let object: ReturnType<typeof ScriptGenSchema.parse>;
+      try {
+        object = ScriptGenSchema.parse(parsed);
+      } catch (zodErr) {
+        // Surface the actual JSON shape that failed schema validation — invaluable
+        // when LLM drifts from the prompt's output_schema.
+        console.error(
+          '[ORL.script] schema validation failed. LLM JSON (truncated):',
+          JSON.stringify(parsed).slice(0, 1500),
+        );
+        throw zodErr;
+      }
       const llmUsage = await this.buildUsage(params.model, usage, start);
       // NOTE: ScriptGenOutput legacy interface still has `master_clip` field; new schema replaces it
       // with master_clip_versions/active_id. Sub-phase C reconciles consumer interfaces.
