@@ -185,6 +185,29 @@ describe('buildLtxPrompt — dialogue rendering', () => {
     const out = buildLtxPrompt(input);
     expect(out.prompt).not.toContain('Dialogue:');
   });
+
+  // 10. auto + English ASCII dialogue → dialogue rendered with em-dash U+2014
+  it('renders English dialogue with em-dash U+2014 in auto mode', () => {
+    const out = buildLtxPrompt(makeInput({ audio_mode: 'auto' }));
+    // scene has dialogue: { speaker: 'Cat', text: 'I see you.' }
+    expect(out.prompt).toContain('Dialogue:');
+    expect(out.prompt).toContain('—'); // em-dash U+2014
+    expect(out.prompt).toContain('Cat');
+    expect(out.prompt).toContain('I see you.');
+  });
+
+  // 11. auto + Cyrillic dialogue → no dialogue line (Cyrillic gate applies under auto)
+  it('skips dialogue when text is Cyrillic (auto mode)', () => {
+    const input = makeInput({
+      audio_mode: 'auto',
+      scene: {
+        ...fullScene8s,
+        dialogue: { speaker: 'Кот', text: 'Я вижу тебя.' },
+      },
+    });
+    const out = buildLtxPrompt(input);
+    expect(out.prompt).not.toContain('Dialogue:');
+  });
 });
 
 // ---------------------------------------------------------------------------

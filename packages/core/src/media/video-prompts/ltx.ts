@@ -85,9 +85,10 @@ function buildAudioSection(input: VideoPromptInput): string {
 
   let audioLine = `Audio: ${parts.join('. ')}`;
 
-  // Append dialogue only for native mode + non-Cyrillic dialogue
+  // Append dialogue only for native/auto mode + non-Cyrillic dialogue.
+  // auto is treated as native — upstream resolveAudioMode normally resolves, but defensive.
   if (
-    audio_mode === 'native' &&
+    (audio_mode === 'native' || audio_mode === 'auto') &&
     scene.dialogue !== null &&
     scene.dialogue !== undefined &&
     !hasCyrillic(scene.dialogue.text)
