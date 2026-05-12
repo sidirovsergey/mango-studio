@@ -107,7 +107,13 @@ describe('resolveVoiceSettings', () => {
       id: 'c1',
       name: 'Alice',
       voice_id: VOICE_POOL[1]!.id, // Adam
-      voice: { tts_voice_id: VOICE_POOL[1]!.id, stability: 0.3, similarity_boost: 0.5, style: 0.1, speed: 1.2 },
+      voice: {
+        tts_voice_id: VOICE_POOL[1]!.id,
+        stability: 0.3,
+        similarity_boost: 0.5,
+        style: 0.1,
+        speed: 1.2,
+      },
     },
     {
       id: 'c2',
@@ -154,7 +160,12 @@ describe('resolveVoiceSettings', () => {
 
   it('falls back to narrator-default constant when character voice_id not in pool', () => {
     const unknownChars = [
-      { id: 'cx', name: 'X', voice_id: 'custom-not-in-pool', voice: { tts_voice_id: 'custom-not-in-pool' } },
+      {
+        id: 'cx',
+        name: 'X',
+        voice_id: 'custom-not-in-pool',
+        voice: { tts_voice_id: 'custom-not-in-pool' },
+      },
     ] as never;
     const result = resolveVoiceSettings('cx', unknownChars, null);
     expect(result).toEqual(FALLBACK);

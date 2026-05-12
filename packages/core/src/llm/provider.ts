@@ -1,3 +1,4 @@
+import type { VisualTheme } from '../media/cinematography-schemas';
 import type {
   Dialogue,
   FirstFrameSource,
@@ -6,7 +7,6 @@ import type {
   SceneVideoAsset,
   VoiceAsset,
 } from '../media/scene-types';
-import type { VisualTheme } from '../media/cinematography-schemas';
 import type { AspectRatio, StyleName } from '../prompt/types';
 import type { Character } from './types';
 

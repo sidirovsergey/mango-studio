@@ -1,14 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  ShotSizeSchema,
-  CameraAngleSchema,
-  CompositionSchema,
-  CameraMovementSchema,
-  LightingSchema,
-  AudioDirectionSchema,
-  ArcRoleSchema,
-  VisualThemeSchema,
-} from './cinematography-schemas';
+import { ArcRoleSchema, CompositionSchema, VisualThemeSchema } from './cinematography-schemas';
 
 describe('cinematography-schemas', () => {
   it('parses a valid Composition', () => {

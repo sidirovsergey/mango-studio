@@ -1,6 +1,14 @@
 import 'server-only';
 import { z } from 'zod';
 import {
+  ArcRoleSchema,
+  AudioDirectionSchema,
+  CameraMovementSchema,
+  CompositionSchema,
+  LightingSchema,
+  VisualThemeSchema,
+} from '../media/cinematography-schemas';
+import {
   AudioModeSchema,
   DialogueSchema,
   FirstFrameSourceSchema,
@@ -8,14 +16,6 @@ import {
   SceneAssetVersionSchema,
   StoredAssetSchema,
 } from '../media/scene-types';
-import {
-  CompositionSchema,
-  CameraMovementSchema,
-  LightingSchema,
-  AudioDirectionSchema,
-  ArcRoleSchema,
-  VisualThemeSchema,
-} from '../media/cinematography-schemas';
 import { ScriptCharacterActionSchema } from './types';
 
 export const SceneSchema = z.preprocess(
@@ -26,8 +26,12 @@ export const SceneSchema = z.preprocess(
       if ('description' in obj && !('description_ru' in obj)) {
         obj.description_ru = (obj as { description: string }).description;
       }
-      // F57: composition_hint is dead — strip it so old DB rows parse cleanly
-      delete obj.composition_hint;
+      // F57: composition_hint is dead — strip it so old DB rows parse cleanly.
+      // Using undefined assignment instead of `delete` (biome lint/performance/noDelete);
+      // Zod's `.strip()` (default) drops undefined fields on parse, equivalent semantics.
+      if ('composition_hint' in obj) {
+        (obj as Record<string, unknown>).composition_hint = undefined;
+      }
       return obj;
     }
     return raw;
@@ -106,7 +110,9 @@ export const ScriptGenSchema = z.object({
     .array(SceneSchema)
     .min(2)
     .max(20)
-    .describe('2-20 сцен, в сумме укладывающихся в target_duration_sec (cadence: 15s→3, 30s→6, 60s→10-12, 90s→14-18)'),
+    .describe(
+      '2-20 сцен, в сумме укладывающихся в target_duration_sec (cadence: 15s→3, 30s→6, 60s→10-12, 90s→14-18)',
+    ),
   characters: z
     .array(ScriptCharacterActionSchema)
     .min(1)

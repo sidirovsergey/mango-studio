@@ -70,15 +70,7 @@ export const AudioDirectionSchema = z.object({
 });
 export type AudioDirection = z.infer<typeof AudioDirectionSchema>;
 
-export const ArcRoleSchema = z.enum([
-  'hook',
-  'setup',
-  'rising',
-  'climax',
-  'payoff',
-  'cta',
-  'beat',
-]);
+export const ArcRoleSchema = z.enum(['hook', 'setup', 'rising', 'climax', 'payoff', 'cta', 'beat']);
 export type ArcRole = z.infer<typeof ArcRoleSchema>;
 
 export const VisualThemeSchema = z.object({
