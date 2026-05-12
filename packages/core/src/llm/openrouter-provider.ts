@@ -137,11 +137,18 @@ export class OpenRouterLLMProvider implements LLMProvider {
         object = ScriptGenSchema.parse(parsed);
       } catch (zodErr) {
         // Surface the actual JSON shape that failed schema validation — invaluable
-        // when LLM drifts from the prompt's output_schema.
-        console.error(
-          '[ORL.script] schema validation failed. LLM JSON (truncated):',
-          JSON.stringify(parsed).slice(0, 1500),
-        );
+        // when LLM drifts from the prompt's output_schema. Emit per-issue lines
+        // with the PATH front-loaded so Vercel log table preview shows the field
+        // name even when the rest gets truncated.
+        const zErr = zodErr as {
+          issues?: Array<{ path?: unknown[]; message?: string; code?: string }>;
+        };
+        const issues = Array.isArray(zErr?.issues) ? zErr.issues : [];
+        for (const issue of issues.slice(0, 5)) {
+          const path = Array.isArray(issue.path) ? issue.path.join('.') : String(issue.path ?? '');
+          console.error(`[ORL.script.zod] PATH=${path} CODE=${issue.code} MSG=${issue.message}`);
+        }
+        console.error('[ORL.script.json] LLM JSON head:', JSON.stringify(parsed).slice(0, 5000));
         throw zodErr;
       }
       const llmUsage = await this.buildUsage(params.model, usage, start);
