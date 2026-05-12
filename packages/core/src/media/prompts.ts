@@ -1,8 +1,9 @@
-type Style = '3d_pixar' | '2d_drawn' | 'clay_art';
+export type Style = '3d_pixar' | '2d_drawn' | 'clay_art';
 
-interface CharacterForPrompt {
+export interface CharacterForPrompt {
   name: string;
   description: string;
+  full_prompt?: string;
   appearance: {
     age?: string;
     build?: string;
