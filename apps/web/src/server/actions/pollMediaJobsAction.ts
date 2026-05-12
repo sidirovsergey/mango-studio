@@ -393,7 +393,10 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
               if (character.dossier) {
                 updated.dossier = { ...character.dossier, reference_image: stored };
               }
-              // If dossier hasn't landed yet (rare race), silently drop — T3 will retry.
+              // If character.dossier hasn't landed yet, drop the write. The dossier→reference_image chain
+              // in T3 guarantees ordering when triggered automatically; this branch only fires on a manual
+              // invocation race, which currently has no recovery path. If this becomes a real issue,
+              // emit a retry job or queue the asset until dossier arrives.
             }
             const newCharacters = [...characters];
             newCharacters[idx] = updated;
