@@ -11,6 +11,7 @@ import {
   getVideoModelMeta,
   resolveAudioMode,
   resolveVoiceId,
+  resolveVoiceSettings,
 } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
@@ -33,7 +34,14 @@ type SceneShape = {
 type ScriptShape = {
   scenes: SceneShape[];
   characters: Character[];
-  narrator_voice?: { tts_voice_id: string; description?: string };
+  narrator_voice?: {
+    tts_voice_id: string;
+    description?: string;
+    stability?: number;
+    similarity_boost?: number;
+    style?: number;
+    speed?: number;
+  };
 };
 
 export async function generateSceneVoiceAction(
@@ -99,6 +107,13 @@ export async function generateSceneVoiceAction(
     script.narrator_voice ?? null,
   );
 
+  // Resolve voice settings (character override → narrator override → pool default → narrator-default).
+  const voiceSettings = resolveVoiceSettings(
+    scene.dialogue.speaker,
+    script.characters ?? [],
+    script.narrator_voice ?? null,
+  );
+
   const tts_model = getDefaultVoiceModel(effectiveTier);
 
   const provider = getMediaProvider();
@@ -108,6 +123,7 @@ export async function generateSceneVoiceAction(
     {
       text: scene.dialogue.text,
       voice_id: voiceId,
+      voice_settings: voiceSettings,
       tts_provider_model: tts_model,
     },
     ctx,

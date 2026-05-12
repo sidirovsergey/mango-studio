@@ -132,10 +132,13 @@ export * from './media/scene-versions';
 export {
   resolveAudioMode,
   resolveVoiceId,
+  resolveVoiceSettings,
   type SceneForAudio,
   type VideoModelMetaForAudio,
   type NarratorVoiceLike,
+  type NarratorVoiceWithSettings,
 } from './media/audio-mode';
+export type { VoiceSettingsDefault } from './media/voices';
 
 export {
   ShotSizeSchema,

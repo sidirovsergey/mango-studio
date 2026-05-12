@@ -1,4 +1,5 @@
 import type { AssetContext, StoredAsset } from './storage/StorageProvider';
+import type { VoiceSettingsDefault } from './voices';
 export type { AssetContext } from './storage/StorageProvider';
 
 export type DossierFormat = '16:9' | '1:1';
@@ -69,6 +70,8 @@ export interface GenerateVoiceInput {
   text: string;
   voice_id: string;
   tts_provider_model: string;
+  /** Per-voice stability/similarity/style/speed settings forwarded to ElevenLabs. */
+  voice_settings?: VoiceSettingsDefault;
 }
 
 // === Video + audio mux ===

@@ -195,6 +195,7 @@ export class FalMediaProvider implements MediaProvider {
     return this.submit(input.tts_provider_model, {
       text: input.text,
       voice: input.voice_id,
+      ...(input.voice_settings ? { voice_settings: input.voice_settings } : {}),
     });
   }
 
