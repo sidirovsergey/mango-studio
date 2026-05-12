@@ -1,0 +1,10 @@
+Single-pose character design reference for Марина.
+
+Style: 2D рисованная иллюстрация, чистая обводка, плоская заливка цветом, выразительные пропорции, акцентные блики, без шейдинга и текстур. Образец стиля: Studio Ghibli «Мой сосед Тоторо» / «Принцесса Мононоке» — выразительный контур, сдержанная палитра, плавные линии.
+
+Character: Женщина лет тридцати пяти, тёмные волосы, серые глаза, спокойный взгляд.
+Appearance details: woman mid-thirties, dark brown hair, grey eyes, calm expression, warm interior lighting
+
+OUTPUT FORMAT — single 1:1 square image. One character, full-body or 3/4 view, hands visible. Neutral A-pose or relaxed standing pose. Centered in frame with even spacing on all sides. Pure white background, no shadow on background. No environment, no props beyond the character's intrinsic costume.
+
+Avoid: text in image, panels, captions, multiple views, side-by-side poses, watermarks, signature, color swatches, design notes, multiple characters.

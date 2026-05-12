@@ -1,0 +1,10 @@
+Single-pose character design reference for Чёрная.
+
+Style: Скульптура из пластилина (clay-art стиль), видимая текстура материала, мягкие округлые формы, лёгкие отпечатки пальцев на поверхности, тёплое студийное освещение. Образец стиля: Aardman «Уоллес и Громит» / «Побег из курятника» — фактурная поверхность пластилина, сочные цвета, характерная мягкая деформация форм.
+
+Character: Иссиня-чёрная ворона с умными фиолетовыми глазами и хриплым голосом.
+Appearance details: black crow, iridescent blue-black feathers, intelligent violet eyes, perched on moss-covered log in dappled forest light
+
+OUTPUT FORMAT — single 1:1 square image. One character, full-body or 3/4 view, hands visible. Neutral A-pose or relaxed standing pose. Centered in frame with even spacing on all sides. Pure white background, no shadow on background. No environment, no props beyond the character's intrinsic costume.
+
+Avoid: text in image, panels, captions, multiple views, side-by-side poses, watermarks, signature, color swatches, design notes, multiple characters.

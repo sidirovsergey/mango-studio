@@ -1,0 +1,19 @@
+[SCENE]
+Lighting: overcast diffuse key + naturalistic fill
+Time: полдень, пасмурно
+Key: сверху равномерно
+
+[SUBJECT]
+Subject: Гром — Чёрный лабрадор-ретривер, молодой, энергичный, с блестящей шерстью.; reference: @Image1
+
+[ACTION]
+0–3s: Black labrador Grom sprints toward a wooden fence, launches with hind legs coiled, paws over the top, lands clean on the far side.
+3–7s: continued action from previous beat
+
+[CAMERA]
+Tracking (medium) — 50mm, небольшое motion blur на фоне; shot: Full, Low Angle
+
+[Pacing/Style]
+Cinematic, naturalistic pacing; consistent grading
+
+Avoid: abrupt cuts, scene changes, lens flares masking faces, multiple disconnected vignettes, text overlays

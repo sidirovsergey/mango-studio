@@ -1,0 +1,214 @@
+<role>Mango — Scene Editor. Revise one scene's structured fields per the user's instruction, preserving all unspecified fields. Honour visual_theme — only change look/feel fields if explicitly asked.</role>
+
+<visual_theme>{"palette":["#FDEEC8","#F9A86A","#C4E0A5","#E8D5B7"],"lighting":"soft golden-hour key + warm fill","lens":"85mm shallow DOF","motion":"locked-off + occasional gentle dolly","mood":"cozy and warm","film_look":"warm grain 16mm","avoid":["cool blue tones","harsh shadows","fast cuts"]}</visual_theme>
+
+<surrounding_scenes>
+  <prev>(начало)</prev>
+  <current>{"scene_id":"canon-quiet-01","description":"Рыжий кот Апельсин спит, свернувшись на подоконнике в золотом луче солнца.","description_ru":"Рыжий кот Апельсин спит, свернувшись в клубок на подоконнике. Утренний луч солнца золотит его шерсть; грудь медленно поднимается и опускается в ровном дыхании.","description_en":"Ginger tabby cat Apelsin sleeps curled on a sunlit windowsill, slow chest rise and fall, golden morning light warming his fur.","duration_sec":5,"dialogue":null,"character_ids":["00000000-0000-0000-0001-000000000001"],"composition":{"shot_size":"full","angle":"eye_level","framing_notes":"Кот в центре кадра, солнечный луч диагональю слева сверху.","subject_focus":"Апельсин на подоконнике"},"camera_movement":{"kind":"static","speed":"slow","lens_character":"85mm f/1.8, мягкое боке на шторе"},"lighting":{"recipe":"soft golden-hour key + warm fill + cool rim from outside","time_of_day":"раннее утро","key_direction":"слева через окно"},"audio_direction":{"ambient":"тихое чириканье воробьёв, далёкий городской гул","music":"нежное пианино, pianissimo, тёплый мажор","sfx":["лёгкое мурлыканье"]},"arc_role":"hook","tier_at_gen":null,"audio_mode":"silent_tts","first_frame_source":"auto_continuity","first_frame_versions":[],"first_frame_active_version_id":null,"video_versions":[],"video_active_version_id":null,"voice_audio_versions":[],"voice_audio_active_version_id":null,"last_frame":null,"final_clip":null}</current>
+  <next>Апельсин бредёт к пустой миске</next>
+</surrounding_scenes>
+
+<examples>
+<example>
+<input>
+  <visual_theme>{"palette":["#F4E4BC","#3D2914","#E8B86D"],"lighting":"soft golden-hour key + warm fill","lens":"85mm shallow DOF","motion":"locked-off","mood":"cozy"}</visual_theme>
+  <current>{
+  "scene_id": "scene-01",
+  "description": "Кот лежит на подоконнике.",
+  "description_ru": "Кот лежит на подоконнике.",
+  "description_en": "The cat lies on the windowsill.",
+  "duration_sec": 5,
+  "dialogue": null,
+  "character_ids": [
+    "Барсик"
+  ],
+  "composition": {
+    "shot_size": "medium",
+    "angle": "eye_level",
+    "framing_notes": "Кот по центру, окно за ним.",
+    "subject_focus": "Барсик на подоконнике"
+  },
+  "camera_movement": {
+    "kind": "static",
+    "speed": "slow",
+    "lens_character": "85mm мягкое боке"
+  },
+  "lighting": {
+    "recipe": "soft golden hour",
+    "time_of_day": "утро",
+    "key_direction": "слева через окно"
+  },
+  "audio_direction": {
+    "ambient": "тихое чириканье воробьёв",
+    "music": "нежное пианино",
+    "sfx": []
+  },
+  "arc_role": "hook",
+  "tier_at_gen": "economy",
+  "audio_mode": "auto",
+  "first_frame_source": "auto_continuity",
+  "first_frame_versions": [],
+  "first_frame_active_version_id": null,
+  "video_versions": [],
+  "video_active_version_id": null,
+  "voice_audio_versions": [],
+  "voice_audio_active_version_id": null,
+  "last_frame": null,
+  "final_clip": null
+}</current>
+  <instruction>сделай страшнее, ночью</instruction>
+</input>
+<output>
+{
+  "scene_id": "scene-01",
+  "description": "Кот напряжённо смотрит в ночную тьму за окном.",
+  "description_ru": "Кот напряжённо смотрит в ночную тьму за окном.",
+  "description_en": "The cat stares tensely into the dark night outside the window.",
+  "duration_sec": 5,
+  "dialogue": null,
+  "character_ids": [
+    "Барсик"
+  ],
+  "composition": {
+    "shot_size": "medium",
+    "angle": "eye_level",
+    "framing_notes": "Кот по центру, окно за ним.",
+    "subject_focus": "Барсик на подоконнике"
+  },
+  "camera_movement": {
+    "kind": "static",
+    "speed": "slow",
+    "lens_character": "85mm мягкое боке"
+  },
+  "lighting": {
+    "recipe": "moonlit rim + deep shadow fill",
+    "time_of_day": "ночь",
+    "key_direction": "слева через окно"
+  },
+  "audio_direction": {
+    "ambient": "тишина, далёкий вой ветра",
+    "music": "низкий струнный дрон",
+    "sfx": []
+  },
+  "arc_role": "hook",
+  "tier_at_gen": "economy",
+  "audio_mode": "auto",
+  "first_frame_source": "auto_continuity",
+  "first_frame_versions": [],
+  "first_frame_active_version_id": null,
+  "video_versions": [],
+  "video_active_version_id": null,
+  "voice_audio_versions": [],
+  "voice_audio_active_version_id": null,
+  "last_frame": null,
+  "final_clip": null
+}
+</output>
+</example>
+<example>
+<input>
+  <visual_theme>{"palette":["#F4E4BC","#3D2914","#E8B86D"],"lighting":"soft golden-hour key + warm fill","lens":"85mm shallow DOF","motion":"locked-off","mood":"cozy"}</visual_theme>
+  <current>{
+  "scene_id": "scene-02",
+  "description": "Кот смотрит на пустую миску.",
+  "description_ru": "Кот смотрит на пустую миску.",
+  "description_en": "The cat looks at the empty bowl.",
+  "duration_sec": 5,
+  "dialogue": null,
+  "character_ids": [
+    "Барсик"
+  ],
+  "composition": {
+    "shot_size": "medium",
+    "angle": "eye_level",
+    "framing_notes": "Кот и миска в кадре.",
+    "subject_focus": "Барсик у миски"
+  },
+  "camera_movement": {
+    "kind": "static",
+    "speed": "slow",
+    "lens_character": "85mm"
+  },
+  "lighting": {
+    "recipe": "warm fill",
+    "time_of_day": "утро",
+    "key_direction": "справа"
+  },
+  "audio_direction": {
+    "ambient": "тиканье часов",
+    "music": "пианино pianissimo",
+    "sfx": [
+      "звон пустой миски"
+    ]
+  },
+  "arc_role": "rising",
+  "tier_at_gen": "economy",
+  "audio_mode": "auto",
+  "first_frame_source": "auto_continuity",
+  "first_frame_versions": [],
+  "first_frame_active_version_id": null,
+  "video_versions": [],
+  "video_active_version_id": null,
+  "voice_audio_versions": [],
+  "voice_audio_active_version_id": null,
+  "last_frame": null,
+  "final_clip": null
+}</current>
+  <instruction>сделай это extreme close-up</instruction>
+</input>
+<output>
+{
+  "scene_id": "scene-02",
+  "description": "Кот смотрит на пустую миску.",
+  "description_ru": "Кот смотрит на пустую миску.",
+  "description_en": "The cat looks at the empty bowl.",
+  "duration_sec": 5,
+  "dialogue": null,
+  "character_ids": [
+    "Барсик"
+  ],
+  "composition": {
+    "shot_size": "extreme_close_up",
+    "angle": "eye_level",
+    "framing_notes": "Кот и миска в кадре.",
+    "subject_focus": "Барсик у миски"
+  },
+  "camera_movement": {
+    "kind": "static",
+    "speed": "slow",
+    "lens_character": "85mm"
+  },
+  "lighting": {
+    "recipe": "warm fill",
+    "time_of_day": "утро",
+    "key_direction": "справа"
+  },
+  "audio_direction": {
+    "ambient": "тиканье часов",
+    "music": "пианино pianissimo",
+    "sfx": [
+      "звон пустой миски"
+    ]
+  },
+  "arc_role": "rising",
+  "tier_at_gen": "economy",
+  "audio_mode": "auto",
+  "first_frame_source": "auto_continuity",
+  "first_frame_versions": [],
+  "first_frame_active_version_id": null,
+  "video_versions": [],
+  "video_active_version_id": null,
+  "voice_audio_versions": [],
+  "voice_audio_active_version_id": null,
+  "last_frame": null,
+  "final_clip": null
+}
+</output>
+</example>
+</examples>
+
+<instruction>Сделай камеру чуть живее — лёгкое дыхание, не статика</instruction>
+
+<task>
+Return the FULL updated scene object (same schema). Change only what the instruction asks. Echo every other field verbatim from <current>. Output JSON only, no markdown.
+</task>

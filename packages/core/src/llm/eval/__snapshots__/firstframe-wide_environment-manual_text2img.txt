@@ -1,0 +1,15 @@
+3D Pixar-style CGI render, soft volumetric lighting, expressive eyes, stylized proportions, detailed textures.
+
+OUTPUT FORMAT — single cinematic frame, 9:16 vertical aspect ratio, full bleed, no borders.
+
+Composition: Extreme Wide shot, High Angle angle. Framing: Скала занимает левые две трети, горизонт в верхней трети, море у основания.. Subject focus: утёс и рассветный горизонт.
+
+Camera: Crane Up (slow), 24mm wide, лёгкая дисторсия по краям.
+
+Lighting: cool blue-magenta dawn key + soft fill from overcast horizon. Time of day: рассвет, 5:30 утра. Key direction: справа сверху, горизонт.
+
+Subject as established in the reference image.
+
+Coastal cliff jagged with basalt columns, sea below in slow rolling swells, magenta dawn light catching the cliff tops, no human presence.
+
+Avoid: text in image, panels, captions, multiple views, watermarks, signature, color swatches, design notes.

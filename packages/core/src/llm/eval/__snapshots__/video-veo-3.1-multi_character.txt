@@ -1,0 +1,16 @@
+[Cinematography]
+Orbit, slow, 50mm, мягкое боке на листве lens, 24fps cinematic.
+
+[Subject]
+Руслан — Рыжий лис с пушистым хвостом и острыми ушами. Хитрый, но добродушный.; Чёрная — Иссиня-чёрная ворона с умными фиолетовыми глазами и хриплым голосом.; @Image1.
+
+[Action]
+Red fox and black crow face each other on a moss-covered log, fox tilts head, crow ruffles feathers, light leaks through canopy.
+
+[Context]
+dappled forest key — sun patches through canopy + cool shadow fill, полдень, лес.
+
+[Style]
+Cinematic, naturalistic pacing; consistent grading.
+
+Avoid: abrupt cuts, scene changes, lens flares masking faces, multiple disconnected vignettes, text overlays

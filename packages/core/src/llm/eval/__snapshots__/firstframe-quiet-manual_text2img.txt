@@ -1,0 +1,15 @@
+3D Pixar-style CGI render, soft volumetric lighting, expressive eyes, stylized proportions, detailed textures.
+
+OUTPUT FORMAT — single cinematic frame, 9:16 vertical aspect ratio, full bleed, no borders.
+
+Composition: Full shot, Eye Level angle. Framing: Кот в центре кадра, солнечный луч диагональю слева сверху.. Subject focus: Апельсин на подоконнике.
+
+Camera: Static (slow), 85mm f/1.8, мягкое боке на шторе.
+
+Lighting: soft golden-hour key + warm fill + cool rim from outside. Time of day: раннее утро. Key direction: слева через окно.
+
+Character in shot: Апельсин — Рыжий полосатый кот с большими зелёными глазами. Ленивый, любит солнечные пятна.. Reference image attached.
+
+Ginger tabby cat Apelsin sleeps curled on a sunlit windowsill, slow chest rise and fall, golden morning light warming his fur.
+
+Avoid: text in image, panels, captions, multiple views, watermarks, signature, color swatches, design notes.

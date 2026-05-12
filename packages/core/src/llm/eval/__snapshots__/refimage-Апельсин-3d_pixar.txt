@@ -1,0 +1,10 @@
+Single-pose character design reference for Апельсин.
+
+Style: 3D Pixar-style CGI рендер, мягкое объёмное освещение, выразительные глаза, мультяшные пропорции, проработанные текстуры. Образец стиля: Pixar «Coco» / «Soul» / «Encanto» — насыщенная палитра, мягкий объёмный контровой свет, большие выразительные глаза, субповерхностное рассеивание на коже.
+
+Character: Рыжий полосатый кот с большими зелёными глазами. Ленивый, любит солнечные пятна.
+Appearance details: ginger tabby cat, bright orange fur with dark stripes, large green eyes, plump fluffy build, white paws
+
+OUTPUT FORMAT — single 1:1 square image. One character, full-body or 3/4 view, hands visible. Neutral A-pose or relaxed standing pose. Centered in frame with even spacing on all sides. Pure white background, no shadow on background. No environment, no props beyond the character's intrinsic costume.
+
+Avoid: text in image, panels, captions, multiple views, side-by-side poses, watermarks, signature, color swatches, design notes, multiple characters.

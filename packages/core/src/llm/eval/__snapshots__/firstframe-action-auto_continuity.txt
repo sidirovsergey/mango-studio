@@ -1,0 +1,15 @@
+3D Pixar-style CGI render, soft volumetric lighting, expressive eyes, stylized proportions, detailed textures.
+
+OUTPUT FORMAT — single cinematic frame, 9:16 vertical aspect ratio, full bleed, no borders.
+
+Composition: Full shot, Low Angle angle. Framing: Угол снизу подчёркивает мощь прыжка; забор как горизонтальная преграда.. Subject focus: Гром в прыжке над забором.
+
+Camera: Tracking (medium), 50mm, небольшое motion blur на фоне.
+
+Lighting: overcast diffuse key + naturalistic fill. Time of day: полдень, пасмурно. Key direction: сверху равномерно.
+
+Character in shot: Гром — Чёрный лабрадор-ретривер, молодой, энергичный, с блестящей шерстью.. Reference image attached.
+
+Black labrador Grom sprints toward a wooden fence, launches with hind legs coiled, paws over the top, lands clean on the far side.
+
+Avoid: text in image, panels, captions, multiple views, watermarks, signature, color swatches, design notes.
