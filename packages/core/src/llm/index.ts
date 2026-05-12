@@ -23,7 +23,7 @@ export { LLMProviderError, classifyLLMError } from './errors';
 export { getModelParams } from './config';
 export type { LLMTask, ModelParams } from './config';
 export { buildDirectorSystemPrompt, buildScriptPrompt } from './prompts';
-export type { BuildScriptPromptContext } from './prompts';
+export type { BuildScriptPromptContext, DirectorContext } from './prompts';
 export type {
   ToolChip,
   ToolChipKind,

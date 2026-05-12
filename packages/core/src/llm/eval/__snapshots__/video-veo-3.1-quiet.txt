@@ -1,0 +1,16 @@
+[Cinematography]
+Static, slow, 85mm f/1.8, мягкое боке на шторе lens, 24fps cinematic.
+
+[Subject]
+Апельсин — Рыжий полосатый кот с большими зелёными глазами. Ленивый, любит солнечные пятна.; @Image1.
+
+[Action]
+Ginger tabby cat Apelsin sleeps curled on a sunlit windowsill, slow chest rise and fall, golden morning light warming his fur.
+
+[Context]
+soft golden-hour key + warm fill + cool rim from outside, раннее утро.
+
+[Style]
+Cinematic, naturalistic pacing; consistent grading.
+
+Avoid: abrupt cuts, scene changes, lens flares masking faces, multiple disconnected vignettes, text overlays

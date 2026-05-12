@@ -9,6 +9,7 @@ export interface InflightJob {
   kind:
     | 'character_dossier'
     | 'character_reference'
+    | 'character_reference_image'
     | 'character_avatar'
     | 'first_frame'
     | 'video'

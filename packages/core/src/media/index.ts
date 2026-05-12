@@ -31,6 +31,10 @@ export {
 export type { Tier } from './model-registry';
 
 export { buildDossierPrompt, buildAvatarPrompt } from './prompts';
+export type { Style } from './prompts';
+export { buildReferenceImagePrompt } from './image-prompts/reference-image';
+export { buildFirstFramePrompt } from './image-prompts/first-frame';
+export type { FirstFramePromptInput } from './image-prompts/first-frame';
 
 export { MediaProviderError, classifyMediaError } from './errors';
 export type { MediaErrorCode } from './errors';
@@ -79,4 +83,34 @@ export {
 } from './video-models';
 export type { VideoModelMeta } from './video-models';
 
-export { buildFirstFramePrompt, buildVideoPrompt, buildVoicePrompt } from './video-prompts';
+export { buildVoicePrompt } from './video-prompts';
+export { buildVideoPrompt } from './video-prompts/index';
+export type {
+  VideoPromptInput,
+  VideoPromptSceneInput,
+  VideoPromptOutput,
+  CharacterInScene,
+} from './video-prompts/index';
+
+export {
+  ShotSizeSchema,
+  CameraAngleSchema,
+  CompositionSchema,
+  CameraMovementKindSchema,
+  CameraMovementSchema,
+  LightingSchema,
+  AudioDirectionSchema,
+  ArcRoleSchema,
+  VisualThemeSchema,
+} from './cinematography-schemas';
+export type {
+  ShotSize,
+  CameraAngle,
+  Composition,
+  CameraMovementKind,
+  CameraMovement,
+  Lighting,
+  AudioDirection,
+  ArcRole,
+  VisualTheme,
+} from './cinematography-schemas';

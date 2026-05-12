@@ -34,7 +34,6 @@ export function normalizeScene(raw: unknown): Scene {
     duration_sec: rest.duration_sec,
     dialogue,
     character_ids: rest.character_ids ?? [],
-    composition_hint: rest.composition_hint,
     first_frame_source: rest.first_frame_source ?? 'auto_continuity',
     first_frame: rest.first_frame ?? null,
     last_frame: rest.last_frame ?? null,

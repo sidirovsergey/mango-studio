@@ -17,10 +17,14 @@ vi.mock('@/server/lib/media-provider-factory', () => ({
 vi.mock('@/server/lib/storage-provider-factory', () => ({
   getStorageProvider: vi.fn(() => ({})),
 }));
+vi.mock('./generateReferenceImageAction', () => ({
+  generateReferenceImageAction: vi.fn(),
+}));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
-import { runPollTick } from '@mango/core';
+import { type InflightJob, runPollTick } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
+import { generateReferenceImageAction } from './generateReferenceImageAction';
 import { pollMediaJobsAction } from './pollMediaJobsAction';
 
 beforeEach(() => {
@@ -202,5 +206,350 @@ describe('pollMediaJobsAction', () => {
     const result = await pollMediaJobsAction({ project_id: 'p1' });
     expect(result.ok).toBe(false);
     expect(runPollTick).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// character_dossier → reference_image chain (F53, Task 1.4.D.T3)
+// ---------------------------------------------------------------------------
+
+const PROJECT_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+const CHARACTER_ID = 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+
+const DOSSIER_STORAGE = { kind: 'fal_passthrough' as const, url: 'https://cdn.fal.ai/dossier.png' };
+
+/**
+ * Builds a minimal Supabase mock sufficient for finalizeCompleted tests.
+ * Returns { sb, projectsUpdate, mediaJobsUpdate } so callers can inspect calls.
+ */
+function makeSbForFinalize(
+  scriptForFinalize: unknown,
+  { projectsUpdateError = null }: { projectsUpdateError?: null | { message: string } } = {},
+) {
+  const projectQuery = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({
+      data: { user_id: 'u1', script: scriptForFinalize },
+      error: null,
+    }),
+  };
+  const finalizeProjectRead = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({
+      data: { script: scriptForFinalize },
+      error: null,
+    }),
+  };
+  const projectsUpdate = {
+    update: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockResolvedValue({ error: projectsUpdateError }),
+  };
+  const mediaJobsUpdate = {
+    update: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockResolvedValue({ error: null }),
+  };
+
+  let projectsCall = 0;
+  const sb = {
+    from: vi.fn((table: string) => {
+      if (table === 'projects') {
+        projectsCall++;
+        if (projectsCall === 1) return projectQuery;
+        if (projectsCall === 2) return finalizeProjectRead;
+        return projectsUpdate;
+      }
+      return mediaJobsUpdate;
+    }),
+    storage: { from: () => ({ remove: vi.fn() }) },
+  };
+
+  return { sb, projectsUpdate, mediaJobsUpdate };
+}
+
+/**
+ * Sets up auth + runPollTick capture, calls pollMediaJobsAction,
+ * and returns the captured finalizeCompleted callback.
+ */
+async function captureFinalize(sb: unknown) {
+  (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+  (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sb);
+
+  let captured: Parameters<typeof runPollTick>[1] | undefined;
+  (runPollTick as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(
+    async (_ctx, deps) => {
+      captured = deps;
+    },
+  );
+
+  const result = await pollMediaJobsAction({ project_id: PROJECT_ID });
+  expect(result.ok).toBe(true);
+  expect(captured).toBeDefined();
+  return captured!;
+}
+
+function makeDossierJob(overrides: Partial<InflightJob> = {}): InflightJob {
+  return {
+    id: 'job-dossier-1',
+    user_id: 'u1',
+    project_id: PROJECT_ID,
+    scene_id: null,
+    character_id: CHARACTER_ID,
+    kind: 'character_dossier',
+    model: 'fal-ai/nano-banana-pro',
+    fal_request_id: 'req-dossier-1',
+    status: 'pending',
+    request_input: { quality: '1080p' },
+    ...overrides,
+  };
+}
+
+describe('pollMediaJobsAction — dossier→reference_image chain (F53)', () => {
+  it('1. happy path: dispatches generateReferenceImageAction after character_dossier write', async () => {
+    const script = {
+      scenes: [],
+      characters: [
+        {
+          id: CHARACTER_ID,
+          name: 'Дэнни',
+          description: 'test',
+          dossier: null,
+          reference_images: [],
+          voice: {},
+        },
+      ],
+    };
+
+    const { sb } = makeSbForFinalize(script);
+    const captured = await captureFinalize(sb);
+
+    (generateReferenceImageAction as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      status: 'pending',
+      job: { kind: 'character_reference_image', request_id: 'req-ref-1' },
+    });
+
+    await captured.finalizeCompleted({
+      job: makeDossierJob(),
+      result_storage: DOSSIER_STORAGE,
+      cost_usd: 0.05,
+      latency_ms: 2000,
+    });
+
+    // Allow fire-and-forget microtasks to settle
+    await Promise.resolve();
+
+    expect(generateReferenceImageAction).toHaveBeenCalledWith({
+      project_id: PROJECT_ID,
+      character_id: CHARACTER_ID,
+    });
+  });
+
+  it('2. idempotency: does NOT dispatch when dossier.reference_image already set', async () => {
+    const existingRefImage = {
+      kind: 'fal_passthrough' as const,
+      url: 'https://cdn.fal.ai/ref.png',
+    };
+    const script = {
+      scenes: [],
+      characters: [
+        {
+          id: CHARACTER_ID,
+          name: 'Дэнни',
+          description: 'test',
+          dossier: {
+            storage: DOSSIER_STORAGE,
+            reference_image: existingRefImage,
+            model: 'fal-ai/nano-banana-pro',
+            format: '16:9',
+            quality: '1080p',
+            generated_at: '2026-01-01T00:00:00Z',
+          },
+          reference_images: [],
+          voice: {},
+        },
+      ],
+    };
+
+    const { sb } = makeSbForFinalize(script);
+    const captured = await captureFinalize(sb);
+
+    await captured.finalizeCompleted({
+      job: makeDossierJob(),
+      result_storage: DOSSIER_STORAGE,
+      cost_usd: 0.05,
+      latency_ms: 2000,
+    });
+
+    await Promise.resolve();
+
+    expect(generateReferenceImageAction).not.toHaveBeenCalled();
+  });
+
+  it('3. resilience: dossier write succeeds even if ref image dispatch returns {ok:false}', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const script = {
+      scenes: [],
+      characters: [
+        {
+          id: CHARACTER_ID,
+          name: 'Дэнни',
+          description: 'test',
+          dossier: null,
+          reference_images: [],
+          voice: {},
+        },
+      ],
+    };
+
+    const { sb, mediaJobsUpdate } = makeSbForFinalize(script);
+    const captured = await captureFinalize(sb);
+
+    (generateReferenceImageAction as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: false,
+      error: 'fal_timeout',
+    });
+
+    // Should NOT throw
+    await expect(
+      captured.finalizeCompleted({
+        job: makeDossierJob(),
+        result_storage: DOSSIER_STORAGE,
+        cost_usd: 0.05,
+        latency_ms: 2000,
+      }),
+    ).resolves.not.toThrow();
+
+    await Promise.resolve();
+
+    // media_jobs update still happened (dossier IS saved)
+    expect(mediaJobsUpdate.update).toHaveBeenCalled();
+    // Failure was logged
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('post-dossier reference image dispatch failed'),
+      expect.objectContaining({ project_id: PROJECT_ID, character_id: CHARACTER_ID }),
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('4. resilience: dossier write succeeds even if ref image dispatch throws', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const script = {
+      scenes: [],
+      characters: [
+        {
+          id: CHARACTER_ID,
+          name: 'Дэнни',
+          description: 'test',
+          dossier: null,
+          reference_images: [],
+          voice: {},
+        },
+      ],
+    };
+
+    const { sb, mediaJobsUpdate } = makeSbForFinalize(script);
+    const captured = await captureFinalize(sb);
+
+    (generateReferenceImageAction as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('Network error'),
+    );
+
+    // Should NOT throw
+    await expect(
+      captured.finalizeCompleted({
+        job: makeDossierJob(),
+        result_storage: DOSSIER_STORAGE,
+        cost_usd: 0.05,
+        latency_ms: 2000,
+      }),
+    ).resolves.not.toThrow();
+
+    // Allow the .catch() clause to run
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // media_jobs update still happened
+    expect(mediaJobsUpdate.update).toHaveBeenCalled();
+    // Network error was caught and logged
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('post-dossier reference image dispatch threw'),
+      expect.objectContaining({ project_id: PROJECT_ID, character_id: CHARACTER_ID }),
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('5. non-dossier job kinds do NOT trigger the chain', async () => {
+    const script = {
+      scenes: [
+        {
+          scene_id: 's1',
+          first_frame_versions: [],
+          first_frame_active_version_id: null,
+          first_frame_source: 'auto_continuity',
+        },
+      ],
+      characters: [],
+    };
+
+    const { sb } = makeSbForFinalize(script);
+    const captured = await captureFinalize(sb);
+
+    await captured.finalizeCompleted({
+      job: {
+        id: 'job-ff-1',
+        user_id: 'u1',
+        project_id: PROJECT_ID,
+        scene_id: 's1',
+        character_id: null,
+        kind: 'first_frame' as const,
+        model: 'fal-ai/nano-banana-pro',
+        fal_request_id: 'req-ff-1',
+        status: 'pending' as const,
+        request_input: { prompt: 'test' },
+      },
+      result_storage: { kind: 'fal_passthrough', url: 'https://cdn.fal.ai/ff.png' },
+      cost_usd: 0.01,
+      latency_ms: 500,
+    });
+
+    await Promise.resolve();
+
+    expect(generateReferenceImageAction).not.toHaveBeenCalled();
+  });
+
+  it('5b. character_avatar job does NOT trigger the chain', async () => {
+    const script = {
+      scenes: [],
+      characters: [
+        {
+          id: CHARACTER_ID,
+          name: 'Дэнни',
+          description: 'test',
+          dossier: null,
+          reference_images: [],
+          voice: {},
+        },
+      ],
+    };
+
+    const { sb } = makeSbForFinalize(script);
+    const captured = await captureFinalize(sb);
+
+    await captured.finalizeCompleted({
+      job: makeDossierJob({ kind: 'character_avatar' }),
+      result_storage: DOSSIER_STORAGE,
+      cost_usd: 0.05,
+      latency_ms: 2000,
+    });
+
+    await Promise.resolve();
+
+    expect(generateReferenceImageAction).not.toHaveBeenCalled();
   });
 });

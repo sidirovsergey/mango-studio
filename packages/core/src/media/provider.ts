@@ -1,4 +1,5 @@
 import type { AssetContext, StoredAsset } from './storage/StorageProvider';
+import type { VoiceSettingsDefault } from './voices';
 export type { AssetContext } from './storage/StorageProvider';
 
 export type DossierFormat = '16:9' | '1:1';
@@ -39,6 +40,14 @@ export interface GenerateCharacterDossierResult {
   model_used: string;
 }
 
+// === Character reference image (Phase 1.4, F53) ===
+export interface GenerateCharacterReferenceImageInput {
+  prompt: string;
+  model: string;
+  /** Always '1:1' — single-pose neutral-background square. */
+  aspect_ratio: '1:1';
+}
+
 // === Scene first frame (Phase 1.3) ===
 export interface GenerateFirstFrameInput {
   prompt: string;
@@ -61,6 +70,8 @@ export interface GenerateVoiceInput {
   text: string;
   voice_id: string;
   tts_provider_model: string;
+  /** Per-voice stability/similarity/style/speed settings forwarded to ElevenLabs. */
+  voice_settings?: VoiceSettingsDefault;
 }
 
 // === Video + audio mux ===
@@ -85,6 +96,12 @@ export interface MediaProvider {
   /** Submit a character dossier generation job. Returns handle for polling. */
   submitCharacterDossier(
     input: GenerateCharacterDossierInput,
+    ctx: AssetContext,
+  ): Promise<JobHandle>;
+
+  /** Submit a single-pose 1:1 reference image generation job (F53). */
+  submitCharacterReferenceImage(
+    input: GenerateCharacterReferenceImageInput,
     ctx: AssetContext,
   ): Promise<JobHandle>;
 

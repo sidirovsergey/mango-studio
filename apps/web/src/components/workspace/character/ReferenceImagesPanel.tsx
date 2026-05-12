@@ -1,7 +1,6 @@
 'use client';
 
 import { createBrowserClient } from '@/lib/supabase-browser';
-import { generateReferenceImageAction } from '@/server/actions/generateReferenceImageAction';
 import { removeReferenceImageAction } from '@/server/actions/removeReferenceImageAction';
 import { uploadReferenceImageAction } from '@/server/actions/uploadReferenceImageAction';
 import type { Character } from '@mango/core';
@@ -19,8 +18,6 @@ export function ReferenceImagesPanel({ projectId, character, initialFocus, refer
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [aiOpen, setAiOpen] = useState(false);
   const [refError, setRefError] = useState<string | null>(null);
 
   const handleUploadClick = () => {
@@ -54,24 +51,6 @@ export function ReferenceImagesPanel({ projectId, character, initialFocus, refer
         setRefError(r.error);
         return;
       }
-      router.refresh();
-    });
-  };
-
-  const generateAi = () => {
-    setRefError(null);
-    startTransition(async () => {
-      const r = await generateReferenceImageAction({
-        project_id: projectId,
-        character_id: character.id,
-        guidance_prompt: aiPrompt || undefined,
-      });
-      if (!r.ok) {
-        setRefError(r.error);
-        return;
-      }
-      setAiOpen(false);
-      setAiPrompt('');
       router.refresh();
     });
   };
@@ -119,28 +98,6 @@ export function ReferenceImagesPanel({ projectId, character, initialFocus, refer
         <button onClick={handleUploadClick} className="ref-add" disabled={isPending} type="button">
           + Загрузить
         </button>
-        <button
-          onClick={() => {
-            setRefError(null);
-            if (!character.dossier) {
-              setRefError(
-                'Сначала сгенерируй основное досье — оно используется как seed для AI-вариантов',
-              );
-              return;
-            }
-            setAiOpen(true);
-          }}
-          className="ref-add"
-          disabled={isPending}
-          type="button"
-          title={
-            character.dossier
-              ? 'Сгенерировать AI-вариацию на основе текущего досье'
-              : 'Нужно сначала сгенерировать основное досье'
-          }
-        >
-          ✨ AI-вариант
-        </button>
       </div>
 
       <input
@@ -156,22 +113,6 @@ export function ReferenceImagesPanel({ projectId, character, initialFocus, refer
       />
 
       {refError && <div className="char-modal-error">⚠ {refError}</div>}
-
-      {aiOpen && (
-        <div className="ai-prompt-row">
-          <input
-            value={aiPrompt}
-            onChange={(e) => setAiPrompt(e.target.value)}
-            placeholder="опционально: подсказка для variation"
-          />
-          <button type="button" onClick={generateAi} disabled={isPending} className="primary">
-            {isPending ? 'Генерирую...' : 'Сгенерировать'}
-          </button>
-          <button type="button" onClick={() => setAiOpen(false)} disabled={isPending}>
-            Отмена
-          </button>
-        </div>
-      )}
     </div>
   );
 }

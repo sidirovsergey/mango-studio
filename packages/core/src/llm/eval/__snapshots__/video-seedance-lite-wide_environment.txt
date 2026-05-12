@@ -1,0 +1,20 @@
+[SCENE]
+Lighting: cool blue-magenta dawn key + soft fill from overcast horizon
+Time: рассвет, 5:30 утра
+Key: справа сверху, горизонт
+
+[SUBJECT]
+Subject: as established in @Image1
+
+[ACTION]
+0–3s: Coastal cliff jagged with basalt columns, sea below in slow rolling swells, magenta dawn light catching the cliff tops, no human presence.
+3–7s: continued action from previous beat
+7–10s: continued action from previous beat
+
+[CAMERA]
+Crane Up (slow) — 24mm wide, лёгкая дисторсия по краям; shot: Extreme Wide, High Angle
+
+[Pacing/Style]
+Cinematic, naturalistic pacing; consistent grading
+
+Avoid: abrupt cuts, scene changes, lens flares masking faces, multiple disconnected vignettes, text overlays

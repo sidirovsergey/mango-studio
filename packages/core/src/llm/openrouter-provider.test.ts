@@ -105,7 +105,7 @@ describe('OpenRouterLLMProvider', () => {
     expect(mockGenerateText).toHaveBeenCalledOnce();
   });
 
-  it('chat calls generateText with system prompt prepended + cacheControl', async () => {
+  it('chat calls generateText with system prompt prepended (no cache by default)', async () => {
     mockGenerateText.mockResolvedValueOnce({
       text: 'Привет! Что хочешь сделать?',
       usage: { inputTokens: 200, outputTokens: 15 },
@@ -119,10 +119,120 @@ describe('OpenRouterLLMProvider', () => {
     expect(result.output.reply).toBe('Привет! Что хочешь сделать?');
     expect(mockGenerateText).toHaveBeenCalledOnce();
     const callArgs = mockGenerateText.mock.calls[0]![0];
+    // System prompt is first message
     expect(callArgs.messages?.[0]?.role).toBe('system');
+    // No cacheControl on the system message by default
+    const systemMsg = callArgs.messages?.[0] as {
+      role: string;
+      content: string;
+      providerOptions?: Record<string, unknown>;
+    };
+    expect(systemMsg.providerOptions?.anthropic).toBeUndefined();
+    // No anthropic options at request level by default
+    expect(callArgs.providerOptions?.anthropic).toBeUndefined();
+  });
+
+  it('chat with cacheControl: ephemeral sets cache_control on the system message', async () => {
+    mockGenerateText.mockResolvedValueOnce({
+      text: 'Ответ с кешем',
+      usage: { inputTokens: 200, outputTokens: 15 },
+    } as never);
+
+    const p = new OpenRouterLLMProvider();
+    await p.chat({
+      messages: [{ role: 'user', content: 'Привет' }],
+      cacheControl: 'ephemeral',
+    });
+
+    const callArgs = mockGenerateText.mock.calls[0]![0];
+    const systemMsg = callArgs.messages?.[0] as {
+      role: string;
+      content: string;
+      providerOptions?: Record<string, unknown>;
+    };
+    expect(systemMsg.role).toBe('system');
     expect(
-      (callArgs.providerOptions?.anthropic?.cacheControl as { type?: string } | undefined)?.type,
-    ).toBe('ephemeral');
+      (systemMsg.providerOptions?.anthropic as Record<string, unknown> | undefined)?.cacheControl,
+    ).toEqual({
+      type: 'ephemeral',
+    });
+    // No request-level anthropic options when only cacheControl is set
+    expect(callArgs.providerOptions?.anthropic).toBeUndefined();
+  });
+
+  it('chat without extendedThinking has no thinking in providerOptions', async () => {
+    mockGenerateText.mockResolvedValueOnce({
+      text: 'Обычный ответ',
+      usage: { inputTokens: 100, outputTokens: 10 },
+    } as never);
+
+    const p = new OpenRouterLLMProvider();
+    await p.chat({
+      messages: [{ role: 'user', content: 'Привет' }],
+    });
+
+    const callArgs = mockGenerateText.mock.calls[0]![0];
+    expect(
+      (callArgs.providerOptions?.openrouter as Record<string, unknown> | undefined)?.thinking,
+    ).toBeUndefined();
+  });
+
+  it('chat with extendedThinking sets thinking on openrouter providerOptions', async () => {
+    mockGenerateText.mockResolvedValueOnce({
+      text: 'Ответ с мышлением',
+      usage: { inputTokens: 300, outputTokens: 50, reasoningTokens: 120 },
+    } as never);
+
+    const p = new OpenRouterLLMProvider();
+    const result = await p.chat({
+      messages: [{ role: 'user', content: 'Сложный вопрос' }],
+      extendedThinking: { budget_tokens: 2000 },
+    });
+
+    const callArgs = mockGenerateText.mock.calls[0]![0];
+    const openrouterOpts = callArgs.providerOptions?.openrouter as
+      | Record<string, unknown>
+      | undefined;
+    expect(openrouterOpts?.thinking).toEqual({
+      type: 'enabled',
+      budget_tokens: 2000,
+    });
+    expect(result.usage.reasoning_tokens).toBe(120);
+  });
+
+  it('chat with both cacheControl and extendedThinking sets both correctly', async () => {
+    mockGenerateText.mockResolvedValueOnce({
+      text: 'Полный ответ',
+      usage: { inputTokens: 400, outputTokens: 60, reasoningTokens: 80 },
+    } as never);
+
+    const p = new OpenRouterLLMProvider();
+    await p.chat({
+      messages: [{ role: 'user', content: 'Запрос' }],
+      cacheControl: 'ephemeral',
+      extendedThinking: { budget_tokens: 1500 },
+    });
+
+    const callArgs = mockGenerateText.mock.calls[0]![0];
+    // System message gets cache_control
+    const systemMsg = callArgs.messages?.[0] as {
+      role: string;
+      content: string;
+      providerOptions?: Record<string, unknown>;
+    };
+    expect(
+      (systemMsg.providerOptions?.anthropic as Record<string, unknown> | undefined)?.cacheControl,
+    ).toEqual({
+      type: 'ephemeral',
+    });
+    // openrouter providerOptions gets thinking
+    const openrouterOpts = callArgs.providerOptions?.openrouter as
+      | Record<string, unknown>
+      | undefined;
+    expect(openrouterOpts?.thinking).toEqual({
+      type: 'enabled',
+      budget_tokens: 1500,
+    });
   });
 
   it('classifies rate-limit errors via LLMProviderError', async () => {
@@ -145,5 +255,122 @@ describe('OpenRouterLLMProvider', () => {
   it('throws if OPENROUTER_API_KEY is not set', async () => {
     process.env.OPENROUTER_API_KEY = '';
     expect(() => new OpenRouterLLMProvider()).toThrow(LLMProviderError);
+  });
+
+  it('T6 F24: generateScript with existing_visual_theme passes theme into prompt (prompt contains palette)', async () => {
+    // Use the same valid 2-scene, 1-character fixture as the first test to pass ScriptGenSchema.
+    const emptySceneVersions = {
+      first_frame_versions: [],
+      first_frame_active_version_id: null,
+      video_versions: [],
+      video_active_version_id: null,
+      voice_audio_versions: [],
+      voice_audio_active_version_id: null,
+      last_frame: null,
+      final_clip: null,
+    };
+    const scriptObj = {
+      title: 'Тест темы',
+      scenes: [
+        {
+          scene_id: 's1',
+          description: 'Сцена с темой',
+          duration_sec: 10,
+          dialogue: null,
+          character_ids: [],
+          ...emptySceneVersions,
+        },
+        {
+          scene_id: 's2',
+          description: 'Вторая сцена',
+          duration_sec: 10,
+          dialogue: null,
+          character_ids: [],
+          ...emptySceneVersions,
+        },
+      ],
+      characters: [{ action: 'add', name: 'Кот', description: 'рыжий кот' }],
+      master_clip_versions: [],
+      master_clip_active_version_id: null,
+    };
+    mockGenerateText.mockResolvedValueOnce({
+      text: JSON.stringify(scriptObj),
+      usage: { inputTokens: 100, outputTokens: 50 },
+    } as never);
+
+    const p = new OpenRouterLLMProvider();
+    await p.generateScript({
+      user_prompt: 'тест',
+      format: '9:16',
+      duration_sec: 30,
+      style: '3d_pixar',
+      existing_visual_theme: {
+        palette: ['#aabbcc', '#ddeeff', '#112233'],
+        lighting: 'ambient_test',
+        lens: '50mm_test',
+        motion: 'static_test',
+        mood: 'calm_test',
+      },
+    });
+
+    // The prompt passed to generateText must contain the visual_theme block
+    const callArgs = mockGenerateText.mock.calls[0]![0];
+    const prompt = callArgs.prompt as string;
+    expect(prompt).toContain('<existing_visual_theme>');
+    expect(prompt).toContain('#aabbcc');
+    expect(prompt).toContain('ambient_test');
+  });
+
+  it('T6 F24: generateScript without existing_visual_theme does NOT include the block', async () => {
+    const emptySceneVersions = {
+      first_frame_versions: [],
+      first_frame_active_version_id: null,
+      video_versions: [],
+      video_active_version_id: null,
+      voice_audio_versions: [],
+      voice_audio_active_version_id: null,
+      last_frame: null,
+      final_clip: null,
+    };
+    const scriptObj = {
+      title: 'Без темы',
+      scenes: [
+        {
+          scene_id: 's1',
+          description: 'Первая сцена',
+          duration_sec: 10,
+          dialogue: null,
+          character_ids: [],
+          ...emptySceneVersions,
+        },
+        {
+          scene_id: 's2',
+          description: 'Вторая сцена',
+          duration_sec: 10,
+          dialogue: null,
+          character_ids: [],
+          ...emptySceneVersions,
+        },
+      ],
+      characters: [{ action: 'add', name: 'Кот', description: 'кот' }],
+      master_clip_versions: [],
+      master_clip_active_version_id: null,
+    };
+    mockGenerateText.mockResolvedValueOnce({
+      text: JSON.stringify(scriptObj),
+      usage: { inputTokens: 100, outputTokens: 50 },
+    } as never);
+
+    const p = new OpenRouterLLMProvider();
+    await p.generateScript({
+      user_prompt: 'тест',
+      format: '9:16',
+      duration_sec: 30,
+      style: '3d_pixar',
+    });
+
+    const callArgs = mockGenerateText.mock.calls[0]![0];
+    const prompt = callArgs.prompt as string;
+    expect(prompt).not.toContain('<existing_visual_theme>');
   });
 });

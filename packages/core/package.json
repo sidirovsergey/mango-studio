@@ -7,12 +7,14 @@
   "exports": {
     ".": "./src/index.ts",
     "./media": "./src/media/index.ts",
+    "./media/prompt-cost": "./src/media/prompt-cost.ts",
     "./media/factory": "./src/media/factory.ts",
     "./llm": "./src/llm/index.ts",
     "./llm/factory": "./src/llm/factory.ts",
     "./llm/pricing": "./src/llm/pricing.ts",
     "./llm/schemas": "./src/llm/schemas.ts",
     "./llm/migration": "./src/llm/migration.ts",
+    "./llm/migration-1.4": "./src/llm/migration-1.4.ts",
     "./prompt": "./src/prompt/types.ts",
     "./tier": "./src/tier/types.ts",
     "./fixtures": "./src/fixtures/index.ts"

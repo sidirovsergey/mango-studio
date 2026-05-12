@@ -1,0 +1,15 @@
+3D Pixar-style CGI render, soft volumetric lighting, expressive eyes, stylized proportions, detailed textures.
+
+OUTPUT FORMAT — single cinematic frame, 9:16 vertical aspect ratio, full bleed, no borders.
+
+Composition: Close Up shot, Eye Level angle. Framing: Глаза по правилу третей, губы в нижней трети.. Subject focus: лицо Марины.
+
+Camera: Dolly In (slow), 85mm anamorphic, горизонтальные блики на глазах.
+
+Lighting: key from upper-left + soft fill + subtle golden-hour rim. Time of day: вечер. Key direction: сверху слева, тёплый янтарный.
+
+Character in shot: Марина — Женщина лет тридцати пяти, тёмные волосы, серые глаза, спокойный взгляд.. Reference image attached.
+
+Woman in mid-thirties, dim warm-lit interior, eyes meet camera, a faint smile crosses her lips as she speaks.
+
+Avoid: text in image, panels, captions, multiple views, watermarks, signature, color swatches, design notes.

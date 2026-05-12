@@ -45,6 +45,22 @@ function summarizeErr(e: ErrLike | undefined | null) {
   };
 }
 
+function summarizeZodIssues(
+  err: unknown,
+): Array<{ path: string; message: string; code?: string }> | undefined {
+  // Capture Zod validation issues — much more useful than message-only summary
+  // for debugging schema mismatches between LLM output and the parser.
+  const e = err as { name?: string; issues?: unknown };
+  if (e?.name !== 'ZodError' || !Array.isArray(e.issues)) return undefined;
+  return (e.issues as Array<{ path?: unknown[]; message?: string; code?: string }>)
+    .slice(0, 8)
+    .map((issue) => ({
+      path: Array.isArray(issue.path) ? issue.path.join('.') : String(issue.path ?? ''),
+      message: issue.message ?? '',
+      code: issue.code,
+    }));
+}
+
 function logLLMError(stage: string, model: string, err: unknown): void {
   const e = err as ErrLike;
   const errorsArr = Array.isArray(e?.errors) ? (e.errors as ErrLike[]) : undefined;
@@ -53,6 +69,7 @@ function logLLMError(stage: string, model: string, err: unknown): void {
     cause: summarizeErr(e?.cause as ErrLike),
     causeOfCause: summarizeErr((e?.cause as ErrLike)?.cause as ErrLike),
     attempts: errorsArr?.map(summarizeErr),
+    zodIssues: summarizeZodIssues(err) ?? summarizeZodIssues(e?.cause),
   });
 }
 
@@ -79,6 +96,8 @@ export class OpenRouterLLMProvider implements LLMProvider {
     const start = Date.now();
     const fullPrompt = buildScriptPrompt(input, {
       existingCharacters: input.existingCharacters,
+      tier: input.tier ?? 'economy',
+      existingVisualTheme: input.existing_visual_theme,
     });
     try {
       const { text, usage } = await generateText({
@@ -94,8 +113,46 @@ export class OpenRouterLLMProvider implements LLMProvider {
         },
       });
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new SyntaxError('No JSON object found in LLM response');
-      const object = ScriptGenSchema.parse(JSON.parse(jsonMatch[0]));
+      if (!jsonMatch) {
+        console.error(
+          '[ORL.script] no JSON object in response. Raw text head:',
+          text.slice(0, 600),
+        );
+        throw new SyntaxError('No JSON object found in LLM response');
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch (jsonErr) {
+        console.error(
+          '[ORL.script] JSON.parse failed. Raw text head:',
+          text.slice(0, 600),
+          'tail:',
+          text.slice(-400),
+        );
+        throw jsonErr;
+      }
+      let object: ReturnType<typeof ScriptGenSchema.parse>;
+      try {
+        object = ScriptGenSchema.parse(parsed);
+      } catch (zodErr) {
+        // Compact one-line summary + truncated JSON head. Sufficient to spot
+        // future LLM-output drift in Vercel logs without excessive payload.
+        const zErr = zodErr as {
+          issues?: Array<{ path?: unknown[]; code?: string }>;
+        };
+        const issues = Array.isArray(zErr?.issues) ? zErr.issues : [];
+        const summary = issues
+          .slice(0, 5)
+          .map((i) => {
+            const p = Array.isArray(i.path) ? i.path.join('.') : String(i.path ?? '');
+            return `${p}:${i.code}`;
+          })
+          .join(', ');
+        console.error(`[ORL.script.zod] ${issues.length} issue(s): ${summary}`);
+        console.error('[ORL.script.json head]', JSON.stringify(parsed).slice(0, 500));
+        throw zodErr;
+      }
       const llmUsage = await this.buildUsage(params.model, usage, start);
       // NOTE: ScriptGenOutput legacy interface still has `master_clip` field; new schema replaces it
       // with master_clip_versions/active_id. Sub-phase C reconciles consumer interfaces.
@@ -131,7 +188,34 @@ export class OpenRouterLLMProvider implements LLMProvider {
   async chat(input: ChatInput): Promise<ChatResult> {
     const params = getModelParams('chat');
     const start = Date.now();
-    const messages = chatMessagesWithSystem(input.messages);
+
+    // Apply cache_control to the system message when requested (F86).
+    // Anthropic prompt caching is message-level: the OpenRouter provider's
+    // convertToOpenRouterChatMessages reads providerOptions on each message,
+    // not from the request-level providerOptions.anthropic field.
+    const rawMessages = chatMessagesWithSystem(input.messages);
+    const messages =
+      input.cacheControl === 'ephemeral'
+        ? rawMessages.map((msg, idx) =>
+            idx === 0 && msg.role === 'system'
+              ? { ...msg, providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } } }
+              : msg,
+          )
+        : rawMessages;
+
+    // Build request-level OpenRouter provider options.
+    // Extended thinking (F87) is passed as `thinking` in the OpenRouter request
+    // body via restOpenrouterOptions spread — OpenRouter forwards it to Anthropic.
+    const thinkingOpt = input.extendedThinking?.budget_tokens
+      ? {
+          thinking: {
+            type: 'enabled' as const,
+            budget_tokens: input.extendedThinking.budget_tokens,
+          },
+        }
+      : {};
+    const openrouterOpts = { provider: OPENROUTER_PROVIDER_ROUTING, ...thinkingOpt };
+
     try {
       const { text, usage } = await generateText({
         model: this.openrouter(params.model),
@@ -139,8 +223,7 @@ export class OpenRouterLLMProvider implements LLMProvider {
         temperature: params.temperature,
         maxOutputTokens: params.max_tokens,
         providerOptions: {
-          openrouter: { provider: OPENROUTER_PROVIDER_ROUTING },
-          anthropic: { cacheControl: { type: 'ephemeral' } },
+          openrouter: openrouterOpts,
         },
       });
       const llmUsage = await this.buildUsage(params.model, usage, start);
@@ -153,15 +236,17 @@ export class OpenRouterLLMProvider implements LLMProvider {
 
   private async buildUsage(
     model: string,
-    sdkUsage: { inputTokens?: number; outputTokens?: number } | undefined,
+    sdkUsage: { inputTokens?: number; outputTokens?: number; reasoningTokens?: number } | undefined,
     startMs: number,
   ): Promise<LLMUsage> {
     const prompt_tokens = sdkUsage?.inputTokens ?? 0;
     const completion_tokens = sdkUsage?.outputTokens ?? 0;
+    const reasoning_tokens = sdkUsage?.reasoningTokens;
     const cost_usd = await calculateCost(model, prompt_tokens, completion_tokens);
     return {
       prompt_tokens,
       completion_tokens,
+      ...(reasoning_tokens !== undefined && { reasoning_tokens }),
       cost_usd,
       model,
       latency_ms: Date.now() - startMs,

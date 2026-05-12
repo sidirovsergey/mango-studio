@@ -1,0 +1,6 @@
+Description: Woman in mid-thirties, dim warm-lit interior, eyes meet camera, a faint smile crosses her lips as she speaks.
+
+Camera: Dolly In (slow) — 85mm anamorphic, горизонтальные блики на глазах
+
+Audio: Ambient: тихий комнатный гул, далёкий дождь за окном
+Dialogue: 00000000-0000-0000-0003-000000000001 — "I see you."

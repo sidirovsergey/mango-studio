@@ -1,0 +1,5 @@
+Description: Black labrador Grom sprints toward a wooden fence, launches with hind legs coiled, paws over the top, lands clean on the far side.
+
+Camera: Tracking (medium) — 50mm, небольшое motion blur на фоне
+
+Audio: silent, voice dubbed in post

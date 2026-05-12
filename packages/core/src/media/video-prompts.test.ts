@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildFirstFramePrompt, buildVideoPrompt, buildVoicePrompt } from './video-prompts';
+import { buildFirstFramePrompt, buildVoicePrompt } from './video-prompts';
+
+// NOTE: buildFirstFramePrompt has moved to image-prompts/first-frame.ts (T4 refactor).
+// These legacy tests remain here for backward-compat verification (the function is still
+// re-exported from video-prompts.ts). The API now uses Style enum ('3d_pixar') not a string.
 
 const dolphin = {
   id: 'c1',
@@ -8,37 +12,48 @@ const dolphin = {
   full_prompt: 'A blue 3D Pixar dolphin character with bowtie',
   dossier: {
     storage: { kind: 'fal_passthrough' as const, url: 'https://fal.cdn/dolphin.png' },
+    reference_image: { kind: 'fal_passthrough' as const, url: 'https://fal.cdn/dolphin-ref.png' },
+    model: 'm',
+    format: '16:9' as const,
+    quality: '1080p' as const,
+    generated_at: '2026-01-01',
   },
-  reference_images: [],
+  voice: {},
 };
 
 const crab = {
-  ...dolphin,
   id: 'c2',
   name: 'Краб',
   description: 'Крабик с ноутбуком',
+  full_prompt: '',
   dossier: {
     storage: { kind: 'fal_passthrough' as const, url: 'https://fal.cdn/crab.png' },
+    reference_image: { kind: 'fal_passthrough' as const, url: 'https://fal.cdn/crab-ref.png' },
+    model: 'm',
+    format: '16:9' as const,
+    quality: '1080p' as const,
+    generated_at: '2026-01-01',
   },
+  voice: {},
 };
 
 describe('buildFirstFramePrompt', () => {
-  it('composes prompt with style + composition + characters + description', () => {
+  it('composes prompt with style + characters + description', () => {
     const result = buildFirstFramePrompt({
       scene: {
         scene_id: 's1',
         description: 'Дельфин говорит с крабом на пляже',
-        composition_hint: 'wide shot, обоих видно',
       },
       characters_in_scene: [dolphin, crab],
       prev_last_frame: null,
-      project_style: '3D Pixar',
+      project_style: '3d_pixar',
       first_frame_source: 'manual_text2img',
     });
-    expect(result.prompt).toContain('3D Pixar');
+    // New preamble contains 'Pixar' (from STYLE_PREAMBLE[3d_pixar])
+    expect(result.prompt).toContain('Pixar');
     expect(result.prompt).toContain('9:16');
     expect(result.prompt).toContain('Дельфин говорит с крабом');
-    expect(result.prompt).toContain('wide shot');
+    // image_refs now uses reference_image (not dossier.storage)
     expect(result.image_refs).toHaveLength(2);
   });
 
@@ -51,11 +66,12 @@ describe('buildFirstFramePrompt', () => {
       scene: { scene_id: 's2', description: 'продолжение' },
       characters_in_scene: [dolphin],
       prev_last_frame: last_frame,
-      project_style: '3D Pixar',
+      project_style: '3d_pixar',
       first_frame_source: 'auto_continuity',
     });
     expect(result.image_refs[0]).toEqual(last_frame);
-    expect(result.image_refs[1]).toEqual(dolphin.dossier.storage);
+    // Second ref is the reference_image (not dossier.storage)
+    expect(result.image_refs[1]).toEqual(dolphin.dossier.reference_image);
   });
 
   it('skips continuity ref when first_frame_source = manual_text2img', () => {
@@ -67,11 +83,11 @@ describe('buildFirstFramePrompt', () => {
       scene: { scene_id: 's2', description: 'cut' },
       characters_in_scene: [dolphin],
       prev_last_frame: last_frame,
-      project_style: '3D Pixar',
+      project_style: '3d_pixar',
       first_frame_source: 'manual_text2img',
     });
     expect(result.image_refs).toHaveLength(1);
-    expect(result.image_refs[0]).toEqual(dolphin.dossier.storage);
+    expect(result.image_refs[0]).toEqual(dolphin.dossier.reference_image);
   });
 
   it('caps refs at 5 (nano-banana limit)', () => {
@@ -87,47 +103,18 @@ describe('buildFirstFramePrompt', () => {
       scene: { scene_id: 's1', description: 'crowd' },
       characters_in_scene: many,
       prev_last_frame: null,
-      project_style: 'flat',
+      project_style: '3d_pixar',
       first_frame_source: 'manual_text2img',
     });
     expect(result.image_refs).toHaveLength(5);
   });
 });
 
-describe('buildVideoPrompt', () => {
-  it('image-to-video prompt with single ref + duration (silent model omits dialogue)', () => {
-    const result = buildVideoPrompt({
-      scene: {
-        scene_id: 's1',
-        description: 'Дельфин машет плавником',
-        duration_sec: 8,
-        dialogue: { speaker: 'narrator', text: 'Once upon a time' },
-      },
-      first_frame_storage: { kind: 'fal_passthrough', url: 'https://fal.cdn/ff.png' },
-      model: 'fal-ai/bytedance/seedance/v1/lite/image-to-video',
-    });
-    expect(result.image_refs).toHaveLength(1);
-    expect(result.duration_sec).toBe(8);
-    expect(result.aspect_ratio).toBe('9:16');
-    expect(result.prompt).toContain('Дельфин машет');
-    // Silent model — dialogue NOT in prompt
-    expect(result.prompt).not.toContain('Once upon a time');
-  });
-
-  it('includes dialogue in prompt for native-audio model', () => {
-    const result = buildVideoPrompt({
-      scene: {
-        scene_id: 's1',
-        description: 'Дельфин говорит',
-        duration_sec: 8,
-        dialogue: { speaker: 'narrator', text: 'Hello world' },
-      },
-      first_frame_storage: { kind: 'fal_passthrough', url: 'https://fal.cdn/ff.png' },
-      model: 'bytedance/seedance-2.0/image-to-video',
-    });
-    expect(result.prompt).toContain('Hello world');
-  });
-});
+// NOTE: buildVideoPrompt tests have been removed. The function is now a re-export
+// from packages/core/src/media/video-prompts/index.ts (the per-engine dispatcher).
+// Each per-engine builder has its own thorough test suite in video-prompts/*.test.ts,
+// and the dispatcher has its own test. Testing the old declarative contract here
+// would duplicate those tests and cover a contract that no longer exists.
 
 describe('buildVoicePrompt', () => {
   it('uses character voice_id when speaker is character', () => {

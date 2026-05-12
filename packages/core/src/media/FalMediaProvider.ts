@@ -8,6 +8,7 @@ import type {
   DossierFormat,
   ExtractLastFrameInput,
   GenerateCharacterDossierInput,
+  GenerateCharacterReferenceImageInput,
   GenerateFirstFrameInput,
   GenerateSceneVideoInput,
   GenerateVoiceInput,
@@ -145,6 +146,16 @@ export class FalMediaProvider implements MediaProvider {
     });
   }
 
+  async submitCharacterReferenceImage(
+    input: GenerateCharacterReferenceImageInput,
+    _ctx: AssetContext,
+  ): Promise<JobHandle> {
+    return this.submit(input.model, {
+      prompt: input.prompt,
+      aspect_ratio: formatAspectFor(input.model, '1:1'),
+    });
+  }
+
   async submitFirstFrame(input: GenerateFirstFrameInput, _ctx: AssetContext): Promise<JobHandle> {
     let model = input.model;
     let editPayload: Record<string, unknown> = {};
@@ -184,6 +195,7 @@ export class FalMediaProvider implements MediaProvider {
     return this.submit(input.tts_provider_model, {
       text: input.text,
       voice: input.voice_id,
+      ...(input.voice_settings ? { voice_settings: input.voice_settings } : {}),
     });
   }
 

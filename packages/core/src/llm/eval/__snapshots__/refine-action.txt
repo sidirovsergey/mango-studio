@@ -1,0 +1,214 @@
+<role>Mango — Scene Editor. Revise one scene's structured fields per the user's instruction, preserving all unspecified fields. Honour visual_theme — only change look/feel fields if explicitly asked.</role>
+
+<visual_theme>null</visual_theme>
+
+<surrounding_scenes>
+  <prev>Гром во дворе</prev>
+  <current>{"scene_id":"canon-action-01","description":"Чёрный лабрадор Гром разгоняется по двору и с силой перепрыгивает деревянный забор.","description_ru":"Гром несётся по двору, набирая скорость. За три шага до забора он отталкивается задними лапами, взлетает, передние лапы цепляются за верхушку досок — и он приземляется на той стороне с глухим ударом, готовый бежать дальше.","description_en":"Black labrador Grom sprints toward a wooden fence, launches with hind legs coiled, paws over the top, lands clean on the far side.","duration_sec":7,"dialogue":null,"character_ids":["00000000-0000-0000-0002-000000000001"],"composition":{"shot_size":"full","angle":"low_angle","framing_notes":"Угол снизу подчёркивает мощь прыжка; забор как горизонтальная преграда.","subject_focus":"Гром в прыжке над забором"},"camera_movement":{"kind":"tracking","speed":"medium","lens_character":"50mm, небольшое motion blur на фоне"},"lighting":{"recipe":"overcast diffuse key + naturalistic fill","time_of_day":"полдень, пасмурно","key_direction":"сверху равномерно"},"audio_direction":{"ambient":"шелест листьев, скрип досок","music":"энергичный percussive трек, нарастает к прыжку","sfx":["топот лап по земле","удар о доски","приземление с глухим стуком"]},"arc_role":"climax","tier_at_gen":null,"audio_mode":"silent_tts","first_frame_source":"auto_continuity","first_frame_versions":[],"first_frame_active_version_id":null,"video_versions":[],"video_active_version_id":null,"voice_audio_versions":[],"voice_audio_active_version_id":null,"last_frame":null,"final_clip":null}</current>
+  <next>(финал)</next>
+</surrounding_scenes>
+
+<examples>
+<example>
+<input>
+  <visual_theme>{"palette":["#F4E4BC","#3D2914","#E8B86D"],"lighting":"soft golden-hour key + warm fill","lens":"85mm shallow DOF","motion":"locked-off","mood":"cozy"}</visual_theme>
+  <current>{
+  "scene_id": "scene-01",
+  "description": "Кот лежит на подоконнике.",
+  "description_ru": "Кот лежит на подоконнике.",
+  "description_en": "The cat lies on the windowsill.",
+  "duration_sec": 5,
+  "dialogue": null,
+  "character_ids": [
+    "Барсик"
+  ],
+  "composition": {
+    "shot_size": "medium",
+    "angle": "eye_level",
+    "framing_notes": "Кот по центру, окно за ним.",
+    "subject_focus": "Барсик на подоконнике"
+  },
+  "camera_movement": {
+    "kind": "static",
+    "speed": "slow",
+    "lens_character": "85mm мягкое боке"
+  },
+  "lighting": {
+    "recipe": "soft golden hour",
+    "time_of_day": "утро",
+    "key_direction": "слева через окно"
+  },
+  "audio_direction": {
+    "ambient": "тихое чириканье воробьёв",
+    "music": "нежное пианино",
+    "sfx": []
+  },
+  "arc_role": "hook",
+  "tier_at_gen": "economy",
+  "audio_mode": "auto",
+  "first_frame_source": "auto_continuity",
+  "first_frame_versions": [],
+  "first_frame_active_version_id": null,
+  "video_versions": [],
+  "video_active_version_id": null,
+  "voice_audio_versions": [],
+  "voice_audio_active_version_id": null,
+  "last_frame": null,
+  "final_clip": null
+}</current>
+  <instruction>сделай страшнее, ночью</instruction>
+</input>
+<output>
+{
+  "scene_id": "scene-01",
+  "description": "Кот напряжённо смотрит в ночную тьму за окном.",
+  "description_ru": "Кот напряжённо смотрит в ночную тьму за окном.",
+  "description_en": "The cat stares tensely into the dark night outside the window.",
+  "duration_sec": 5,
+  "dialogue": null,
+  "character_ids": [
+    "Барсик"
+  ],
+  "composition": {
+    "shot_size": "medium",
+    "angle": "eye_level",
+    "framing_notes": "Кот по центру, окно за ним.",
+    "subject_focus": "Барсик на подоконнике"
+  },
+  "camera_movement": {
+    "kind": "static",
+    "speed": "slow",
+    "lens_character": "85mm мягкое боке"
+  },
+  "lighting": {
+    "recipe": "moonlit rim + deep shadow fill",
+    "time_of_day": "ночь",
+    "key_direction": "слева через окно"
+  },
+  "audio_direction": {
+    "ambient": "тишина, далёкий вой ветра",
+    "music": "низкий струнный дрон",
+    "sfx": []
+  },
+  "arc_role": "hook",
+  "tier_at_gen": "economy",
+  "audio_mode": "auto",
+  "first_frame_source": "auto_continuity",
+  "first_frame_versions": [],
+  "first_frame_active_version_id": null,
+  "video_versions": [],
+  "video_active_version_id": null,
+  "voice_audio_versions": [],
+  "voice_audio_active_version_id": null,
+  "last_frame": null,
+  "final_clip": null
+}
+</output>
+</example>
+<example>
+<input>
+  <visual_theme>{"palette":["#F4E4BC","#3D2914","#E8B86D"],"lighting":"soft golden-hour key + warm fill","lens":"85mm shallow DOF","motion":"locked-off","mood":"cozy"}</visual_theme>
+  <current>{
+  "scene_id": "scene-02",
+  "description": "Кот смотрит на пустую миску.",
+  "description_ru": "Кот смотрит на пустую миску.",
+  "description_en": "The cat looks at the empty bowl.",
+  "duration_sec": 5,
+  "dialogue": null,
+  "character_ids": [
+    "Барсик"
+  ],
+  "composition": {
+    "shot_size": "medium",
+    "angle": "eye_level",
+    "framing_notes": "Кот и миска в кадре.",
+    "subject_focus": "Барсик у миски"
+  },
+  "camera_movement": {
+    "kind": "static",
+    "speed": "slow",
+    "lens_character": "85mm"
+  },
+  "lighting": {
+    "recipe": "warm fill",
+    "time_of_day": "утро",
+    "key_direction": "справа"
+  },
+  "audio_direction": {
+    "ambient": "тиканье часов",
+    "music": "пианино pianissimo",
+    "sfx": [
+      "звон пустой миски"
+    ]
+  },
+  "arc_role": "rising",
+  "tier_at_gen": "economy",
+  "audio_mode": "auto",
+  "first_frame_source": "auto_continuity",
+  "first_frame_versions": [],
+  "first_frame_active_version_id": null,
+  "video_versions": [],
+  "video_active_version_id": null,
+  "voice_audio_versions": [],
+  "voice_audio_active_version_id": null,
+  "last_frame": null,
+  "final_clip": null
+}</current>
+  <instruction>сделай это extreme close-up</instruction>
+</input>
+<output>
+{
+  "scene_id": "scene-02",
+  "description": "Кот смотрит на пустую миску.",
+  "description_ru": "Кот смотрит на пустую миску.",
+  "description_en": "The cat looks at the empty bowl.",
+  "duration_sec": 5,
+  "dialogue": null,
+  "character_ids": [
+    "Барсик"
+  ],
+  "composition": {
+    "shot_size": "extreme_close_up",
+    "angle": "eye_level",
+    "framing_notes": "Кот и миска в кадре.",
+    "subject_focus": "Барсик у миски"
+  },
+  "camera_movement": {
+    "kind": "static",
+    "speed": "slow",
+    "lens_character": "85mm"
+  },
+  "lighting": {
+    "recipe": "warm fill",
+    "time_of_day": "утро",
+    "key_direction": "справа"
+  },
+  "audio_direction": {
+    "ambient": "тиканье часов",
+    "music": "пианино pianissimo",
+    "sfx": [
+      "звон пустой миски"
+    ]
+  },
+  "arc_role": "rising",
+  "tier_at_gen": "economy",
+  "audio_mode": "auto",
+  "first_frame_source": "auto_continuity",
+  "first_frame_versions": [],
+  "first_frame_active_version_id": null,
+  "video_versions": [],
+  "video_active_version_id": null,
+  "voice_audio_versions": [],
+  "voice_audio_active_version_id": null,
+  "last_frame": null,
+  "final_clip": null
+}
+</output>
+</example>
+</examples>
+
+<instruction>Увеличь напряжение перед прыжком — добавь slow-motion hint</instruction>
+
+<task>
+Return the FULL updated scene object (same schema). Change only what the instruction asks. Echo every other field verbatim from <current>. Output JSON only, no markdown.
+</task>

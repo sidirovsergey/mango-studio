@@ -4,7 +4,14 @@ import { getCurrentUser } from '@/lib/auth/get-user';
 import { friendlyMediaError } from '@/server/lib/media-error-message';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { recordPendingJob } from '@/server/lib/scene-helpers';
-import { type Character, MediaProviderError, type Tier, getDefaultModel } from '@mango/core';
+import {
+  type Character,
+  MediaProviderError,
+  type StoredAsset,
+  type Tier,
+  buildReferenceImagePrompt,
+  getDefaultModel,
+} from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
@@ -12,19 +19,42 @@ import { z } from 'zod';
 const InputSchema = z.object({
   project_id: z.string().uuid(),
   character_id: z.string().uuid(),
-  guidance_prompt: z.string().optional(),
 });
 
-export async function generateReferenceImageAction(
-  rawInput: unknown,
-): Promise<{ ok: true; job_id: string } | { ok: false; error: string; error_code?: string }> {
-  const input = InputSchema.parse(rawInput);
-  const user = await getCurrentUser();
+type Input = z.infer<typeof InputSchema>;
+
+export async function generateReferenceImageAction(rawInput: unknown): Promise<
+  | {
+      ok: true;
+      status: 'pending';
+      job: { kind: 'character_reference_image'; request_id: string };
+    }
+  | {
+      ok: true;
+      status: 'already_exists';
+      existing: { storage: StoredAsset; generated_at: string };
+    }
+  | { ok: false; error: string; error_code?: string }
+> {
+  let input: Input;
+  try {
+    input = InputSchema.parse(rawInput);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'invalid input' };
+  }
+
+  let user: { id: string };
+  try {
+    user = await getCurrentUser();
+  } catch {
+    return { ok: false, error: 'unauthorized' };
+  }
+
   const sb = await getServerSupabase();
 
   const { data: project, error: readErr } = await sb
     .from('projects')
-    .select('script, tier')
+    .select('script, tier, style')
     .eq('id', input.project_id)
     .eq('user_id', user.id)
     .single();
@@ -32,49 +62,78 @@ export async function generateReferenceImageAction(
 
   const tier = project.tier as Tier;
   const script = (project.script ?? { characters: [] }) as { characters?: Character[] };
-  const idx = script.characters?.findIndex((c) => c.id === input.character_id) ?? -1;
+  const characters = script.characters ?? [];
+  const idx = characters.findIndex((c) => c.id === input.character_id);
   if (idx < 0) return { ok: false, error: 'character not found' };
-  const chars = script.characters!;
-  const character = chars[idx];
-  if (!character) return { ok: false, error: 'character not found' };
+  const character = characters[idx] as Character;
 
+  // Reference image is anchored to the dossier asset bundle. Requires dossier to exist.
   if (!character.dossier) {
-    return { ok: false, error: 'сначала сгенерируй основное досье — нужен seed' };
+    return {
+      ok: false,
+      error: 'requires_dossier',
+      error_code: 'PRECONDITION_REQUIRES_DOSSIER',
+    } as const;
+  }
+
+  // Idempotency check: if reference_image is already set, return existing asset.
+  if (character.dossier.reference_image) {
+    return {
+      ok: true,
+      status: 'already_exists',
+      existing: {
+        storage: character.dossier.reference_image as StoredAsset,
+        generated_at: character.dossier.generated_at,
+      },
+    };
   }
 
   const model = getDefaultModel(tier);
-  const prompt =
-    input.guidance_prompt ??
-    `Альтернативный variation персонажа ${character.name}, иной угол / выражение / поза, тот же дизайн.`;
+
+  const style = (character.config_overrides?.style ?? project.style ?? '3d_pixar') as
+    | '3d_pixar'
+    | '2d_drawn'
+    | 'clay_art';
+
+  const charForPrompt = {
+    name: character.name,
+    description: character.description,
+    full_prompt: character.full_prompt || undefined,
+    appearance: character.appearance,
+    personality: character.personality,
+  };
+
+  const prompt = buildReferenceImagePrompt(charForPrompt, style);
   const ctx = { user_id: user.id, project_id: input.project_id, character_id: character.id };
 
   try {
     const provider = getMediaProvider();
-    const handle = await provider.submitCharacterDossier(
+
+    const handle = await provider.submitCharacterReferenceImage(
       {
         prompt,
         model,
-        format: '16:9',
-        quality: tier === 'premium' ? '1080p' : '720p',
-        image_refs: [character.dossier.storage],
+        aspect_ratio: '1:1',
       },
       ctx,
     );
 
-    const { job_id } = await recordPendingJob({
+    await recordPendingJob({
       user_id: user.id,
       project_id: input.project_id,
       character_id: character.id,
-      kind: 'character_reference',
+      kind: 'character_reference_image',
       model: handle.model_used,
       fal_request_id: handle.fal_request_id,
       request_input: handle.request_input,
     });
 
-    // NOTE: reference_images writeback moves to poll-orchestrator (Task 13) — no DB update here.
-
     revalidatePath(`/projects/${input.project_id}`);
-    return { ok: true, job_id };
+    return {
+      ok: true,
+      status: 'pending',
+      job: { kind: 'character_reference_image', request_id: handle.fal_request_id },
+    };
   } catch (e) {
     if (e instanceof MediaProviderError) {
       return { ok: false, error: friendlyMediaError(e.code, e.message), error_code: e.code };

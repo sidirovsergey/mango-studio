@@ -1,0 +1,17 @@
+[Cinematography]
+Dolly In, slow, 85mm anamorphic, горизонтальные блики на глазах lens, 24fps cinematic.
+
+[Subject]
+Марина — Женщина лет тридцати пяти, тёмные волосы, серые глаза, спокойный взгляд.; @Image1.
+
+[Action]
+Woman in mid-thirties, dim warm-lit interior, eyes meet camera, a faint smile crosses her lips as she speaks.
+Dialogue: 00000000-0000-0000-0003-000000000001 — "I see you."
+
+[Context]
+key from upper-left + soft fill + subtle golden-hour rim, вечер.
+
+[Style]
+Cinematic, naturalistic pacing; consistent grading.
+
+Avoid: abrupt cuts, scene changes, lens flares masking faces, multiple disconnected vignettes, text overlays

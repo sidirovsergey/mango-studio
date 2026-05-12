@@ -13,6 +13,7 @@ type Script = ScriptGenOutput;
 export type MediaJobKind =
   | 'character_dossier'
   | 'character_reference'
+  | 'character_reference_image'
   | 'character_avatar'
   | 'first_frame'
   | 'video'

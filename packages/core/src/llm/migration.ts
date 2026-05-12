@@ -9,7 +9,6 @@ type LegacyScene = {
   dialogue?: any;
   voiceover?: string; // pre-1.3 — covered by existing normalize
   character_ids?: string[];
-  composition_hint?: string;
   duration_sec: number;
   first_frame_source?: string;
   config_overrides?: any;
@@ -59,9 +58,17 @@ export function upgradeScene(legacy: LegacyScene): Scene {
   return {
     scene_id: legacy.scene_id,
     description: legacy.description,
+    // Phase-1.4 fields — defaulted for legacy rows
+    description_ru: legacy.description,
+    description_en: null,
+    composition: null,
+    camera_movement: null,
+    lighting: null,
+    audio_direction: null,
+    arc_role: null,
+    tier_at_gen: null,
     dialogue: legacy.dialogue ?? null,
     character_ids: legacy.character_ids ?? [],
-    composition_hint: legacy.composition_hint,
     duration_sec: legacy.duration_sec,
     config_overrides: legacy.config_overrides,
     audio_mode: (legacy.audio_mode as any) ?? 'auto',
@@ -94,9 +101,11 @@ export function upgradeScript(legacy: LegacyScript): Script {
       }
     : null;
 
-  // Build new without master_clip key
+  // Build new without master_clip key; Phase-1.4 fields defaulted for legacy rows
   const upgraded: Script = {
     title: legacy.title,
+    visual_theme: null,
+    tier: null,
     narrator_voice: legacy.narrator_voice,
     characters: legacy.characters,
     scenes: legacy.scenes.map(upgradeScene),
@@ -121,7 +130,6 @@ export function downgradeScript(script: Script): unknown {
       description: s.description,
       dialogue: s.dialogue,
       character_ids: s.character_ids,
-      composition_hint: s.composition_hint,
       duration_sec: s.duration_sec,
       config_overrides: s.config_overrides,
       audio_mode: s.audio_mode,

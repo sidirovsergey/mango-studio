@@ -1,0 +1,19 @@
+[SCENE]
+Lighting: key from upper-left + soft fill + subtle golden-hour rim
+Time: вечер
+Key: сверху слева, тёплый янтарный
+
+[SUBJECT]
+Subject: Марина — Женщина лет тридцати пяти, тёмные волосы, серые глаза, спокойный взгляд.; reference: @Image1
+
+[ACTION]
+0–3s: Woman in mid-thirties, dim warm-lit interior, eyes meet camera, a faint smile crosses her lips as she speaks.
+3–8s: continued action from previous beat
+
+[CAMERA]
+Dolly In (slow) — 85mm anamorphic, горизонтальные блики на глазах; shot: Close Up, Eye Level
+
+[Pacing/Style]
+Cinematic, naturalistic pacing; consistent grading
+
+Avoid: abrupt cuts, scene changes, lens flares masking faces, multiple disconnected vignettes, text overlays

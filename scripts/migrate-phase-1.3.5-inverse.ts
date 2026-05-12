@@ -1,5 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
 import { downgradeScript } from '@mango/core/llm/migration';
+import { createClient } from '@supabase/supabase-js';
 
 async function main() {
   const env = process.argv.includes('--env=production') ? 'production' : 'staging';
@@ -14,7 +14,7 @@ async function main() {
   let inversed = 0;
   for (const p of projects) {
     if (!(p.script && (p.script as any).scenes?.[0]?.first_frame_versions !== undefined)) {
-      continue;  // already legacy
+      continue; // already legacy
     }
     const legacy = downgradeScript(p.script as any);
     const { error: upErr } = await sb.from('projects').update({ script: legacy }).eq('id', p.id);
@@ -24,4 +24,7 @@ async function main() {
   console.log(`[migrate-1.3.5-inverse] DONE: ${inversed} reverted`);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

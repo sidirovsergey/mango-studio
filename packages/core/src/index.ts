@@ -35,6 +35,10 @@ export type {
   MasterClipVersion,
   AudioMode,
   VersionKind,
+  VideoPromptInput,
+  VideoPromptSceneInput,
+  VideoPromptOutput,
+  CharacterInScene,
 } from './media';
 export {
   ECONOMY_MODELS,
@@ -45,6 +49,8 @@ export {
   isModelInTier,
   buildDossierPrompt,
   buildAvatarPrompt,
+  buildReferenceImagePrompt,
+  buildFirstFramePrompt,
   MediaProviderError,
   classifyMediaError,
   FalCdnPassthroughStorage,
@@ -60,10 +66,10 @@ export {
   isVideoModelInTier,
   getDefaultVoiceModel,
   clampDurationToModel,
-  buildFirstFramePrompt,
   buildVideoPrompt,
   buildVoicePrompt,
 } from './media';
+export type { Style, FirstFramePromptInput } from './media';
 
 export type {
   ChatInput,
@@ -103,6 +109,7 @@ export type {
   LLMTask,
   ModelParams,
   BuildScriptPromptContext,
+  DirectorContext,
   ToolChip,
   ToolChipKind,
   SyncHint,
@@ -126,10 +133,36 @@ export * from './media/scene-versions';
 export {
   resolveAudioMode,
   resolveVoiceId,
+  resolveVoiceSettings,
   type SceneForAudio,
   type VideoModelMetaForAudio,
   type NarratorVoiceLike,
+  type NarratorVoiceWithSettings,
 } from './media/audio-mode';
+export type { VoiceSettingsDefault } from './media/voices';
+
+export {
+  ShotSizeSchema,
+  CameraAngleSchema,
+  CompositionSchema,
+  CameraMovementKindSchema,
+  CameraMovementSchema,
+  LightingSchema,
+  AudioDirectionSchema,
+  ArcRoleSchema,
+  VisualThemeSchema,
+} from './media/cinematography-schemas';
+export type {
+  ShotSize,
+  CameraAngle,
+  Composition,
+  CameraMovementKind,
+  CameraMovement,
+  Lighting,
+  AudioDirection,
+  ArcRole,
+  VisualTheme,
+} from './media/cinematography-schemas';
 
 // NOTE: `ScriptGenSchema`/`ScriptSchema`/`SceneSchema` (from `./llm/schemas`)
 // and `upgradeScene`/`upgradeScript`/`downgradeScript` (from `./llm/migration`)

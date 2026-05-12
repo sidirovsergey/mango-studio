@@ -1,0 +1,16 @@
+[Cinematography]
+Tracking, medium, 50mm, небольшое motion blur на фоне lens, 24fps cinematic.
+
+[Subject]
+Гром — Чёрный лабрадор-ретривер, молодой, энергичный, с блестящей шерстью.; @Image1.
+
+[Action]
+Black labrador Grom sprints toward a wooden fence, launches with hind legs coiled, paws over the top, lands clean on the far side.
+
+[Context]
+overcast diffuse key + naturalistic fill, полдень, пасмурно.
+
+[Style]
+Cinematic, naturalistic pacing; consistent grading.
+
+Avoid: abrupt cuts, scene changes, lens flares masking faces, multiple disconnected vignettes, text overlays

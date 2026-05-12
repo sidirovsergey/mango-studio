@@ -8,6 +8,7 @@ import { logLLMCall } from '@/server/lib/log-llm-call';
 import {
   type Character,
   type ChatMessage,
+  type DirectorContext,
   buildDirectorSystemPrompt,
   classifyLLMError,
   getModelParams,
@@ -62,48 +63,58 @@ export async function sendChatMessageAction(
   const openrouter = createOpenRouter({ apiKey });
   const params = getModelParams('chat');
 
-  // Извлекаем active/archived characters из script для Director context
+  // Phase 1.4.F.T3: DirectorContext now takes script directly (characters/scenes
+  // with archived flags are read by formatProjectStateSummary inside the prompt builder).
   const scriptCharacters =
     ((project.script ?? {}) as { characters?: Character[] }).characters ?? [];
-  const activeCharacters = scriptCharacters
-    .filter((c) => !c.archived)
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      description: c.description,
-      has_dossier: c.dossier != null,
-    }));
-  const archivedCharacters = scriptCharacters
-    .filter((c) => c.archived)
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      description: c.description,
-    }));
-
   const systemPrompt = buildDirectorSystemPrompt({
     idea: project.idea,
     duration_sec: project.target_duration_sec,
     format: project.format ?? '9:16',
     style: project.style ?? '3d_pixar',
-    script: project.script,
-    activeCharacters,
-    archivedCharacters,
+    script: project.script as DirectorContext['script'],
   });
   const tools = buildDirectorTools({ project_id });
+
+  // Director Agent uses Sonnet 4.6 — supports prompt caching + extended thinking.
+  // cacheControl goes on the system message itself (message-level, not request-level).
+  // thinking goes in providerOptions.openrouter when model is Sonnet and not disabled.
+  const isSonnet = params.model.toLowerCase().includes('sonnet');
+  const thinkingDisabled = process.env.MANGO_DISABLE_THINKING === '1';
+  const useThinking = isSonnet && !thinkingDisabled;
+
+  const openrouterOptions = {
+    provider: { ignore: ['DeepInfra'] },
+    ...(useThinking ? { thinking: { type: 'enabled' as const, budget_tokens: 2000 } } : {}),
+  };
+
+  // cache_control goes on the system message itself, NOT at request level (per T4 SDK research).
+  // Convert `system: string` to messages with a cacheable system entry.
+  const systemMessage = {
+    role: 'system' as const,
+    content: systemPrompt,
+    providerOptions: {
+      anthropic: { cacheControl: { type: 'ephemeral' } as const },
+    },
+  };
+
+  console.log('[chat] Director Agent mode:', {
+    model: params.model,
+    cache_control: 'ephemeral',
+    thinking: useThinking ? '2000 tokens' : 'disabled',
+  });
 
   const start = Date.now();
   try {
     const result = await generateText({
       model: openrouter(params.model),
-      system: systemPrompt,
-      messages,
+      messages: [systemMessage, ...messages], // system now part of messages array
       tools,
       stopWhen: stepCountIs(5),
       temperature: params.temperature,
       maxOutputTokens: params.max_tokens,
       providerOptions: {
-        openrouter: { provider: { ignore: ['DeepInfra'] } },
+        openrouter: openrouterOptions,
       },
     });
 

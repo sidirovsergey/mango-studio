@@ -171,4 +171,260 @@ describe('generateSceneVoiceAction', () => {
       expect.anything(),
     );
   });
+
+  // ── voice_settings tests (F30) ─────────────────────────────────────────────
+
+  it('submitVoice is called with voice_settings field in payload', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+
+    const submitVoice = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-vs-1',
+      model_used: 'fal-ai/elevenlabs/tts/multilingual-v2',
+      request_input: {},
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({ submitVoice });
+
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: makeProject(), error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    });
+    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      job_id: 'job-vs-1',
+      existing: false,
+    });
+
+    await generateSceneVoiceAction({ project_id: PROJECT_ID, scene_id: 's1' });
+    expect(submitVoice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        voice_settings: expect.objectContaining({
+          stability: expect.any(Number),
+          similarity_boost: expect.any(Number),
+          style: expect.any(Number),
+          speed: expect.any(Number),
+        }),
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('narrator path uses narrator voice_settings override when present', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+
+    const submitVoice = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-vs-2',
+      model_used: 'fal-ai/elevenlabs/tts/multilingual-v2',
+      request_input: {},
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({ submitVoice });
+
+    // narrator_voice with explicit voice_settings
+    const projectWithNarratorSettings = {
+      ...makeProject(),
+      script: {
+        ...makeProject().script,
+        narrator_voice: {
+          tts_voice_id: 'narrator-voice-id',
+          stability: 0.9,
+          similarity_boost: 0.85,
+          style: 0.1,
+          speed: 0.8,
+        },
+      },
+    };
+
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: projectWithNarratorSettings, error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    });
+    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      job_id: 'job-vs-2',
+      existing: false,
+    });
+
+    await generateSceneVoiceAction({ project_id: PROJECT_ID, scene_id: 's1' });
+    expect(submitVoice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        voice_settings: { stability: 0.9, similarity_boost: 0.85, style: 0.1, speed: 0.8 },
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('narrator path falls back to pool default when narrator has no voice_settings', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+
+    const submitVoice = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-vs-3',
+      model_used: 'fal-ai/elevenlabs/tts/multilingual-v2',
+      request_input: {},
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({ submitVoice });
+
+    // makeProject() has narrator_voice: { tts_voice_id: 'narrator-voice-id' } — no settings
+    // 'narrator-voice-id' is NOT in VOICE_POOL → falls back to narrator-default constant
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: makeProject(), error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    });
+    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      job_id: 'job-vs-3',
+      existing: false,
+    });
+
+    await generateSceneVoiceAction({ project_id: PROJECT_ID, scene_id: 's1' });
+    // narrator-voice-id is not in VOICE_POOL → narrator-default fallback
+    expect(submitVoice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        voice_settings: { stability: 0.6, similarity_boost: 0.75, style: 0, speed: 1.0 },
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('character speaker uses character voice_settings override when present', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+
+    const submitVoice = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-vs-4',
+      model_used: 'fal-ai/elevenlabs/tts/multilingual-v2',
+      request_input: {},
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({ submitVoice });
+
+    const projectWithCharSettings = {
+      ...makeProject({ dialogue: { speaker: 'char-1', text: 'My name is Alice' } }),
+      script: {
+        ...makeProject({ dialogue: { speaker: 'char-1', text: 'My name is Alice' } }).script,
+        characters: [
+          {
+            id: 'char-1',
+            name: 'Alice',
+            description: 'A curious girl',
+            full_prompt: '',
+            appearance: {},
+            voice: {
+              tts_voice_id: 'char-voice-id',
+              stability: 0.3,
+              similarity_boost: 0.5,
+              style: 0.2,
+              speed: 1.1,
+            },
+            voice_id: 'char-voice-id',
+            voice_label: 'Adam',
+            dossier: null,
+            reference_images: [],
+          },
+        ],
+      },
+    };
+
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: projectWithCharSettings, error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    });
+    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      job_id: 'job-vs-4',
+      existing: false,
+    });
+
+    await generateSceneVoiceAction({ project_id: PROJECT_ID, scene_id: 's1' });
+    expect(submitVoice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        voice_settings: { stability: 0.3, similarity_boost: 0.5, style: 0.2, speed: 1.1 },
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('character speaker falls back to pool default when no per-char settings', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+
+    const submitVoice = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-vs-5',
+      model_used: 'fal-ai/elevenlabs/tts/multilingual-v2',
+      request_input: {},
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({ submitVoice });
+
+    // char-1 in makeProject has voice: { tts_voice_id: 'char-voice-id' } — 'char-voice-id' not in pool
+    const project = makeProject({ dialogue: { speaker: 'char-1', text: 'My name is Alice' } });
+
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: project, error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    });
+    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      job_id: 'job-vs-5',
+      existing: false,
+    });
+
+    await generateSceneVoiceAction({ project_id: PROJECT_ID, scene_id: 's1' });
+    // char-voice-id not in VOICE_POOL → narrator-default fallback
+    expect(submitVoice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        voice_settings: { stability: 0.6, similarity_boost: 0.75, style: 0, speed: 1.0 },
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('falls back to narrator-default when voice_id not in VOICE_POOL (custom voice)', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+
+    const submitVoice = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-vs-6',
+      model_used: 'fal-ai/elevenlabs/tts/multilingual-v2',
+      request_input: {},
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({ submitVoice });
+
+    const projectCustomVoice = {
+      ...makeProject(),
+      script: {
+        ...makeProject().script,
+        narrator_voice: { tts_voice_id: 'totally-custom-voice-xyz' },
+      },
+    };
+
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: projectCustomVoice, error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    });
+    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      job_id: 'job-vs-6',
+      existing: false,
+    });
+
+    await generateSceneVoiceAction({ project_id: PROJECT_ID, scene_id: 's1' });
+    expect(submitVoice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        voice_settings: { stability: 0.6, similarity_boost: 0.75, style: 0, speed: 1.0 },
+      }),
+      expect.anything(),
+    );
+  });
 });

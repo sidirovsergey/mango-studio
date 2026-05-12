@@ -8,6 +8,7 @@ export const StoredAssetSchema = z.discriminatedUnion('kind', [
 export const DossierSchema = z.object({
   storage: StoredAssetSchema,
   avatar: StoredAssetSchema.optional(),
+  reference_image: StoredAssetSchema.nullable().optional(),
   model: z.string().min(1),
   format: z.literal('16:9'),
   quality: z.enum(['720p', '1080p', '2k']),
@@ -20,13 +21,28 @@ export const ReferenceImageSchema = z.object({
   uploaded_at: z.string(),
 });
 
-export const VoiceSchema = z
-  .object({
-    description: z.string().optional(),
-    tts_provider: z.enum(['grok', 'elevenlabs']).optional(),
-    tts_voice_id: z.string().optional(),
-  })
-  .default({});
+export const CharacterVoiceSchema = z.preprocess(
+  (raw) => {
+    if (raw && typeof raw === 'object' && 'description' in raw) {
+      const { description: _description, ...rest } = raw as Record<string, unknown>;
+      return rest;
+    }
+    return raw;
+  },
+  z
+    .object({
+      tts_provider: z.enum(['grok', 'elevenlabs']).optional(),
+      tts_voice_id: z.string().optional(),
+      stability: z.number().min(0).max(1).optional(),
+      similarity_boost: z.number().min(0).max(1).optional(),
+      style: z.number().min(0).optional(),
+      speed: z.number().min(0).optional(),
+    })
+    .default({}),
+);
+
+/** @deprecated Use CharacterVoiceSchema. VoiceSchema kept as alias for back-compat. */
+export const VoiceSchema = CharacterVoiceSchema;
 
 export const AppearanceSchema = z
   .object({
@@ -52,7 +68,7 @@ export const CharacterSchema = z.object({
   full_prompt: z.string().default(''),
   appearance: AppearanceSchema,
   personality: z.string().optional(),
-  voice: VoiceSchema,
+  voice: CharacterVoiceSchema,
   dossier: DossierSchema.nullable().default(null),
   reference_images: z.array(ReferenceImageSchema).default([]),
   voice_id: z.string().optional(),

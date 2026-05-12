@@ -1,0 +1,15 @@
+3D Pixar-style CGI render, soft volumetric lighting, expressive eyes, stylized proportions, detailed textures.
+
+OUTPUT FORMAT — single cinematic frame, 9:16 vertical aspect ratio, full bleed, no borders.
+
+Composition: Medium shot, Eye Level angle. Framing: Лис справа, ворона слева, бревно как горизонтальная ось, лес размыт за обоими.. Subject focus: встреча Руслана и Чёрной.
+
+Camera: Orbit (slow), 50mm, мягкое боке на листве.
+
+Lighting: dappled forest key — sun patches through canopy + cool shadow fill. Time of day: полдень, лес. Key direction: сверху сквозь листву, разрозненные пятна.
+
+Characters in shot: Руслан, Чёрная appearing together, interacting naturally, consistent designs. Reference images attached.
+
+Red fox and black crow face each other on a moss-covered log, fox tilts head, crow ruffles feathers, light leaks through canopy.
+
+Avoid: text in image, panels, captions, multiple views, watermarks, signature, color swatches, design notes.

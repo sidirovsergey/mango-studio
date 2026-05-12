@@ -1,0 +1,5 @@
+Description: Coastal cliff jagged with basalt columns, sea below in slow rolling swells, magenta dawn light catching the cliff tops, no human presence.
+
+Camera: Crane Up (slow) — 24mm wide, лёгкая дисторсия по краям
+
+Audio: silent, voice dubbed in post

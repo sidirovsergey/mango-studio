@@ -1,0 +1,16 @@
+[Cinematography]
+Crane Up, slow, 24mm wide, лёгкая дисторсия по краям lens, 24fps cinematic.
+
+[Subject]
+Subject as established in @Image1.
+
+[Action]
+Coastal cliff jagged with basalt columns, sea below in slow rolling swells, magenta dawn light catching the cliff tops, no human presence.
+
+[Context]
+cool blue-magenta dawn key + soft fill from overcast horizon, рассвет, 5:30 утра.
+
+[Style]
+Cinematic, naturalistic pacing; consistent grading.
+
+Avoid: abrupt cuts, scene changes, lens flares masking faces, multiple disconnected vignettes, text overlays

@@ -1,0 +1,5 @@
+{
+  "voice_id": "VR6AewLTigWG4xSOukaG",
+  "text": "Привет.",
+  "fallback": false
+}
