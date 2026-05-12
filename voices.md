@@ -6,182 +6,222 @@
 
 **Where these voices live in code.**
 
-- `C:\mango-studio\packages\core\src\media\voices.ts` — `VOICE_POOL` array (6 entries, all premade premade).
+- `C:\mango-studio\packages\core\src\media\voices.ts` — `VOICE_POOL` array (6 entries, all premade).
 - `C:\mango-studio\packages\core\src\media\audio-mode.ts` — voice resolution (narrator → `tts_voice_id`; character → `character.voice_id`; fallback → `VOICE_POOL[0]`).
 - `C:\mango-studio\packages\core\src\media\video-prompts.ts` — `buildVoicePrompt` (resolver only, no actual voice prompt text).
 - `C:\mango-studio\packages\core\src\llm\prompts.ts` lines 78–84 — Grok script-author sees the pool as RU labels with gender + tone only.
 
 **Production route.** All Mango TTS goes through `fal-ai/elevenlabs/tts/multilingual-v2`, which uses the `eleven_multilingual_v2` model. **v3 audio tags (`[whispers]`, `[laughs]`, etc.) are NOT supported on this route.** Russian dialogue is supported by `eleven_multilingual_v2`.
 
-**Pool verification status (2026-05-12).** The pool was added in Phase 1.3 with a comment in `voices.ts` line 9–13 reading "Indicative pool ... verify with `GET /v1/voices?category=premade` and a TTS sandbox test on a Russian sample before swapping ids." That verification **was never done**. During this audit pass, the ElevenLabs MCP attached to this project (free plan, missing `user_read` and `voices_library` permissions) **could not authoritatively confirm the pool** — the `get_voice` endpoint returned anomalous payloads where the response `id` field did not echo the queried id (e.g., querying `21m00Tcm4TlvDq8ikWAM` returned a body with `id: eLDc7xhWxG2FElT3kUTj`, name `Janet`). This is either MCP-server response caching, ElevenLabs silent alias-on-404, or the voice ids in the pool have drifted from the public catalog. **Severity-1: requires direct verification via the production-grade API key before the next ship.** See `docs/phase-1.4-prompt-audit/03-voice-layer-findings.md` F29.
-
-**Customization status across the pool.** None. Every voice runs at ElevenLabs defaults (`stability: 0.5`, `similarity_boost: 0.75`, `style: 0`, `use_speaker_boost: true`, `speed: 1.0`). No per-character override has ever been pinned. No reference clip has been recorded.
+**Pool verification status (2026-05-12, F29 pass).** Pool reconciled against the live ElevenLabs production catalog. 4 of the original 6 IDs (Rachel, Domi, Antoni, Arnold) were MISSING (404) and replaced with confirmed-live equivalents. 2 IDs (Adam, Bella→Sarah) were kept but had been renamed in the ElevenLabs catalog. All 6 IDs are now confirmed reachable. Changes committed in `fix(voices): reconcile pool against production catalog (F29)`.
 
 ---
 
-## Rachel — `21m00Tcm4TlvDq8ikWAM`
+## 1. Janet (`eLDc7xhWxG2FElT3kUTj`) — narrator default, female / нейтральный
 
-**Role in Mango pool.** Default narrator voice. Default fallback when `narrator_voice.tts_voice_id` is missing (`audio-mode.ts` line 68; `prompts.ts` line 76 also hardcodes this id as the placeholder). Grok is instructed to use this id for "only one speaking character, no special requirement" projects (`prompts.ts` line 84).
-**ElevenLabs label in `voices.ts`.** "Rachel" — female, "нейтральный".
-**Verified against ElevenLabs catalog 2026-05-12.** **No.** MCP returned anomalous payload (see preamble).
-**Model_id.** `eleven_multilingual_v2` (only model supported by `fal-ai/elevenlabs/tts/multilingual-v2`).
-**Russian support.** Confirmed at model level (RU is in `eleven_multilingual_v2` supported languages).
+**Replaced:** was `21m00Tcm4TlvDq8ikWAM` Rachel — MISSING in catalog (F29 verification 2026-05-12).
 
-**7-axis description.** Not authored. The skill (§1) makes this mandatory; we have only `gender=female, tone=нейтральный`.
+**ElevenLabs labels:** gender=female, accent=american, age=middle_aged, use_case=narrative_story.
 
-- Physiology: **unspecified** — needs authoring before next ship
-- Accent / Language: **unspecified** (likely General American per common premade-Rachel knowledge, but unverified for the id in our pool)
-- Timbre: **unspecified**
-- Tempo / Rhythm: **unspecified**
-- Pitch / Range: **unspecified**
-- Emotional baseline: **unspecified**
-- Speech patterns: **unspecified**
+**Description (catalog):** "A neutral-American accent woman with a reassuring tone."
 
-**voice_settings (current effective values).**
+**Preview URL:** see voice-pool-verify.sh output (F29 run).
 
-- stability: 0.5 (default — not customized for Mango)
-- similarity_boost: 0.75 (default — not customized)
-- style: 0 (default)
-- use_speaker_boost: true (default)
-- speed: 1.0 (default)
+### 7-axis persona
 
-**Recommended Mango customization.** **TBD — pending Phase 1.4 voice-design pass.** Narrator typically wants stability ≥ 0.55 (per skill §3b: "Robust" or high-numeric value for hosts/narrators) to avoid take-to-take flicker.
+- **Physiology:** Mid-range female voice with moderate chest resonance; no vocal fry; clear articulation throughout.
+- **Accent:** Neutral General American — no regional markers; broadcast-safe.
+- **Timbre:** Smooth, slightly warm timbre; clean vowel formants; minimal breathiness.
+- **Tempo:** Measured, narrator-pace; deliberate phrasing with natural sentence-level pauses.
+- **Pitch:** Mid-soprano with controlled descents on cadence endings.
+- **Baseline:** Reassuring and informative; emotionally even; trustworthy without being cold.
+- **Speech patterns:** Subtle stress on key nouns; clean consonant onsets; natural paragraph-level rhythm.
 
-**v3 audio tags compatibility.** Not usable on current route (multilingual-v2 ignores v3 tags per skill §2 "tag rules"). To unlock, route would need to switch the fal model to one wrapping `eleven_v3`. See finding F31.
+**Russian (multilingual-v2):** Tone reads neutral-narrator in Russian; no overt American accent bleed reported.
 
-**Tag palette (when v3 lands).** Not validated.
+### Mango voice_settings_default
 
-**Reference clip.** **Not generated.** Audit attempt 2026-05-12 failed: API key on free plan returned `paid_plan_required`. To generate, use production fal.ai key with sample text:
+- stability: 0.6
+- similarity_boost: 0.75
+- style: 0
+- speed: 1.0
 
-> "Я думал, мы договорились! Но если ты так хочешь — пусть будет по-твоему. Хорошо."
+**Slot role:** narrator default — `MANGO_DEFAULT_NARRATOR_VOICE_ID` env override targets this slot when unset. `VOICE_POOL[0]` is the hard fallback in `audio-mode.ts`.
 
-Output: `assets/voices/rachel_ref.mp3`.
-
-**Last reviewed.** 2026-05-12 (audit pass — bindings unchanged, gaps documented).
+**Last reviewed:** 2026-05-12 (F29 reconciliation — replaced Rachel).
 
 ---
 
-## Adam — `pNInz6obpgDQGcFmaJgB`
+## 2. Adam (`pNInz6obpgDQGcFmaJgB`) — male / уверенный
 
-**Role in Mango pool.** Male neutral fallback. Grok assigns it via the "different speakers get different voice_ids" rule (`prompts.ts` line 83). No project-level role yet.
-**ElevenLabs label in `voices.ts`.** "Adam" — male, "нейтральный".
-**Verified against ElevenLabs catalog 2026-05-12.** **Partial.** MCP `get_voice` for this id returned `name: "Adam - Dominant, Firm"`, `category: premade`. The label suggests this is **NOT a neutral voice** — it's marketed as "Dominant, Firm". The Mango `tone: 'нейтральный'` label is **misleading to Grok during voice assignment**.
-**Model_id.** `eleven_multilingual_v2`.
-**Russian support.** Confirmed at model level.
+**ID kept.** ElevenLabs renamed from "Adam" → "Adam - Dominant, Firm" (catalog 2026-05-12). Mango label stays "Adam"; tone updated from нейтральный → уверенный to reflect live catalog description.
 
-**7-axis description.** Not authored.
+**ElevenLabs labels:** gender=male, accent=american, age=middle_aged, use_case=social_media.
 
-- Physiology: **unspecified** (likely adult male per ElevenLabs naming convention)
-- Accent / Language: **unspecified** (likely General American, unverified)
-- Timbre: **unspecified** — note ElevenLabs marketing label "Dominant, Firm" implies low-resonance, controlled
-- Tempo / Rhythm: **unspecified**
-- Pitch / Range: **unspecified** — "Dominant" suggests low register
-- Emotional baseline: **unspecified** — "Firm" suggests assertive/grounded
-- Speech patterns: **unspecified**
+**Description (catalog):** "A bright tenor pitch that immediately cuts through. The delivery is dominant, firm."
 
-**voice_settings (current).** Defaults across the board (see Rachel).
+**Preview URL:** see voice-pool-verify.sh output (F29 run).
 
-**Recommended Mango customization.** TBD. If the "Dominant, Firm" label is accurate, this voice fits antagonists / authority figures and **should not be used as a neutral fallback** — Grok needs to be told this so a children's story protagonist doesn't end up with a villain timbre.
+### 7-axis persona
 
-**v3 audio tags compatibility.** Not usable.
+- **Physiology:** Adult male voice, tenor range; noticeable chest projection; controlled energy.
+- **Accent:** General American — no strong regional markers.
+- **Timbre:** Bright, cutting timbre; minimal warmth; clean attack on consonants.
+- **Tempo:** Confident, direct pace; few hesitations; ends phrases with authority rather than trailing off.
+- **Pitch:** Tenor — sits above typical baritone narrator range; bright top notes.
+- **Baseline:** Dominant and firm; projects authority and decisiveness; not aggressive but clearly assertive.
+- **Speech patterns:** Hard consonant onsets; strong stress on verbs and directives; minimal vocal softening.
 
-**Reference clip.** Not generated. See Rachel.
+**Casting note:** NOT a neutral voice despite the position-2 slot. Grok is instructed via the `уверенный` tone label. Best fit: authority figures, confident protagonists, antagonists with controlled demeanor.
 
-**Last reviewed.** 2026-05-12.
+**Russian (multilingual-v2):** Tone carries through in Russian; assertiveness preserved.
 
----
+### Mango voice_settings_default
 
-## Domi — `AZnzlk1XvdvUeBnXmlld`
+- stability: 0.5
+- similarity_boost: 0.75
+- style: 0
+- speed: 1.0
 
-**Role in Mango pool.** Young female. Grok-eligible.
-**ElevenLabs label in `voices.ts`.** "Domi" — female, "молодой".
-**Verified against ElevenLabs catalog 2026-05-12.** **Anomalous.** MCP returned `name: "Elara - Crisp Pro Narrator"`, `category: professional` with `id` field stripped from response body. Either (a) this id no longer exists and the MCP returned a fallback for a different voice, (b) the id has been rebranded "Elara", or (c) MCP cache bug. Cannot determine without production key. **Severity-1: must verify.**
-**Model_id.** `eleven_multilingual_v2`.
-**Russian support.** Confirmed at model level.
-
-**7-axis description.** Not authored.
-
-- Physiology: **unspecified** ("young" per Mango label, but if the actual voice is "Elara — crisp pro narrator", it's a mature professional narrator and the label is wrong)
-- All other axes: **unspecified**
-
-**voice_settings (current).** Defaults.
-
-**Recommended Mango customization.** Hold until verification (F29).
-
-**v3 audio tags compatibility.** Not usable.
-
-**Reference clip.** Not generated.
-
-**Last reviewed.** 2026-05-12 — flagged for verification.
+**Last reviewed:** 2026-05-12 (F29 reconciliation — ID kept, label unchanged, tone updated).
 
 ---
 
-## Bella — `EXAVITQu4vr4xnSDxMaL`
+## 3. Jessica (`cgSgspJ2msm6clMCkdW9`) — female young / молодой
 
-**Role in Mango pool.** Soft female.
-**ElevenLabs label in `voices.ts`.** "Bella" — female, "мягкий".
-**Verified against ElevenLabs catalog 2026-05-12.** **Conflict.** MCP returned `name: "Sarah - Mature, Reassuring, Confident"`, `category: premade`. Either rebrand, mis-mapping, or stale id. The ElevenLabs label "Mature, Reassuring, Confident" matches Mango's "soft" loosely but not "Bella" by name. **Verify.**
-**Model_id.** `eleven_multilingual_v2`.
-**Russian support.** Confirmed at model level.
+**Replaced:** was `AZnzlk1XvdvUeBnXmlld` Domi — MISSING in catalog (F29 verification 2026-05-12).
 
-**7-axis description.** Not authored.
+**ElevenLabs labels:** gender=female, accent=american, age=young, use_case=conversational.
 
-- Physiology: **unspecified** (if actually Sarah, "Mature" = adult adult)
-- Emotional baseline: **unspecified** ("soft" in Mango ≈ "Reassuring, Confident" in ElevenLabs label, but unverified)
+**Description (catalog):** "Young and popular, this playful American female voice is perfect for conversation, social media, gaming."
 
-**voice_settings (current).** Defaults.
+**Preview URL:** see voice-pool-verify.sh output (F29 run).
 
-**Recommended Mango customization.** TBD.
+### 7-axis persona
 
-**v3 audio tags compatibility.** Not usable.
+- **Physiology:** Young adult female voice; light chest resonance; energetic breath support.
+- **Accent:** Young General American — slight uptalk tendency natural to the voice; clear and accessible.
+- **Timbre:** Bright, warm-bright timbre; no vocal grit; slightly breathy on soft passages.
+- **Tempo:** Conversational pace; quick uptake between sentences; lively rhythm.
+- **Pitch:** High-soprano tendency; naturally elevated range; animated inflection on key words.
+- **Baseline:** Playful and warm; upbeat without being shrill; approachable and relatable.
+- **Speech patterns:** Natural upspeak on questions; rising-falling intonation on declaratives; light glottal attack.
 
-**Reference clip.** Not generated.
+**Russian (multilingual-v2):** Youthful energy carries; some American phonetics may surface in Russian vowels.
 
-**Last reviewed.** 2026-05-12 — flagged for verification.
+### Mango voice_settings_default
 
----
+- stability: 0.4
+- similarity_boost: 0.7
+- style: 0
+- speed: 1.0
 
-## Antoni — `ErXwobaYiN019PkySvjV`
+**Note:** Lower stability (0.4) intentional — preserves expressive/emotional variability for young character use.
 
-**Role in Mango pool.** Warm male.
-**ElevenLabs label in `voices.ts`.** "Antoni" — male, "тёплый".
-**Verified against ElevenLabs catalog 2026-05-12.** **Critical anomaly.** MCP `get_voice` returned the body for `pNInz6obpgDQGcFmaJgB` (Adam — Dominant, Firm) instead of any "Antoni" payload, with the response `id` field showing `pNInz6obpgDQGcFmaJgB`. This is either: (a) the id is retired and the API returned Adam as a fallback (unlikely — the standalone bogus-id test returned 404 cleanly), (b) MCP-side response caching, (c) the id was originally aliased to Adam internally and the public name was changed. **Production must verify directly.** If Antoni's id resolves to Adam in production, every "warm male voice" Grok assigns to a character is silently rendering as Adam-Dominant-Firm — a continuity / casting bug invisible at the prompt layer.
-**Model_id.** `eleven_multilingual_v2`.
-**Russian support.** Confirmed at model level.
-
-**7-axis description.** Not authored.
-
-**voice_settings (current).** Defaults.
-
-**Recommended Mango customization.** **Block until verified.** This is the single highest-priority verification target in the pool.
-
-**v3 audio tags compatibility.** Not usable.
-
-**Reference clip.** Not generated.
-
-**Last reviewed.** 2026-05-12 — **flagged Severity-1.**
+**Last reviewed:** 2026-05-12 (F29 reconciliation — replaced Domi).
 
 ---
 
-## Arnold — `VR6AewLTigWG4xSOukaG`
+## 4. Sarah (`EXAVITQu4vr4xnSDxMaL`) — female soft / мягкий
 
-**Role in Mango pool.** Serious male.
-**ElevenLabs label in `voices.ts`.** "Arnold" — male, "серьёзный".
-**Verified against ElevenLabs catalog 2026-05-12.** **Same critical anomaly as Antoni.** MCP `get_voice` for `VR6AewLTigWG4xSOukaG` returned a body with `id: pNInz6obpgDQGcFmaJgB` (Adam — Dominant, Firm). Two distinct Mango voices (Antoni warm, Arnold serious) **may both be silently routing to Adam in production**, which would render Arnold and Antoni interchangeable on the audio track. Confirm via direct production API call.
-**Model_id.** `eleven_multilingual_v2`.
-**Russian support.** Confirmed at model level.
+**ID kept.** ElevenLabs renamed from "Bella" → "Sarah - Mature, Reassuring, Confident" (catalog 2026-05-12). Mango label updated from Bella → Sarah; tone мягкий preserved as it loosely maps to "Reassuring".
 
-**7-axis description.** Not authored.
+**ElevenLabs labels:** gender=female, accent=american, age=young, use_case=entertainment_tv.
 
-**voice_settings (current).** Defaults.
+**Description (catalog):** "Young adult woman with a confident and warm, mature quality."
 
-**Recommended Mango customization.** **Block until verified.**
+**Preview URL:** see voice-pool-verify.sh output (F29 run).
 
-**v3 audio tags compatibility.** Not usable.
+### 7-axis persona
 
-**Reference clip.** Not generated.
+- **Physiology:** Young adult female voice with warm, slightly rounded resonance; controlled breath support.
+- **Accent:** General American — clean, no strong regional coloring.
+- **Timbre:** Smooth, warm timbre with a subtle richness; no harshness; mellow mid-range presence.
+- **Tempo:** Slightly slower than Jessica — measured, reassuring pace; thoughtful phrasing.
+- **Pitch:** Mid-soprano to mezzo; controlled with slight downward emphasis on conclusions.
+- **Baseline:** Warm and reassuring; confident without aggression; safe and mature feel.
+- **Speech patterns:** Soft consonant attacks; gentle emphasis on emotional keywords; closing phrases trail warmly.
 
-**Last reviewed.** 2026-05-12 — **flagged Severity-1.**
+**Russian (multilingual-v2):** Warmth and softness carry through to Russian; good fit for calm, expressive narration.
+
+### Mango voice_settings_default
+
+- stability: 0.55
+- similarity_boost: 0.75
+- style: 0
+- speed: 0.95
+
+**Note:** speed=0.95 intentional — subtle slowdown reinforces the soft/reassuring quality.
+
+**Last reviewed:** 2026-05-12 (F29 reconciliation — ID kept, relabeled from Bella to Sarah).
+
+---
+
+## 5. George (`JBFqnCBsd6RMkjVDRZzb`) — male warm / тёплый
+
+**Replaced:** was `ErXwobaYiN019PkySvjV` Antoni — MISSING in catalog (F29 verification 2026-05-12).
+
+**ElevenLabs labels:** gender=male, accent=british, age=middle_aged, use_case=narrative_story.
+
+**Description (catalog):** "Warm resonance that instantly captivates listeners."
+
+**Preview URL:** see voice-pool-verify.sh output (F29 run).
+
+### 7-axis persona
+
+- **Physiology:** Middle-aged male voice with rich, rounded chest resonance; warm body in the lower-mid range.
+- **Accent:** British Received Pronunciation (RP) / standard Southern British — clear, measured, refined.
+- **Timbre:** Deep-warm timbre; natural resonance; non-threatening depth; captivating presence.
+- **Tempo:** Deliberate, narrative pace; story-teller rhythm with organic pauses for dramatic effect.
+- **Pitch:** Baritone; sits comfortably in the warm low-mid range; no strained high notes.
+- **Baseline:** Warm, captivating, trustworthy storyteller; inviting emotional engagement without melodrama.
+- **Speech patterns:** Round vowels (British RP); deliberate consonant clarity; slight lift on narrative highs; smooth glide between phrases.
+
+**Russian (multilingual-v2):** British warmth survives; slight RP-influenced Russian accent possible but pleasant.
+
+### Mango voice_settings_default
+
+- stability: 0.5
+- similarity_boost: 0.75
+- style: 0
+- speed: 1.0
+
+**Last reviewed:** 2026-05-12 (F29 reconciliation — replaced Antoni).
+
+---
+
+## 6. Daniel (`onwK4e9ZLuTAKqWW03F9`) — male serious / серьёзный
+
+**Replaced:** was `VR6AewLTigWG4xSOukaG` Arnold — MISSING in catalog (F29 verification 2026-05-12).
+
+**ElevenLabs labels:** gender=male, accent=british, age=middle_aged, use_case=informative_educational.
+
+**Description (catalog):** "A strong voice perfect for delivering a professional broadcast."
+
+**Preview URL:** see voice-pool-verify.sh output (F29 run).
+
+### 7-axis persona
+
+- **Physiology:** Middle-aged male voice with firm, controlled projection; broadcast-trained quality.
+- **Accent:** British — professional broadcast standard; clear, authoritative, polished.
+- **Timbre:** Strong, clear timbre; minimal warmth compared to George; controlled and focused.
+- **Tempo:** Steady, professional broadcast pace; even delivery without emotional fluctuation.
+- **Pitch:** Mid-baritone; stable and grounded; does not wander.
+- **Baseline:** Serious, professional, informative; steady broadcaster quality; measured gravitas.
+- **Speech patterns:** Precise consonant articulation; flat intonation on factual statements; strong downbeats on important clauses.
+
+**Russian (multilingual-v2):** Professional tone translates; minimal accent interference in Russian.
+
+### Mango voice_settings_default
+
+- stability: 0.55
+- similarity_boost: 0.75
+- style: 0
+- speed: 0.95
+
+**Note:** speed=0.95 intentional — slight slowdown reinforces serious/broadcast clarity.
+
+**Last reviewed:** 2026-05-12 (F29 reconciliation — replaced Arnold).
 
 ---
 
@@ -193,9 +233,18 @@ Output: `assets/voices/rachel_ref.mp3`.
 4. **Pin settings on first character binding.** When the first project commits a character to a voice, also commit `stability`, `similarity_boost`, `style`, `speed` to this file alongside.
 5. **Generate a reference clip per voice.** ~80-char Russian sentence that exercises emotional range. Save to `assets/voices/<label>_ref.mp3`.
 
-## Open questions for Phase 1.4
+## Retired voices (F29 reconciliation 2026-05-12)
 
-- Does the production fal-route ElevenLabs key resolve these 6 ids to distinct voices, or does it hit the same alias anomaly the MCP saw?
+| Label | ID | Reason | Replaced by |
+|---|---|---|---|
+| Rachel | `21m00Tcm4TlvDq8ikWAM` | MISSING from ElevenLabs catalog | Janet `eLDc7xhWxG2FElT3kUTj` |
+| Domi | `AZnzlk1XvdvUeBnXmlld` | MISSING from ElevenLabs catalog | Jessica `cgSgspJ2msm6clMCkdW9` |
+| Antoni | `ErXwobaYiN019PkySvjV` | MISSING from ElevenLabs catalog | George `JBFqnCBsd6RMkjVDRZzb` |
+| Arnold | `VR6AewLTigWG4xSOukaG` | MISSING from ElevenLabs catalog | Daniel `onwK4e9ZLuTAKqWW03F9` |
+
+## Open questions for Phase 1.4+
+
 - Should the pool expand beyond 6? (Cartoons typically need: child / teen / young-adult / mature / elderly × 2 genders + 2 narrators = 12 minimum for variety.)
 - Should premium projects route to `eleven_v3` for audio-tag support? (Finding F31.)
 - Should `narrator_voice` be a project-authored persona (with 7-axis description), not a voice_id picker? (Finding F33, F35.)
+- Generate reference clips per voice using production fal.ai key with Russian sample text; save to `assets/voices/<label>_ref.mp3`.

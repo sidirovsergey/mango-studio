@@ -20,11 +20,11 @@ describe('CharacterSchema', () => {
       id: '550e8400-e29b-41d4-a716-446655440000',
       name: 'Дельфин',
       description: 'Главный герой',
-      voice_id: '21m00Tcm4TlvDq8ikWAM',
-      voice_label: 'Rachel',
+      voice_id: 'eLDc7xhWxG2FElT3kUTj',
+      voice_label: 'Janet',
     });
-    expect(out.voice_id).toBe('21m00Tcm4TlvDq8ikWAM');
-    expect(out.voice_label).toBe('Rachel');
+    expect(out.voice_id).toBe('eLDc7xhWxG2FElT3kUTj');
+    expect(out.voice_label).toBe('Janet');
   });
 
   it('voice_id + voice_label optional', () => {

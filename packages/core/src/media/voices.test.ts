@@ -46,42 +46,42 @@ describe('VOICE_POOL', () => {
   });
 
   it('per-position voice_settings_default matches spec table', () => {
-    // Position 0: Rachel (narrator default)
+    // Position 0: Janet (narrator default) — was Rachel (MISSING F29)
     expect(VOICE_POOL[0]!.voice_settings_default).toEqual({
       stability: 0.6,
       similarity_boost: 0.75,
       style: 0,
       speed: 1.0,
     });
-    // Position 1: Adam (male neutral)
+    // Position 1: Adam (male уверенный) — id kept, label unchanged
     expect(VOICE_POOL[1]!.voice_settings_default).toEqual({
       stability: 0.5,
       similarity_boost: 0.75,
       style: 0,
       speed: 1.0,
     });
-    // Position 2: Domi (female young)
+    // Position 2: Jessica (female young) — was Domi (MISSING F29)
     expect(VOICE_POOL[2]!.voice_settings_default).toEqual({
       stability: 0.4,
       similarity_boost: 0.7,
       style: 0,
       speed: 1.0,
     });
-    // Position 3: Bella (female soft)
+    // Position 3: Sarah (female soft) — id kept, was Bella (renamed in ElevenLabs F29)
     expect(VOICE_POOL[3]!.voice_settings_default).toEqual({
       stability: 0.55,
       similarity_boost: 0.75,
       style: 0,
       speed: 0.95,
     });
-    // Position 4: Antoni (male warm)
+    // Position 4: George (male warm) — was Antoni (MISSING F29)
     expect(VOICE_POOL[4]!.voice_settings_default).toEqual({
       stability: 0.5,
       similarity_boost: 0.75,
       style: 0,
       speed: 1.0,
     });
-    // Position 5: Arnold (male serious)
+    // Position 5: Daniel (male serious) — was Arnold (MISSING F29)
     expect(VOICE_POOL[5]!.voice_settings_default).toEqual({
       stability: 0.55,
       similarity_boost: 0.75,
