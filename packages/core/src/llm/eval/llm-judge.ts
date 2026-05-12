@@ -175,3 +175,62 @@ export async function judgeVideoPrompt(input: JudgeVideoPromptInput): Promise<Ju
 
   return { score, rationale, cost_usd };
 }
+
+// ---------------------------------------------------------------------------
+// T5 — judgeDescriptionFaithfulness
+// ---------------------------------------------------------------------------
+
+export interface FaithfulnessInput {
+  description_ru: string;
+  description_en: string;
+}
+
+export interface FaithfulnessResult {
+  /** 0–10 */
+  score: number;
+  rationale: string;
+  cost_usd: number;
+}
+
+const JUDGE_FAITHFULNESS_SYSTEM = `You evaluate semantic faithfulness between two scene descriptions in different languages (Russian and English). Score 0-10 on whether the English mirrors the Russian intent — penalize additions, omissions, and tonal shifts.
+
+Output JSON: {"score": 8, "rationale": "EN preserves key visual elements; minor omission of mood adjective."}`;
+
+/**
+ * T5 — Judge semantic faithfulness between description_ru and description_en.
+ *
+ * Calls Sonnet 4.6 at temp=0, max_tokens=200.
+ * Throws `JudgeBudgetExceededError` if actual cost exceeds $0.02.
+ */
+export async function judgeDescriptionFaithfulness(
+  input: FaithfulnessInput,
+): Promise<FaithfulnessResult> {
+  const openrouter = buildOpenRouter();
+
+  const userMessage = [
+    `RU: ${input.description_ru}`,
+    `EN: ${input.description_en}`,
+    '',
+    'Score the faithfulness.',
+  ].join('\n');
+
+  const { text, usage } = await generateText({
+    model: openrouter(JUDGE_MODEL),
+    system: JUDGE_FAITHFULNESS_SYSTEM,
+    prompt: userMessage,
+    temperature: JUDGE_TEMPERATURE,
+    maxOutputTokens: JUDGE_MAX_TOKENS,
+  });
+
+  const promptTokens = usage?.inputTokens ?? 0;
+  const completionTokens = usage?.outputTokens ?? 0;
+
+  console.log(
+    `[llm-judge/faithfulness] tokens in=${promptTokens} out=${completionTokens} model=${JUDGE_MODEL}`,
+  );
+
+  const cost_usd = await enforceBudget(promptTokens, completionTokens);
+  const { score, rationale } = parseJudgeJson(text);
+
+  return { score, rationale, cost_usd };
+}

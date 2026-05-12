@@ -7,11 +7,17 @@
  *
  * CI cost note: each skipped test costs $0. When run with a real key:
  *   - T4 judge call: ~500 in + 200 out = ~$0.005 per call
+ *   - T5 judge call: ~200 in + 100 out = ~$0.003 per call
+ *   - CI gate (5 scenes): ~$0.015 total for the faithfulness suite
  * Recommendation: gate on `main` merge only, not every PR, to avoid ~$0.40/run cost.
  */
 
 import { describe, expect, it } from 'vitest';
-import { JudgeBudgetExceededError, judgeVideoPrompt } from './llm-judge';
+import {
+  JudgeBudgetExceededError,
+  judgeDescriptionFaithfulness,
+  judgeVideoPrompt,
+} from './llm-judge';
 import { CANONICAL_SCENES } from './snapshot-fixtures';
 
 const HAS_KEY = !!process.env.OPENROUTER_API_KEY;
@@ -121,6 +127,96 @@ describe('LLM Judge — video prompt (T4)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// T5 — Description faithfulness judge
+// ---------------------------------------------------------------------------
+
+describe('LLM Judge — description faithfulness (T5)', () => {
+  it.skipIf(!HAS_KEY)(
+    'returns score 0-10 for a known-good RU/EN pair',
+    async () => {
+      const result = await judgeDescriptionFaithfulness({
+        description_ru: 'Рыжий кот спит на подоконнике в солнечном луче.',
+        description_en: 'Ginger cat sleeps on a windowsill in a beam of sunlight.',
+      });
+
+      expect(result.score).toBeGreaterThanOrEqual(0);
+      expect(result.score).toBeLessThanOrEqual(10);
+      expect(result.rationale).toBeTruthy();
+      expect(result.cost_usd).toBeLessThan(0.02);
+      // Known-good pair — should score high
+      expect(result.score).toBeGreaterThanOrEqual(7);
+    },
+    30_000,
+  );
+
+  it.skipIf(!HAS_KEY)(
+    'penalizes mismatched descriptions (score < 5)',
+    async () => {
+      const result = await judgeDescriptionFaithfulness({
+        description_ru: 'Рыжий кот спит на подоконнике в солнечном луче.',
+        description_en: 'A black labrador runs across a beach.', // completely unrelated
+      });
+
+      expect(result.score).toBeLessThan(5);
+    },
+    30_000,
+  );
+
+  it.skipIf(!HAS_KEY)(
+    'penalizes partial mismatch (additions/omissions)',
+    async () => {
+      const result = await judgeDescriptionFaithfulness({
+        description_ru: 'Рыжий кот мирно спит, его грудь медленно поднимается.',
+        // EN adds unrelated detail (barking dog) and drops the breathing mention
+        description_en: 'A ginger cat rests on a surface while a dog barks in the background.',
+      });
+
+      // Should score lower than a perfect match (≥7) but higher than a total mismatch
+      expect(result.score).toBeLessThan(9);
+    },
+    30_000,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// T5 CI gate — mean ≥8 across all 5 canonical scene RU/EN pairs
+// ---------------------------------------------------------------------------
+
+describe('Faithfulness CI gate — mean ≥8 across canonical fixtures (T5)', () => {
+  it.skipIf(!HAS_KEY)(
+    'all canonical scenes with description_en pass mean ≥8',
+    async () => {
+      const scores: number[] = [];
+
+      for (const fixture of CANONICAL_SCENES) {
+        const descEn = fixture.scene.description_en;
+        const descRu = fixture.scene.description_ru ?? fixture.scene.description;
+        if (!descEn) continue;
+
+        const result = await judgeDescriptionFaithfulness({
+          description_ru: descRu,
+          description_en: descEn,
+        });
+
+        console.log(
+          `[CI gate] fixture=${fixture.label} score=${result.score} rationale="${result.rationale}"`,
+        );
+        scores.push(result.score);
+      }
+
+      expect(scores.length).toBeGreaterThan(0);
+
+      const mean = scores.reduce((s, x) => s + x, 0) / scores.length;
+      console.log(
+        `[CI gate] mean faithfulness score = ${mean.toFixed(2)} across ${scores.length} fixtures`,
+      );
+      expect(mean).toBeGreaterThanOrEqual(8);
+    },
+    120_000,
+  );
+});
+
+// ---------------------------------------------------------------------------
 // Unit tests — no API key required
 // ---------------------------------------------------------------------------
 
@@ -142,6 +238,21 @@ describe('LLM Judge — unit tests (no API key)', () => {
           prompt: 'test',
           scene_description_ru: 'тест',
           shot_intent: 'test',
+        }),
+      ).rejects.toThrow('OPENROUTER_API_KEY');
+    } finally {
+      process.env.OPENROUTER_API_KEY = saved;
+    }
+  });
+
+  it('judgeDescriptionFaithfulness throws without OPENROUTER_API_KEY', async () => {
+    const saved = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = '';
+    try {
+      await expect(
+        judgeDescriptionFaithfulness({
+          description_ru: 'тест',
+          description_en: 'test',
         }),
       ).rejects.toThrow('OPENROUTER_API_KEY');
     } finally {
