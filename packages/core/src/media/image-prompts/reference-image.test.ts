@@ -38,15 +38,19 @@ describe('buildReferenceImagePrompt', () => {
     expect(firstLine).toContain('Danny');
   });
 
-  it('style appears verbatim in output', () => {
+  it('style preamble is resolved to rich human-readable description (not raw enum)', () => {
+    // Updated: buildReferenceImagePrompt now uses STYLE_PREAMBLE[style] for richer steering (F58 alignment).
     const out3d = buildReferenceImagePrompt(baseChar, '3d_pixar');
-    expect(out3d).toContain('3d_pixar');
+    expect(out3d).toContain('Pixar');
+    expect(out3d).not.toContain('Style: 3d_pixar');
 
     const out2d = buildReferenceImagePrompt(baseChar, '2d_drawn');
-    expect(out2d).toContain('2d_drawn');
+    expect(out2d).toContain('Ghibli');
+    expect(out2d).not.toContain('Style: 2d_drawn');
 
     const outClay = buildReferenceImagePrompt(baseChar, 'clay_art');
-    expect(outClay).toContain('clay_art');
+    expect(outClay).toContain('Aardman');
+    expect(outClay).not.toContain('Style: clay_art');
   });
 
   it('char.description appears verbatim in output', () => {

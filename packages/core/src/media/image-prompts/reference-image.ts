@@ -1,4 +1,5 @@
 import type { CharacterForPrompt, Style } from '../prompts';
+import { STYLE_PREAMBLE } from '../prompts';
 
 /**
  * Build a prompt for a single-pose 1:1 character reference image.
@@ -20,7 +21,7 @@ export function buildReferenceImagePrompt(char: CharacterForPrompt, style: Style
   const lines: string[] = [
     `Single-pose character design reference for ${char.name}.`,
     '',
-    `Style: ${style}`,
+    `Style: ${STYLE_PREAMBLE[style]}`,
     '',
     `Character: ${char.description}`,
     ...(appearanceDetails ? [appearanceDetails] : []),
