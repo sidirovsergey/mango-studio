@@ -50,6 +50,7 @@ export {
   buildDossierPrompt,
   buildAvatarPrompt,
   buildReferenceImagePrompt,
+  buildFirstFramePrompt,
   MediaProviderError,
   classifyMediaError,
   FalCdnPassthroughStorage,
@@ -65,10 +66,10 @@ export {
   isVideoModelInTier,
   getDefaultVoiceModel,
   clampDurationToModel,
-  buildFirstFramePrompt,
   buildVideoPrompt,
   buildVoicePrompt,
 } from './media';
+export type { Style, FirstFramePromptInput } from './media';
 
 export type {
   ChatInput,

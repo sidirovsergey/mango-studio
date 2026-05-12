@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildFirstFramePrompt, buildVoicePrompt } from './video-prompts';
 
+// NOTE: buildFirstFramePrompt has moved to image-prompts/first-frame.ts (T4 refactor).
+// These legacy tests remain here for backward-compat verification (the function is still
+// re-exported from video-prompts.ts). The API now uses Style enum ('3d_pixar') not a string.
+
 const dolphin = {
   id: 'c1',
   name: 'Дельфин',
@@ -8,18 +12,29 @@ const dolphin = {
   full_prompt: 'A blue 3D Pixar dolphin character with bowtie',
   dossier: {
     storage: { kind: 'fal_passthrough' as const, url: 'https://fal.cdn/dolphin.png' },
+    reference_image: { kind: 'fal_passthrough' as const, url: 'https://fal.cdn/dolphin-ref.png' },
+    model: 'm',
+    format: '16:9' as const,
+    quality: '1080p' as const,
+    generated_at: '2026-01-01',
   },
-  reference_images: [],
+  voice: {},
 };
 
 const crab = {
-  ...dolphin,
   id: 'c2',
   name: 'Краб',
   description: 'Крабик с ноутбуком',
+  full_prompt: '',
   dossier: {
     storage: { kind: 'fal_passthrough' as const, url: 'https://fal.cdn/crab.png' },
+    reference_image: { kind: 'fal_passthrough' as const, url: 'https://fal.cdn/crab-ref.png' },
+    model: 'm',
+    format: '16:9' as const,
+    quality: '1080p' as const,
+    generated_at: '2026-01-01',
   },
+  voice: {},
 };
 
 describe('buildFirstFramePrompt', () => {
@@ -31,12 +46,14 @@ describe('buildFirstFramePrompt', () => {
       },
       characters_in_scene: [dolphin, crab],
       prev_last_frame: null,
-      project_style: '3D Pixar',
+      project_style: '3d_pixar',
       first_frame_source: 'manual_text2img',
     });
-    expect(result.prompt).toContain('3D Pixar');
+    // New preamble contains 'Pixar' (from STYLE_PREAMBLE[3d_pixar])
+    expect(result.prompt).toContain('Pixar');
     expect(result.prompt).toContain('9:16');
     expect(result.prompt).toContain('Дельфин говорит с крабом');
+    // image_refs now uses reference_image (not dossier.storage)
     expect(result.image_refs).toHaveLength(2);
   });
 
@@ -49,11 +66,12 @@ describe('buildFirstFramePrompt', () => {
       scene: { scene_id: 's2', description: 'продолжение' },
       characters_in_scene: [dolphin],
       prev_last_frame: last_frame,
-      project_style: '3D Pixar',
+      project_style: '3d_pixar',
       first_frame_source: 'auto_continuity',
     });
     expect(result.image_refs[0]).toEqual(last_frame);
-    expect(result.image_refs[1]).toEqual(dolphin.dossier.storage);
+    // Second ref is the reference_image (not dossier.storage)
+    expect(result.image_refs[1]).toEqual(dolphin.dossier.reference_image);
   });
 
   it('skips continuity ref when first_frame_source = manual_text2img', () => {
@@ -65,11 +83,11 @@ describe('buildFirstFramePrompt', () => {
       scene: { scene_id: 's2', description: 'cut' },
       characters_in_scene: [dolphin],
       prev_last_frame: last_frame,
-      project_style: '3D Pixar',
+      project_style: '3d_pixar',
       first_frame_source: 'manual_text2img',
     });
     expect(result.image_refs).toHaveLength(1);
-    expect(result.image_refs[0]).toEqual(dolphin.dossier.storage);
+    expect(result.image_refs[0]).toEqual(dolphin.dossier.reference_image);
   });
 
   it('caps refs at 5 (nano-banana limit)', () => {
@@ -85,7 +103,7 @@ describe('buildFirstFramePrompt', () => {
       scene: { scene_id: 's1', description: 'crowd' },
       characters_in_scene: many,
       prev_last_frame: null,
-      project_style: 'flat',
+      project_style: '3d_pixar',
       first_frame_source: 'manual_text2img',
     });
     expect(result.image_refs).toHaveLength(5);

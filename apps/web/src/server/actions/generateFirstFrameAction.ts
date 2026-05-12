@@ -4,9 +4,13 @@ import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { recordPendingJob } from '@/server/lib/scene-helpers';
 import {
+  type CameraMovement,
   type Character,
-  type PersistedScript,
+  type Composition,
+  type Lighting,
+  type Style,
   type Tier,
+  type VisualTheme,
   buildFirstFramePrompt,
   getDefaultModel,
 } from '@mango/core';
@@ -26,10 +30,30 @@ type Input = z.infer<typeof InputSchema>;
 type SuccessResult = { ok: true; job_id: string; existing: boolean };
 type ErrorResult = { ok: false; error: string };
 
-const styleLabel: Record<string, string> = {
-  '3d_pixar': '3D Pixar',
-  '2d_drawn': '2D drawn',
-  clay_art: 'Clay art',
+// Scene type not exported from @mango/core barrel: the barrel re-exports a minimal legacy
+// Scene interface from llm/provider.ts that predates versioned assets and Phase 1.4
+// cinematography fields. Local shape used here instead.
+type SceneShape = {
+  scene_id: string;
+  description: string;
+  description_en?: string | null;
+  duration_sec: number;
+  dialogue: { speaker: string; text: string } | null;
+  character_ids: string[];
+  first_frame_source?: 'auto_continuity' | 'manual_text2img' | 'user_upload';
+  // Versioned assets
+  last_frame?: { storage: { kind: string; url?: string; path?: string } } | null;
+  // Phase 1.4.A cinematography fields (optional — older scenes may be unpopulated)
+  composition?: unknown;
+  camera_movement?: unknown;
+  lighting?: unknown;
+};
+
+// Script type not exported from @mango/core barrel; local minimal shape.
+type ScriptShape = {
+  scenes: SceneShape[];
+  characters?: Character[];
+  visual_theme?: VisualTheme | null;
 };
 
 export async function generateFirstFrameAction(
@@ -60,11 +84,12 @@ export async function generateFirstFrameAction(
   if (error || !project) return { ok: false, error: 'project not found' };
   if (project.user_id !== user.id) return { ok: false, error: 'forbidden' };
 
-  const script = project.script as unknown as PersistedScript;
+  // Cast once at the data boundary — DB returns `unknown` / `Json` for jsonb columns.
+  const script = project.script as unknown as ScriptShape;
   if (!script) return { ok: false, error: 'project has no script' };
 
   const tier = (project.tier ?? 'economy') as Tier;
-  const project_style = styleLabel[project.style ?? '3d_pixar'] ?? '3D Pixar';
+  const project_style = (project.style ?? '3d_pixar') as Style;
 
   // Find the target scene
   const sceneIdx = script.scenes.findIndex((s) => s.scene_id === input.scene_id);
@@ -72,13 +97,13 @@ export async function generateFirstFrameAction(
   const scene = script.scenes[sceneIdx]!;
 
   // Find prev scene's last_frame (only in non-bulk mode)
-  const prev_last_frame =
-    input.mode !== 'bulk' && sceneIdx > 0
-      ? (script.scenes[sceneIdx - 1]?.last_frame?.storage ?? null)
-      : null;
+  const prevScene = input.mode !== 'bulk' && sceneIdx > 0 ? script.scenes[sceneIdx - 1] : null;
+  const prev_last_frame = prevScene?.last_frame?.storage
+    ? (prevScene.last_frame.storage as unknown as import('@mango/core').StoredAsset)
+    : null;
 
   // Filter characters by scene.character_ids
-  const characters_in_scene = (script.characters as Character[]).filter((c) =>
+  const characters_in_scene = (script.characters ?? []).filter((c) =>
     scene.character_ids.includes(c.id),
   );
 
@@ -90,10 +115,16 @@ export async function generateFirstFrameAction(
     scene: {
       scene_id: scene.scene_id,
       description: scene.description,
+      description_en: scene.description_en ?? undefined,
+      // Phase 1.4.A structured cinematography fields (cast from unknown jsonb)
+      composition: (scene.composition as Composition | undefined) ?? undefined,
+      camera_movement: (scene.camera_movement as CameraMovement | undefined) ?? undefined,
+      lighting: (scene.lighting as Lighting | undefined) ?? undefined,
     },
     characters_in_scene,
     prev_last_frame,
     project_style,
+    visual_theme: script.visual_theme ?? undefined,
     first_frame_source,
   });
   const prompt = input.prompt_override ?? built.prompt;
@@ -160,7 +191,7 @@ export async function generateAllFirstFramesAction(
   if (error || !project) return { ok: false, error: 'project not found' };
   if (project.user_id !== user.id) return { ok: false, error: 'forbidden' };
 
-  const script = project.script as unknown as PersistedScript;
+  const script = project.script as unknown as ScriptShape;
   if (!script) return { ok: false, error: 'project has no script' };
 
   const allSceneIds = script.scenes.map((s) => s.scene_id);
