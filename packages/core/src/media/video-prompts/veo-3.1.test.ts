@@ -248,6 +248,25 @@ describe('buildVeo31Prompt — Russian dialogue skipped in [Action]', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 6b. Lowercase Cyrillic ё edge case
+// ---------------------------------------------------------------------------
+
+describe('buildVeo31Prompt — lowercase Cyrillic ё detected', () => {
+  it('lowercase "ё" (U+0451) is detected as Cyrillic and dialogue is skipped', () => {
+    const input = makeInput({
+      audio_mode: 'native',
+      scene: {
+        ...fullScene8s,
+        dialogue: { speaker: 'Кот', text: 'ёжик идёт' },
+      },
+    });
+    const { prompt } = buildVeo31Prompt(input);
+    expect(prompt).not.toContain('ёжик идёт');
+    expect(prompt).not.toMatch(/Dialogue:/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 7. audio_mode=silent_tts: no dialogue line
 // ---------------------------------------------------------------------------
 
@@ -349,6 +368,53 @@ describe('buildVeo31Prompt — visual_theme absent → [Style] fallback', () => 
     const styleBlock = prompt.slice(stIdx + '[Style]'.length).trim();
     // DEFAULT_PACING_LINE: 'Cinematic, naturalistic pacing; consistent grading'
     expect(styleBlock).toContain('Cinematic');
+  });
+
+  it('visual_theme absent → DEFAULT_PACING_LINE has "grading", so staples NOT appended', () => {
+    // DEFAULT_PACING_LINE contains "grading" → dedupe kicks in → "subtle grain" absent
+    const input = makeInput({ visual_theme: undefined });
+    const { prompt } = buildVeo31Prompt(input);
+    expect(prompt).not.toContain('subtle grain');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 12b. grain/grade dedupe in [Style]
+// ---------------------------------------------------------------------------
+
+describe('buildVeo31Prompt — grain/grade dedupe in [Style]', () => {
+  it('film_look containing "grain" → staples NOT appended (no duplicate "subtle grain")', () => {
+    const input = makeInput({
+      visual_theme: { ...fullVisualTheme, film_look: '35mm fine grain' },
+    });
+    const { prompt } = buildVeo31Prompt(input);
+    const stIdx = prompt.indexOf('[Style]');
+    const styleBlock = prompt.slice(stIdx);
+    // Original film_look still present
+    expect(styleBlock).toContain('35mm fine grain');
+    // Staples NOT appended because "grain" already present
+    expect(styleBlock).not.toContain('subtle grain');
+  });
+
+  it('film_look containing "grade" → staples NOT appended', () => {
+    const input = makeInput({
+      visual_theme: { ...fullVisualTheme, film_look: 'vintage colour grade' },
+    });
+    const { prompt } = buildVeo31Prompt(input);
+    const stIdx = prompt.indexOf('[Style]');
+    const styleBlock = prompt.slice(stIdx);
+    expect(styleBlock).toContain('vintage colour grade');
+    expect(styleBlock).not.toContain('subtle grain');
+    expect(styleBlock).not.toContain('naturalistic grade');
+  });
+
+  it('film_look with no grain/grade → staples ARE appended as normal', () => {
+    // fullVisualTheme.film_look = 'anamorphic noir' — no grain/grade words
+    const { prompt } = buildVeo31Prompt(makeInput());
+    const stIdx = prompt.indexOf('[Style]');
+    const styleBlock = prompt.slice(stIdx);
+    expect(styleBlock).toContain('subtle grain');
+    expect(styleBlock).toContain('naturalistic grade');
   });
 });
 

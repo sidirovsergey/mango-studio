@@ -9,18 +9,20 @@
  *
  * Design decisions documented here:
  * - Path A: imports label tables from _seedance-shared.ts (CAMERA_VERB,
- *   SHOT_SIZE_LABEL, ANGLE_LABEL, DEFAULT_AVOID, DEFAULT_PACING_LINE).
- *   Renaming deferred to a future cleanup.
+ *   DEFAULT_AVOID, DEFAULT_PACING_LINE — shot-size/angle labels are NOT
+ *   used by Veo grammar).
  * - Avoid: line IS emitted. SKILL.md's Veo example omits it, but the broader
  *   safety principle and audit (F70) call for it. Task spec: "emit it" when
  *   SKILL.md is silent on the matter.
- * - fps: fixed to 24fps as a hard-coded default. Veo 3.1 processes at the
- *   fps it infers, but including "24fps" in [Cinematography] steers it toward
- *   cinematic cadence. Will be schema-driven in a future phase.
+ * - fps: fixed to "24fps cinematic" as a hard-coded default. Veo 3.1 processes
+ *   at the fps it infers, but the phrase steers it toward cinematic cadence.
+ *   Will be schema-driven in a future phase.
  * - Russian dialogue detection: Cyrillic regex /[Ѐ-ӿ]/. Any Cyrillic
  *   character in dialogue.text → skip dialogue (Veo handles English audio best).
- * - grain/grade: always appended to [Style] as Veo-grammar staples per SKILL.md
- *   example ("fine grain" in the fisherman example).
+ * - grain/grade: "subtle grain, naturalistic grade" appended to [Style] as
+ *   Veo-grammar staples per SKILL.md ("fine grain" in the fisherman example),
+ *   UNLESS the assembled [Style] content already contains grain/grade/grading
+ *   vocabulary (avoids duplicate mentions).
  */
 
 import { CAMERA_VERB, DEFAULT_AVOID, DEFAULT_PACING_LINE } from './_seedance-shared';
@@ -33,6 +35,12 @@ import type { CharacterInScene, VideoPromptInput, VideoPromptOutput } from './ty
 /** Returns true if the string contains any Cyrillic characters */
 function hasCyrillic(text: string): boolean {
   return /[Ѐ-ӿ]/.test(text);
+}
+
+/** Returns true if text already contains grain, grade, or grading vocabulary */
+function alreadyHasGrainOrGrade(text: string | undefined): boolean {
+  if (!text) return false;
+  return /\bgrain\b|\bgrade\b|\bgrading\b/i.test(text);
 }
 
 // ---------------------------------------------------------------------------
@@ -50,9 +58,9 @@ function hasCyrillic(text: string): boolean {
 function buildCinematographyBlock(input: VideoPromptInput): string {
   const { camera_movement } = input.scene;
 
-  // fps note: 24fps is the cinematic standard and what the SKILL.md example
-  // shows ("24fps cinematic"). No fps field in VideoPromptSceneInput today.
-  const FPS = '24fps';
+  // fps note: "24fps cinematic" steers Veo toward the cinematic cadence.
+  // No fps field in VideoPromptSceneInput today — schema-driven fps is a future phase.
+  const FPS = '24fps cinematic';
 
   if (!camera_movement) {
     return `[Cinematography]\nStatic framing, ${FPS}.`;
@@ -149,30 +157,41 @@ function buildContextBlock(input: VideoPromptInput): string {
  *   - visual_theme.film_look
  *   - visual_theme.lens
  *   - visual_theme.motion
- *   - "subtle grain, naturalistic grade" (Veo-grammar staples, always added)
+ *   - "subtle grain, naturalistic grade" (Veo-grammar staples) — appended
+ *     only when the assembled content does NOT already contain grain/grade/
+ *     grading vocabulary (avoids duplicate mentions, e.g. "35mm fine grain,
+ *     subtle grain").
  *
  * Fallback when visual_theme entirely absent: DEFAULT_PACING_LINE.
- * The grain/grade staples are still appended in fallback mode.
+ * DEFAULT_PACING_LINE contains "grading", so the staples are NOT appended
+ * in the fallback path (same dedupe rule applies).
  */
 function buildStyleBlock(input: VideoPromptInput): string {
   const vt = input.visual_theme;
 
-  // Veo-grammar staples: always included per SKILL.md pattern ("fine grain" in example)
-  const GRAIN_GRADE = 'subtle grain, naturalistic grade';
+  // Veo-grammar staples per SKILL.md pattern ("fine grain" in the fisherman example).
+  // Skipped when the assembled content already mentions grain/grade/grading.
+  const STYLE_STAPLES = 'subtle grain, naturalistic grade';
 
   if (!vt) {
-    // Fallback to DEFAULT_PACING_LINE when visual_theme is absent entirely
-    return `[Style]\n${DEFAULT_PACING_LINE}, ${GRAIN_GRADE}.`;
+    // Fallback: DEFAULT_PACING_LINE already contains "grading" — skip staples.
+    const content = alreadyHasGrainOrGrade(DEFAULT_PACING_LINE)
+      ? `${DEFAULT_PACING_LINE}.`
+      : `${DEFAULT_PACING_LINE}, ${STYLE_STAPLES}.`;
+    return `[Style]\n${content}`;
   }
 
   const parts: string[] = [];
   if (vt.film_look) parts.push(vt.film_look);
   if (vt.lens) parts.push(vt.lens);
   if (vt.motion) parts.push(vt.motion);
-  // Always append grain/grade staples
-  parts.push(GRAIN_GRADE);
 
-  return `[Style]\n${parts.join(', ')}.`;
+  const joined = parts.join(', ');
+  const finalContent = alreadyHasGrainOrGrade(joined)
+    ? `${joined}.`
+    : `${joined}, ${STYLE_STAPLES}.`;
+
+  return `[Style]\n${finalContent}`;
 }
 
 /**
