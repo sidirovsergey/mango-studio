@@ -1,12 +1,225 @@
-import type { VideoPromptInput, VideoPromptOutput } from './types';
+/**
+ * Veo 3.1 block grammar prompt builder.
+ *
+ * Implements the 5-block grammar from prompt-engineering-baseline/SKILL.md
+ * §"Veo 3.1 — structured block grammar":
+ *   [Cinematography] → [Subject] → [Action] → [Context] → [Style] → Avoid:
+ *
+ * Addresses audit finding F65: per-engine prompt (not a generic paragraph).
+ *
+ * Design decisions documented here:
+ * - Path A: imports label tables from _seedance-shared.ts (CAMERA_VERB,
+ *   SHOT_SIZE_LABEL, ANGLE_LABEL, DEFAULT_AVOID, DEFAULT_PACING_LINE).
+ *   Renaming deferred to a future cleanup.
+ * - Avoid: line IS emitted. SKILL.md's Veo example omits it, but the broader
+ *   safety principle and audit (F70) call for it. Task spec: "emit it" when
+ *   SKILL.md is silent on the matter.
+ * - fps: fixed to 24fps as a hard-coded default. Veo 3.1 processes at the
+ *   fps it infers, but including "24fps" in [Cinematography] steers it toward
+ *   cinematic cadence. Will be schema-driven in a future phase.
+ * - Russian dialogue detection: Cyrillic regex /[Ѐ-ӿ]/. Any Cyrillic
+ *   character in dialogue.text → skip dialogue (Veo handles English audio best).
+ * - grain/grade: always appended to [Style] as Veo-grammar staples per SKILL.md
+ *   example ("fine grain" in the fisherman example).
+ */
+
+import { CAMERA_VERB, DEFAULT_AVOID, DEFAULT_PACING_LINE } from './_seedance-shared';
+import type { CharacterInScene, VideoPromptInput, VideoPromptOutput } from './types';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Returns true if the string contains any Cyrillic characters */
+function hasCyrillic(text: string): boolean {
+  return /[Ѐ-ӿ]/.test(text);
+}
+
+// ---------------------------------------------------------------------------
+// Block builders — Veo 3.1 specific (NOT reused from _seedance-shared)
+// ---------------------------------------------------------------------------
 
 /**
- * Stub for Veo 3.1 builder.
- * Real grammar (block grammar format) implemented in T4.
+ * [Cinematography] block
+ *
+ * Format: "<Verb>, <speed>, <lens_character> lens, 24fps."
+ * Fallback: "Static framing, 24fps."
+ *
+ * fps is fixed to 24 today. Schema-driven fps will be added in a future phase.
+ */
+function buildCinematographyBlock(input: VideoPromptInput): string {
+  const { camera_movement } = input.scene;
+
+  // fps note: 24fps is the cinematic standard and what the SKILL.md example
+  // shows ("24fps cinematic"). No fps field in VideoPromptSceneInput today.
+  const FPS = '24fps';
+
+  if (!camera_movement) {
+    return `[Cinematography]\nStatic framing, ${FPS}.`;
+  }
+
+  const verb = CAMERA_VERB[camera_movement.kind];
+  const speed = camera_movement.speed ?? 'medium';
+  const lensPart = camera_movement.lens_character ? `, ${camera_movement.lens_character} lens` : '';
+
+  return `[Cinematography]\n${verb}, ${speed}${lensPart}, ${FPS}.`;
+}
+
+/**
+ * [Subject] block
+ *
+ * Format: one line per character "<Name> — <description>; @Image1."
+ * For multi-character: join with "; " on a single line.
+ * @Image1 always referenced (first frame is the visual anchor).
+ *
+ * Fallback when no characters: "Subject as established in @Image1."
+ */
+function buildSubjectBlock(input: VideoPromptInput): string {
+  const chars: CharacterInScene[] = input.characters_in_scene ?? [];
+
+  if (chars.length === 0) {
+    return '[Subject]\nSubject as established in @Image1.';
+  }
+
+  const charParts = chars.map((c) => `${c.name} — ${c.description}`).join('; ');
+  return `[Subject]\n${charParts}; @Image1.`;
+}
+
+/**
+ * [Action] block
+ *
+ * Format: description_en (or description fallback) as a single paragraph.
+ * No time-segments — Veo grammar is dense semantic, not time-segmented.
+ *
+ * Dialogue is appended only when:
+ *   - audio_mode === 'native'
+ *   - scene.dialogue is non-null
+ *   - dialogue.text contains NO Cyrillic characters (English-only heuristic)
+ *
+ * Format for dialogue: `Dialogue: <speaker> — "<text>"`
+ */
+function buildActionBlock(input: VideoPromptInput): string {
+  const desc = input.scene.description_en ?? input.scene.description;
+  const lines: string[] = [desc];
+
+  // Dialogue — only for native audio + pure-English text
+  if (
+    input.audio_mode === 'native' &&
+    input.scene.dialogue !== null &&
+    input.scene.dialogue !== undefined &&
+    !hasCyrillic(input.scene.dialogue.text)
+  ) {
+    const { speaker, text } = input.scene.dialogue;
+    lines.push(`Dialogue: ${speaker} — "${text}"`);
+  }
+
+  return `[Action]\n${lines.join('\n')}`;
+}
+
+/**
+ * [Context] block
+ *
+ * Format: comma-joined sentence from:
+ *   - lighting.recipe
+ *   - lighting.time_of_day
+ *   - visual_theme.mood
+ *
+ * Fallback: "Naturalistic ambient context."
+ */
+function buildContextBlock(input: VideoPromptInput): string {
+  const { lighting } = input.scene;
+  const mood = input.visual_theme?.mood;
+
+  const parts: string[] = [];
+  if (lighting?.recipe) parts.push(lighting.recipe);
+  if (lighting?.time_of_day) parts.push(lighting.time_of_day);
+  if (mood) parts.push(`${mood} mood`);
+
+  if (parts.length === 0) {
+    return '[Context]\nNaturalistic ambient context.';
+  }
+
+  return `[Context]\n${parts.join(', ')}.`;
+}
+
+/**
+ * [Style] block
+ *
+ * Format: comma-joined sentence from:
+ *   - visual_theme.film_look
+ *   - visual_theme.lens
+ *   - visual_theme.motion
+ *   - "subtle grain, naturalistic grade" (Veo-grammar staples, always added)
+ *
+ * Fallback when visual_theme entirely absent: DEFAULT_PACING_LINE.
+ * The grain/grade staples are still appended in fallback mode.
+ */
+function buildStyleBlock(input: VideoPromptInput): string {
+  const vt = input.visual_theme;
+
+  // Veo-grammar staples: always included per SKILL.md pattern ("fine grain" in example)
+  const GRAIN_GRADE = 'subtle grain, naturalistic grade';
+
+  if (!vt) {
+    // Fallback to DEFAULT_PACING_LINE when visual_theme is absent entirely
+    return `[Style]\n${DEFAULT_PACING_LINE}, ${GRAIN_GRADE}.`;
+  }
+
+  const parts: string[] = [];
+  if (vt.film_look) parts.push(vt.film_look);
+  if (vt.lens) parts.push(vt.lens);
+  if (vt.motion) parts.push(vt.motion);
+  // Always append grain/grade staples
+  parts.push(GRAIN_GRADE);
+
+  return `[Style]\n${parts.join(', ')}.`;
+}
+
+/**
+ * Avoid: line
+ *
+ * Decision: EMIT for Veo 3.1.
+ * SKILL.md's Veo example omits it, but: (a) the broader prompt contract
+ * (F70) recommends it, (b) task spec says "emit it" when SKILL.md is silent,
+ * (c) consistency with Seedance + safety.
+ */
+function buildAvoidLine(input: VideoPromptInput): string {
+  const avoidList =
+    input.visual_theme?.avoid && input.visual_theme.avoid.length > 0
+      ? input.visual_theme.avoid
+      : DEFAULT_AVOID;
+  return `Avoid: ${avoidList.join(', ')}`;
+}
+
+// ---------------------------------------------------------------------------
+// Main export
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a Veo 3.1 block grammar prompt for image-to-video generation.
+ *
+ * Output structure:
+ *   [Cinematography] camera + fps
+ *   [Subject]        character descriptions + @Image1
+ *   [Action]         scene narrative + optional English dialogue
+ *   [Context]        lighting + time of day + mood
+ *   [Style]          film look + lens + motion + grain/grade
+ *   Avoid:           negative list
  */
 export function buildVeo31Prompt(input: VideoPromptInput): VideoPromptOutput {
+  const blocks = [
+    buildCinematographyBlock(input),
+    buildSubjectBlock(input),
+    buildActionBlock(input),
+    buildContextBlock(input),
+    buildStyleBlock(input),
+    buildAvoidLine(input),
+  ];
+
+  const prompt = blocks.join('\n\n');
+
   return {
-    prompt: '[veo-3.1 placeholder]',
+    prompt,
     image_refs: [input.first_frame_storage],
     duration_sec: input.scene.duration_sec,
     aspect_ratio: '9:16',

@@ -5,7 +5,9 @@
  * not for import outside packages/core/src/media/video-prompts/.
  *
  * Used by: seedance-2.ts, seedance-lite.ts
- * NOT used by: veo-3.1.ts, kling-2.5.ts, ltx.ts, generic.ts
+ *   veo-3.1.ts imports: CAMERA_VERB, DEFAULT_AVOID, DEFAULT_PACING_LINE
+ *   (label tables only — Veo block builders are NOT reused from this file)
+ * NOT used by: kling-2.5.ts, ltx.ts, generic.ts
  */
 
 import type { CameraAngle, CameraMovementKind, ShotSize } from '../cinematography-schemas';
