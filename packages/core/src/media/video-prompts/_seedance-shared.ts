@@ -7,7 +7,10 @@
  * Used by: seedance-2.ts, seedance-lite.ts
  *   veo-3.1.ts imports: CAMERA_VERB, DEFAULT_AVOID, DEFAULT_PACING_LINE
  *   (label tables only — Veo block builders are NOT reused from this file)
- * NOT used by: kling-2.5.ts, ltx.ts, generic.ts
+ *   kling-2.5.ts imports: CAMERA_VERB, SHOT_SIZE_LABEL, ANGLE_LABEL,
+ *     DEFAULT_AVOID, DEFAULT_PACING_LINE
+ *   (label tables only — Kling beat builders are NOT reused from this file)
+ * NOT used by: ltx.ts, generic.ts
  */
 
 import type { CameraAngle, CameraMovementKind, ShotSize } from '../cinematography-schemas';
