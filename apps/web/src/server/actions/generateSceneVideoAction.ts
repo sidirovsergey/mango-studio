@@ -4,7 +4,12 @@ import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { recordPendingJob } from '@/server/lib/scene-helpers';
 import {
+  type ArcRole,
+  type AudioDirection,
+  type CameraMovement,
   type Character,
+  type Composition,
+  type Lighting,
   type SceneAssetVersion,
   type Tier,
   type VisualTheme,
@@ -164,12 +169,13 @@ export async function generateSceneVideoAction(
       description_en: scene.description_en ?? undefined,
       duration_sec,
       dialogue: scene.dialogue,
-      // Phase 1.4.A cinematography fields — undefined for older scenes; dispatcher handles absence
-      composition: scene.composition as never,
-      camera_movement: scene.camera_movement as never,
-      lighting: scene.lighting as never,
-      audio_direction: scene.audio_direction as never,
-      arc_role: scene.arc_role as never,
+      // Phase 1.4.A cinematography fields — undefined for older scenes; dispatcher handles absence.
+      // Cast from jsonb `unknown` to schema-typed unions; runtime shape guaranteed by DB write path.
+      composition: scene.composition as Composition | undefined,
+      camera_movement: scene.camera_movement as CameraMovement | undefined,
+      lighting: scene.lighting as Lighting | undefined,
+      audio_direction: scene.audio_direction as AudioDirection | undefined,
+      arc_role: scene.arc_role as ArcRole | undefined,
     },
     first_frame_storage: activeFrame.storage,
     // F73 fix: pass the RESOLVED audioMode to the dispatcher — not the raw scene.audio_mode.
