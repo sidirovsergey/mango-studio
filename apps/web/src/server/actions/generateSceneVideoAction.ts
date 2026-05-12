@@ -4,8 +4,10 @@ import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { recordPendingJob } from '@/server/lib/scene-helpers';
 import {
+  type Character,
   type SceneAssetVersion,
   type Tier,
+  type VisualTheme,
   buildVideoPrompt,
   clampDurationToModel,
   getActiveVersion,
@@ -25,6 +27,10 @@ const InputSchema = z.object({
 
 type Input = z.infer<typeof InputSchema>;
 
+// Scene type not exported from @mango/core barrel: the barrel re-exports a minimal legacy
+// Scene interface from llm/provider.ts that predates versioned assets, config_overrides,
+// audio_mode, and Phase 1.4 cinematography fields. The full persisted scene type lives in
+// @mango/core/llm/schemas (server-only, not barrel-safe). Local shape used here instead.
 type SceneShape = {
   scene_id: string;
   description: string;
@@ -45,19 +51,13 @@ type SceneShape = {
   arc_role?: unknown;
 };
 
-type CharacterShape = {
-  id: string;
-  name: string;
-  description?: string;
-  full_prompt?: string;
-};
-
-type VisualThemeShape = Record<string, unknown> | null | undefined;
-
+// Script type not exported from @mango/core barrel; local minimal shape.
+// The persisted script in the DB differs from ScriptGenSchema (characters[] is fully merged
+// Character[], not ScriptCharacterAction[] keep/add/remove actions).
 type ScriptShape = {
   scenes: SceneShape[];
-  characters?: CharacterShape[];
-  visual_theme?: VisualThemeShape;
+  characters?: Character[];
+  visual_theme?: VisualTheme | null;
   tier?: Tier | null;
 };
 
@@ -92,6 +92,7 @@ export async function generateSceneVideoAction(
   if (error || !project) return { ok: false, error: 'project not found' };
   if (project.user_id !== user.id) return { ok: false, error: 'forbidden' };
 
+  // Cast once at the data boundary — DB returns `unknown` / `Json` for jsonb columns.
   const script = project.script as unknown as ScriptShape;
   if (!script) return { ok: false, error: 'project has no script' };
 
@@ -117,6 +118,8 @@ export async function generateSceneVideoAction(
 
   // Resolve effective audio mode (drives whether silent_tts pipeline will follow).
   // F73 fix: pass the RESOLVED audioMode to the dispatcher — not the raw scene.audio_mode.
+  // Builders treat 'auto' the same as 'native', so passing raw 'auto' bypasses the Cyrillic→silent_tts
+  // coercion that resolveAudioMode applies upstream.
   const modelMeta = getVideoModelMeta(model);
   const audioMode = resolveAudioMode(
     {
@@ -127,22 +130,37 @@ export async function generateSceneVideoAction(
   );
 
   // Project characters matching this scene's character_ids to slim CharacterInScene shape.
+  // Stale refs (deleted characters) are silently dropped with a warning — matches house style
+  // for stale refs (continuity uses 'stale' flag elsewhere; here we log and continue).
   const scriptCharacters = script.characters ?? [];
-  const charactersInScene = scene.character_ids
-    .map((id) => scriptCharacters.find((c) => c.id === id))
-    .filter((c): c is CharacterShape => c !== undefined)
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      description: c.description ?? '',
-      full_prompt: c.full_prompt,
-    }));
+  const charactersInScene: {
+    id: string;
+    name: string;
+    description: string;
+    full_prompt?: string;
+  }[] = [];
+  for (const id of scene.character_ids ?? []) {
+    const char = scriptCharacters.find((c) => c.id === id);
+    if (char) {
+      charactersInScene.push({
+        id: char.id,
+        name: char.name,
+        description: char.description ?? '',
+        full_prompt: char.full_prompt,
+      });
+    } else {
+      console.warn(
+        `[generateSceneVideoAction] scene ${input.scene_id} references missing character_id ${id}; dropping silently`,
+      );
+    }
+  }
 
   const built = buildVideoPrompt({
     model,
     scene: {
       scene_id: scene.scene_id,
       description: scene.description,
+      // Normalize null → undefined to match VideoPromptSceneInput shape (string | undefined, not nullable).
       description_en: scene.description_en ?? undefined,
       duration_sec,
       dialogue: scene.dialogue,
@@ -154,9 +172,15 @@ export async function generateSceneVideoAction(
       arc_role: scene.arc_role as never,
     },
     first_frame_storage: activeFrame.storage,
-    audio_mode: audioMode, // F73: resolved mode, NOT scene.audio_mode
+    // F73 fix: pass the RESOLVED audioMode to the dispatcher — not the raw scene.audio_mode.
+    // Builders treat 'auto' the same as 'native', so passing raw 'auto' bypasses the Cyrillic→silent_tts
+    // coercion that resolveAudioMode applies upstream.
+    audio_mode: audioMode,
     characters_in_scene: charactersInScene,
-    visual_theme: script.visual_theme as never,
+    visual_theme: script.visual_theme ?? undefined,
+    // tier precedence: script-level (visual_theme owner) > scene override > project default.
+    // Differs from model selection which uses scene.config_overrides.tier ?? project.tier.
+    // Intentional: script.tier governs visual_theme rendering for the whole script.
     tier: script.tier ?? effectiveTier,
   });
   const prompt = input.prompt_override ?? built.prompt;
