@@ -128,7 +128,7 @@ export function timeSegments(durationSec: number): Array<[number, number]> {
   ];
 }
 
-export function formatSegment(start: number, end: number): string {
+function formatSegment(start: number, end: number): string {
   return `${start}–${end}s:`;
 }
 
