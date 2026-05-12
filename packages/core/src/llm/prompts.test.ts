@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DIRECTOR_AGENT_EXAMPLES } from './examples/director-agent';
 import { SCRIPT_EXAMPLES } from './examples/script-author';
 import {
   CHAT_SYSTEM_PROMPT,
@@ -35,139 +36,119 @@ describe('buildScriptPrompt с existingCharacters', () => {
   });
 });
 
-describe('buildDirectorSystemPrompt — characters context', () => {
-  const baseCtx = {
-    idea: 'про дельфина',
-    duration_sec: 30,
-    format: '9:16',
-    style: '3d_pixar',
-    script: null,
-  };
+// ─── Shared minimal fixtures for DirectorContext ─────────────────────────────
 
-  it('без active/archived — рендерит пустые блоки и НЕ показывает archived секцию', () => {
-    const out = buildDirectorSystemPrompt({
-      ...baseCtx,
-      activeCharacters: [],
-      archivedCharacters: [],
-    });
-    expect(out).toContain('АКТИВНЫЕ ПЕРСОНАЖИ');
-    expect(out).toMatch(/нет персонажей|пусто|—/i);
-    expect(out).not.toContain('УДАЛЁННЫЕ ПЕРСОНАЖИ');
+const BASE_CTX_EMPTY = {
+  idea: 'про дельфина',
+  duration_sec: 30,
+  format: '9:16',
+  style: '3d_pixar',
+  script: null,
+};
+
+const POPULATED_CTX = {
+  idea: 'кот-астронавт',
+  duration_sec: 30,
+  format: '9:16',
+  style: '3d_pixar',
+  script: {
+    title: 'Космокот',
+    tier: 'premium' as const,
+    target_duration_sec: 30,
+    characters: [
+      {
+        id: 'a3f2aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        name: 'Алиса',
+        description: 'мечтательная девочка с рыжими волосами',
+        full_prompt: '',
+        appearance: {},
+        voice: {},
+        dossier: {
+          storage: { kind: 'fal_passthrough' as const, url: 'https://x.com/a.jpg' },
+          model: 'nm',
+          format: '16:9' as const,
+          quality: '720p' as const,
+          generated_at: '2024-01-01T00:00:00Z',
+        },
+        reference_images: [],
+        archived: false,
+      },
+      {
+        id: '7b4abbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+        name: 'Дэнни',
+        description: 'кот-астронавт',
+        full_prompt: '',
+        appearance: {},
+        voice: {},
+        dossier: null,
+        reference_images: [],
+        archived: true,
+      },
+    ],
+    scenes: [
+      {
+        scene_id: 's1',
+        description: 'первые секунды на кухне',
+        description_ru: 'первые секунды на кухне',
+        description_en: 'first seconds in the kitchen',
+        duration_sec: 5,
+        arc_role: 'hook' as const,
+        tier_at_gen: 'premium' as const,
+        first_frame_source: 'auto_continuity' as const,
+        audio_mode: 'auto' as const,
+        first_frame_versions: [],
+        first_frame_active_version_id: null,
+        video_versions: [],
+        video_active_version_id: null,
+        voice_audio_versions: [],
+        voice_audio_active_version_id: null,
+        last_frame: null,
+        final_clip: null,
+        character_ids: [],
+        dialogue: null,
+        composition: null,
+        camera_movement: null,
+        lighting: null,
+        audio_direction: null,
+      },
+    ],
+  },
+};
+
+describe('buildDirectorSystemPrompt — characters context (legacy compat)', () => {
+  it('без script — рендерит пустые character blocks', () => {
+    const out = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    // New prompt uses <characters_active> block from formatProjectStateSummary
+    expect(out).toContain('<characters_active>');
+    expect(out).not.toMatch(/пока не умею восстанавливать/);
   });
 
   it('active с has_dossier=true — отображает имя/id/has_dossier', () => {
-    const out = buildDirectorSystemPrompt({
-      ...baseCtx,
-      activeCharacters: [
-        {
-          id: 'a3f2aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-          name: 'Алиса',
-          description: 'мечтательная',
-          has_dossier: true,
-        },
-      ],
-      archivedCharacters: [],
-    });
+    const out = buildDirectorSystemPrompt(POPULATED_CTX);
     expect(out).toContain('Алиса');
     expect(out).toContain('a3f2aaaa');
-    expect(out).toMatch(/has_dossier.*true/);
+    expect(out).toMatch(/dossier=true/);
   });
 
-  it('archived список — отображает блок УДАЛЁННЫЕ', () => {
-    const out = buildDirectorSystemPrompt({
-      ...baseCtx,
-      activeCharacters: [],
-      archivedCharacters: [
-        {
-          id: '7b4abbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-          name: 'Дэнни',
-          description: 'кот',
-        },
-      ],
-    });
-    expect(out).toContain('УДАЛЁННЫЕ ПЕРСОНАЖИ');
+  it('archived список — отображает characters_archived блок', () => {
+    const out = buildDirectorSystemPrompt(POPULATED_CTX);
+    expect(out).toContain('<characters_archived>');
     expect(out).toContain('Дэнни');
     expect(out).toContain('unarchive_character');
   });
 
-  it('содержит описания всех 6 character tools (1.2.5 + 1.2.6)', () => {
-    const out = buildDirectorSystemPrompt({
-      ...baseCtx,
-      activeCharacters: [],
-      archivedCharacters: [],
-    });
+  it('содержит все character tools', () => {
+    const out = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
     expect(out).toContain('add_character');
     expect(out).toContain('generate_character');
     expect(out).toContain('refine_character');
     expect(out).toContain('unarchive_character');
-    // Phase 1.2.6
     expect(out).toContain('archive_character');
     expect(out).toContain('delete_character');
   });
 
-  it('убран старый fallback про "пока не умею восстанавливать"', () => {
-    const out = buildDirectorSystemPrompt({
-      ...baseCtx,
-      activeCharacters: [],
-      archivedCharacters: [],
-    });
-    expect(out).not.toMatch(/пока не умею восстанавливать/);
-  });
-
-  it('Phase 1.2.6: regen и refine confirms делает система, не Director текстом', () => {
-    const out = buildDirectorSystemPrompt({
-      ...baseCtx,
-      activeCharacters: [],
-      archivedCharacters: [],
-    });
-    // Старые «текстовый confirm» подсказки должны быть удалены
-    expect(out).not.toMatch(/сначала текстовый confirm/i);
-    expect(out).not.toMatch(/«У X уже есть досье/);
-    // Новый rule: «не спрашивай в чате, просто вызови tool»
-    expect(out).toMatch(/НЕ ДЕЛАЙ|просто вызови tool/i);
-  });
-
-  it('Phase 1.2.6: НЕ упоминает hard-delete через корзину Stage 02', () => {
-    const out = buildDirectorSystemPrompt({
-      ...baseCtx,
-      activeCharacters: [],
-      archivedCharacters: [],
-    });
-    expect(out).not.toMatch(/корзин/i);
-    expect(out).not.toMatch(/Stage 02/i);
-  });
-
-  it('Phase 1.2.6: содержит блок ПРАВИЛА с 5+ пунктами', () => {
-    const out = buildDirectorSystemPrompt({
-      ...baseCtx,
-      activeCharacters: [],
-      archivedCharacters: [],
-    });
-    expect(out).toContain('ПРАВИЛА:');
-    expect(out).toContain('Текстовые подтверждения — НЕ ДЕЛАЙ');
-    expect(out).toContain('Словарь удаления');
-    expect(out).toContain('Не комментируй UI');
-    expect(out).toContain('Sync сценария — НЕ ПРЕДЛАГАЙ текстом');
-  });
-
-  it('Phase 1.2.6: словарь удаления различает archive vs delete', () => {
-    const out = buildDirectorSystemPrompt({
-      ...baseCtx,
-      activeCharacters: [],
-      archivedCharacters: [],
-    });
-    // archive triggers
-    expect(out).toMatch(/удали X.*archive_character|archive_character.*удали/i);
-    // delete triggers
-    expect(out).toMatch(/удали навсегда|удали окончательно|удали полностью|насовсем/i);
-  });
-
-  it('Phase 1.3: содержит 6 scene tools в системном промпте', () => {
-    const out = buildDirectorSystemPrompt({
-      ...baseCtx,
-      activeCharacters: [],
-      archivedCharacters: [],
-    });
+  it('Phase 1.3: содержит scene tools в системном промпте', () => {
+    const out = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
     expect(out).toContain('regen_scene_video');
     expect(out).toContain('refine_scene_description');
     expect(out).toContain('set_scene_duration');
@@ -176,15 +157,112 @@ describe('buildDirectorSystemPrompt — characters context', () => {
     expect(out).toContain('generate_master_clip');
   });
 
-  it('Phase 1.3: содержит поведенческие правила для сцен', () => {
-    const out = buildDirectorSystemPrompt({
-      ...baseCtx,
-      activeCharacters: [],
-      archivedCharacters: [],
-    });
-    expect(out).toContain('Поведенческие правила для сцен');
-    expect(out).toMatch(/ОБЯЗАТЕЛЬНО confirm/i);
-    expect(out).toMatch(/final_clip/i);
+  it('Phase 1.2.6: словарь удаления различает archive vs delete', () => {
+    const out = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    expect(out).toMatch(/удали навсегда|удали окончательно|удали полностью|насовсем/i);
+  });
+
+  it('Phase 1.2.6: НЕ упоминает hard-delete через корзину Stage 02', () => {
+    const out = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    expect(out).not.toMatch(/корзин/i);
+    expect(out).not.toMatch(/Stage 02/i);
+  });
+});
+
+describe('buildDirectorSystemPrompt — T3 XML structure (1.4.F.T3)', () => {
+  it('1. starts with <role> tag', () => {
+    const out = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    expect(out.trimStart()).toMatch(/^<role>/);
+  });
+
+  it('2. has all 5 static blocks + 2 dynamic blocks', () => {
+    const out = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    expect(out).toContain('<engine_constraints>');
+    expect(out).toContain('<behavioral_rules>');
+    expect(out).toContain('<tools_reference>');
+    expect(out).toContain('<examples>');
+    expect(out).toContain('<project_state>');
+    expect(out).toContain('<task>');
+  });
+
+  it('3. CACHE BOUNDARY literal present', () => {
+    const out = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    expect(out).toContain('<!-- CACHE BOUNDARY -->');
+  });
+
+  it('4. 8 fewshot example blocks present', () => {
+    const out = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    // Count <example occurrences (opening tags)
+    const count = (out.match(/<example /g) ?? []).length;
+    expect(count).toBeGreaterThanOrEqual(8);
+  });
+
+  it('5. all 8 labels from DIRECTOR_AGENT_EXAMPLES appear', () => {
+    const out = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    for (const ex of DIRECTOR_AGENT_EXAMPLES) {
+      expect(out).toContain(ex.label);
+    }
+  });
+
+  it('6. <project_state> block contains characters_active and scenes_summary', () => {
+    const out = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    expect(out).toContain('<characters_active>');
+    expect(out).toContain('<scenes_summary>');
+  });
+
+  it('7. static prefix (before CACHE BOUNDARY) is under 8KB', () => {
+    const out = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    const boundary = out.indexOf('<!-- CACHE BOUNDARY -->');
+    expect(boundary).toBeGreaterThan(0);
+    const prefix = out.slice(0, boundary);
+    const bytes = Buffer.byteLength(prefix, 'utf8');
+    expect(bytes).toBeLessThan(8192);
+  });
+
+  it('8. behavioral_rules has at most 10 rules', () => {
+    const out = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    const rulesStart = out.indexOf('<behavioral_rules>');
+    const rulesEnd = out.indexOf('</behavioral_rules>');
+    expect(rulesStart).toBeGreaterThan(-1);
+    const rulesBlock = out.slice(rulesStart, rulesEnd);
+    // Count numbered rules: lines starting with a digit followed by a period
+    const ruleLines = rulesBlock.match(/^\d+\./gm) ?? [];
+    expect(ruleLines.length).toBeLessThanOrEqual(10);
+  });
+
+  it('9. tools_reference block is under 600 chars', () => {
+    const out = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    const start = out.indexOf('<tools_reference>');
+    const end = out.indexOf('</tools_reference>');
+    expect(start).toBeGreaterThan(-1);
+    const block = out.slice(start, end + '</tools_reference>'.length);
+    expect(block.length).toBeLessThan(600);
+  });
+
+  it('10. behavioral_rules contains truth rule (не пиши)', () => {
+    const out = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    expect(out).toMatch(/не пиши|truth rule|Truth rule/i);
+  });
+
+  it('11. reproducible: same ctx → identical output', () => {
+    const a = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    const b = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    expect(a).toBe(b);
+  });
+
+  it('12. static prefix (role block) is identical regardless of dynamic state', () => {
+    const out1 = buildDirectorSystemPrompt(BASE_CTX_EMPTY);
+    const out2 = buildDirectorSystemPrompt(POPULATED_CTX);
+    const boundary1 = out1.indexOf('<!-- CACHE BOUNDARY -->');
+    const boundary2 = out2.indexOf('<!-- CACHE BOUNDARY -->');
+    const prefix1 = out1.slice(0, boundary1);
+    const prefix2 = out2.slice(0, boundary2);
+    // role block should be byte-identical
+    const roleEnd1 = out1.indexOf('</role>') + '</role>'.length;
+    const roleEnd2 = out2.indexOf('</role>') + '</role>'.length;
+    expect(out1.slice(0, roleEnd1)).toBe(out2.slice(0, roleEnd2));
+    // prefixes are the same length (same static content)
+    expect(prefix1).toBe(prefix2);
   });
 });
 

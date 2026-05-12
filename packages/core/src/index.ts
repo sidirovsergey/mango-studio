@@ -109,6 +109,7 @@ export type {
   LLMTask,
   ModelParams,
   BuildScriptPromptContext,
+  DirectorContext,
   ToolChip,
   ToolChipKind,
   SyncHint,

@@ -8,6 +8,7 @@ import { logLLMCall } from '@/server/lib/log-llm-call';
 import {
   type Character,
   type ChatMessage,
+  type DirectorContext,
   buildDirectorSystemPrompt,
   classifyLLMError,
   getModelParams,
@@ -62,33 +63,16 @@ export async function sendChatMessageAction(
   const openrouter = createOpenRouter({ apiKey });
   const params = getModelParams('chat');
 
-  // Извлекаем active/archived characters из script для Director context
+  // Phase 1.4.F.T3: DirectorContext now takes script directly (characters/scenes
+  // with archived flags are read by formatProjectStateSummary inside the prompt builder).
   const scriptCharacters =
     ((project.script ?? {}) as { characters?: Character[] }).characters ?? [];
-  const activeCharacters = scriptCharacters
-    .filter((c) => !c.archived)
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      description: c.description,
-      has_dossier: c.dossier != null,
-    }));
-  const archivedCharacters = scriptCharacters
-    .filter((c) => c.archived)
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      description: c.description,
-    }));
-
   const systemPrompt = buildDirectorSystemPrompt({
     idea: project.idea,
     duration_sec: project.target_duration_sec,
     format: project.format ?? '9:16',
     style: project.style ?? '3d_pixar',
-    script: project.script,
-    activeCharacters,
-    archivedCharacters,
+    script: project.script as DirectorContext['script'],
   });
   const tools = buildDirectorTools({ project_id });
 
