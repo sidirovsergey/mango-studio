@@ -14,6 +14,26 @@ export type VideoModelMetaForAudio = { has_native_audio: boolean };
  * Resolves the effective audio mode for a scene, combining the explicit
  * scene-level setting with auto-detection (Cyrillic dialogue forces silent_tts;
  * Latin dialogue picks native iff the model supports it; otherwise silent_tts).
+ *
+ * ## Cyrillic → silent_tts is a deliberate quality tradeoff (F32)
+ *
+ * Seedance 2.0 Pro and Veo 3.1 advertise native audio, but their
+ * speech-synthesis paths are trained almost exclusively on English. Native
+ * audio for Russian dialogue regresses to phonetically-correct-but-tonally-wrong
+ * output — wrong stress patterns, awkward vowel reductions, and audibly
+ * "non-native" intonation. The Cyrillic short-circuit in this resolver
+ * downgrades such scenes to silent_tts so that the post-prod TTS pass
+ * (ElevenLabs multilingual-v2 + per-voice settings, see voices.ts) can
+ * produce natural Russian audio that's later muxed onto the silent video.
+ *
+ * This is a quality choice, not a hard technical limitation. A future
+ * `force_audio_mode` project setting (planned: post-1.4) will let Russian
+ * projects opt into native audio for stylistic effect (e.g. a deliberately
+ * accented narrator) or when the model's Russian quality improves.
+ *
+ * **Do not** "fix" the Cyrillic gate to allow native audio without first
+ * verifying via the eval harness (1.4.H) that the model's Russian output
+ * has crossed the natural-listener threshold.
  */
 export function resolveAudioMode(
   scene: SceneForAudio,
