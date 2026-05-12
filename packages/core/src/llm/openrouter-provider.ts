@@ -45,6 +45,22 @@ function summarizeErr(e: ErrLike | undefined | null) {
   };
 }
 
+function summarizeZodIssues(
+  err: unknown,
+): Array<{ path: string; message: string; code?: string }> | undefined {
+  // Capture Zod validation issues — much more useful than message-only summary
+  // for debugging schema mismatches between LLM output and the parser.
+  const e = err as { name?: string; issues?: unknown };
+  if (e?.name !== 'ZodError' || !Array.isArray(e.issues)) return undefined;
+  return (e.issues as Array<{ path?: unknown[]; message?: string; code?: string }>)
+    .slice(0, 8)
+    .map((issue) => ({
+      path: Array.isArray(issue.path) ? issue.path.join('.') : String(issue.path ?? ''),
+      message: issue.message ?? '',
+      code: issue.code,
+    }));
+}
+
 function logLLMError(stage: string, model: string, err: unknown): void {
   const e = err as ErrLike;
   const errorsArr = Array.isArray(e?.errors) ? (e.errors as ErrLike[]) : undefined;
@@ -53,6 +69,7 @@ function logLLMError(stage: string, model: string, err: unknown): void {
     cause: summarizeErr(e?.cause as ErrLike),
     causeOfCause: summarizeErr((e?.cause as ErrLike)?.cause as ErrLike),
     attempts: errorsArr?.map(summarizeErr),
+    zodIssues: summarizeZodIssues(err) ?? summarizeZodIssues(e?.cause),
   });
 }
 

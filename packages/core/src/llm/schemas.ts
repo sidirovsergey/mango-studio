@@ -22,9 +22,16 @@ export const SceneSchema = z.preprocess(
   (raw) => {
     if (raw && typeof raw === 'object') {
       const obj = { ...(raw as Record<string, unknown>) };
-      // back-compat: if description_ru missing, mirror from description
+      // Bi-directional mirror between legacy `description` (Russian) and
+      // Phase-1.4 `description_ru`. The 1.4 prompt instructs Grok to return
+      // `description_ru` only — without this back-fill, `description` (still
+      // required for back-compat with pre-1.4 code paths) is missing on every
+      // fresh LLM output, causing ZodError → 500 on script-gen.
       if ('description' in obj && !('description_ru' in obj)) {
         obj.description_ru = (obj as { description: string }).description;
+      }
+      if ('description_ru' in obj && !('description' in obj)) {
+        obj.description = (obj as { description_ru: string }).description_ru;
       }
       // F57: composition_hint is dead — strip it so old DB rows parse cleanly.
       // Using undefined assignment instead of `delete` (biome lint/performance/noDelete);
@@ -123,8 +130,11 @@ export const ScriptGenSchema = z.object({
   narrator_voice: NarratorVoiceSchema.optional().describe(
     'Дефолтный голос рассказчика на уровне проекта',
   ),
-  master_clip_versions: z.array(MasterClipVersionSchema).max(5),
-  master_clip_active_version_id: z.string().nullable(),
+  // Runtime-managed fields — Grok does NOT author them at script-gen time
+  // (master clip is composed post-render). Default to empty/null so the
+  // schema parses freshly-generated scripts cleanly.
+  master_clip_versions: z.array(MasterClipVersionSchema).max(5).default([]),
+  master_clip_active_version_id: z.string().nullable().default(null),
 });
 
 export type Script = z.infer<typeof ScriptGenSchema>;
