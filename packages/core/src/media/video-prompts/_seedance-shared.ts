@@ -10,7 +10,8 @@
  *   kling-2.5.ts imports: CAMERA_VERB, SHOT_SIZE_LABEL, ANGLE_LABEL,
  *     DEFAULT_AVOID, DEFAULT_PACING_LINE
  *   (label tables only — Kling beat builders are NOT reused from this file)
- * NOT used by: ltx.ts, generic.ts
+ *   ltx.ts imports: CAMERA_VERB (verb mapping only)
+ *   generic.ts imports: CAMERA_VERB (verb mapping only)
  */
 
 import type { CameraAngle, CameraMovementKind, ShotSize } from '../cinematography-schemas';
