@@ -23,7 +23,7 @@ export const SCRIPT_EXAMPLES = {
       narrator_voice: {
         tts_voice_id: 'EXAVITQu4vr4xnSDxMaL',
         persona:
-          'Тёплый женский голос, мягкий и певучий, как будто рассказывает сказку маленькому ребёнку перед сном.',
+          'Bright, mid-range female voice — General American — clear neutral timbre — quick tempo with crisp consonants — soprano range with bright top notes — energetic and upbeat baseline — slight vocal fry on declarative endings',
         stability: 0.65,
         similarity_boost: 0.75,
         style: 0.1,
@@ -207,7 +207,7 @@ export const SCRIPT_EXAMPLES = {
       narrator_voice: {
         tts_voice_id: 'pNInz6obpgDQGcFmaJgB',
         persona:
-          'Глубокий, чуть таинственный голос рассказчика, будто голос самой вселенной — величественный, но с теплотой.',
+          'Soft, mid-range female voice — General American — slightly breathy timbre — medium tempo with thoughtful pauses — mid-tenor pitch with warm range — calm and curious baseline — drags out vowels on key words',
         stability: 0.7,
         similarity_boost: 0.8,
         style: 0.15,
@@ -488,7 +488,7 @@ export const SCRIPT_EXAMPLES = {
           description_ru:
             'Перед ними — чёрная воронка Тёмного Вихря. Искра гаснет от страха. Самокат трясёт. Космокот встаёт на его корму и смотрит в пасть шторма — его звёзды в шерсти пылают ярко.',
           description_en:
-            'Before them — the black funnel of the Dark Vortex. Iskra goes dark with fear. The scooter shakes. Cosmocat stands on its back end and stares into the storm\'s maw — the stars in his fur blaze bright.',
+            "Before them — the black funnel of the Dark Vortex. Iskra goes dark with fear. The scooter shakes. Cosmocat stands on its back end and stares into the storm's maw — the stars in his fur blaze bright.",
           duration_sec: 8,
           dialogue: {
             speaker: 'narrator',

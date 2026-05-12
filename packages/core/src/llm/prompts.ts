@@ -1,6 +1,6 @@
 import { VOICE_POOL } from '../media/voices';
-import { SCRIPT_EXAMPLES } from './examples/script-author';
 import { REFINE_EXAMPLES } from './examples/refine-scene';
+import { SCRIPT_EXAMPLES } from './examples/script-author';
 import type { ChatMessage, RefineSceneInput, ScriptGenInput } from './provider';
 import type { Character } from './types';
 
@@ -140,11 +140,26 @@ Field rules:
 </output_schema>
 
 <voice_pool>
-narrator_voice schema: { "tts_voice_id": "<id from pool below>", "persona": "7-axis free-text description of voice character (tone, pace, warmth, gender, age, accent, style)" }
+narrator_voice schema: { "tts_voice_id": "<id from pool below>", "persona": "<7-axis string — see narrator_voice_authoring below>", "stability": 0-1, "similarity_boost": 0-1, "style": 0-1, "speed": 0-1 }
 narrator_voice.tts_voice_id must be one of the ElevenLabs ids listed below (pick the one that best fits the mood and genre):
 ${VOICE_POOL_LINES}
 Note: characters[].action:'add' does NOT carry a voice field — character voices are assigned later via the Director tool.
 </voice_pool>
+
+<narrator_voice_authoring>
+The narrator_voice block must include a \`persona\` field — a single sentence describing the voice along 7 axes, separated by em-dashes (—):
+1. Physiology (gender + body resonance, e.g. "Soft, mid-range female voice")
+2. Accent (regional/national, e.g. "General American", "Mid-Atlantic", "Russian")
+3. Timbre (vocal texture, e.g. "slightly breathy timbre", "warm raspy quality")
+4. Tempo (pace + pause pattern, e.g. "medium tempo with thoughtful pauses")
+5. Pitch (pitch range + tonal centre, e.g. "mid-tenor pitch with warm range")
+6. Baseline (default emotional tone, e.g. "calm and curious baseline")
+7. Speech patterns (characteristic mannerisms, e.g. "drags out vowels on key words")
+
+Example: "Soft, mid-range female voice — General American — slightly breathy timbre — medium tempo with thoughtful pauses — mid-tenor pitch with warm range — calm and curious baseline — drags out vowels on key words"
+
+The persona drives both human voice-casting and TTS settings tuning. Be specific and concrete.
+</narrator_voice_authoring>
 
 <examples>
   <example duration="15" arc="hook-build-payoff">

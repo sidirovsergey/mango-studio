@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildDirectorSystemPrompt, buildRefinePrompt, buildScriptPrompt, CHAT_SYSTEM_PROMPT } from './prompts';
+import { SCRIPT_EXAMPLES } from './examples/script-author';
+import {
+  CHAT_SYSTEM_PROMPT,
+  buildDirectorSystemPrompt,
+  buildRefinePrompt,
+  buildScriptPrompt,
+} from './prompts';
 
 describe('buildScriptPrompt с existingCharacters', () => {
   const baseInput = {
@@ -240,23 +246,29 @@ describe('buildScriptPrompt XML structure (T2)', () => {
     expect(p).toContain('"camera_movement"');
     expect(p).toContain('"arc_role"');
     expect(p).toContain('<examples>');
-    expect(p).toContain('Утренний кот');      // 15s example title
-    expect(p).toContain('Космокот');          // 60s example title
+    expect(p).toContain('Утренний кот'); // 15s example title
+    expect(p).toContain('Космокот'); // 60s example title
     expect(p).toContain('<task>');
     expect(p).toContain('Кот теряет звезду'); // user_prompt interpolated
   });
 
   it('buildScriptPrompt defaults tier to economy when omitted', () => {
-    const p = buildScriptPrompt(
-      { user_prompt: 'тест', duration_sec: 15, format: '9:16', style: '3d_pixar' },
-    );
+    const p = buildScriptPrompt({
+      user_prompt: 'тест',
+      duration_sec: 15,
+      format: '9:16',
+      style: '3d_pixar',
+    });
     expect(p).toContain('Tier: economy');
   });
 
   it('buildScriptPrompt no longer emits stale voice_id/voice_label fields for characters', () => {
-    const p = buildScriptPrompt(
-      { user_prompt: 'тест', duration_sec: 15, format: '9:16', style: '3d_pixar' },
-    );
+    const p = buildScriptPrompt({
+      user_prompt: 'тест',
+      duration_sec: 15,
+      format: '9:16',
+      style: '3d_pixar',
+    });
     // The new <output_schema> for action:'add' must NOT mention voice_id or voice_label
     // (the discriminated union doesn't accept them).
     const outputSchemaStart = p.indexOf('<output_schema>');
@@ -270,7 +282,13 @@ describe('buildRefinePrompt (1.4.B.T3)', () => {
   it('produces XML structure with visual_theme + surrounding scenes + instruction', () => {
     const p = buildRefinePrompt({
       scene: { scene_id: 's2', description: 'x', description_ru: 'x', duration_sec: 5 },
-      visual_theme: { palette: ['#000'], lighting: 'noir', lens: '50mm', motion: 'static', mood: 'tense' },
+      visual_theme: {
+        palette: ['#000'],
+        lighting: 'noir',
+        lens: '50mm',
+        motion: 'static',
+        mood: 'tense',
+      },
       prev_scene_summary: 'кот спит',
       next_scene_summary: 'кот просыпается',
       instruction: 'сделай страшнее',
@@ -317,6 +335,66 @@ describe('buildRefinePrompt (1.4.B.T3)', () => {
     // Must NOT contain the old 1-sentence Russian prompt text
     expect(p).not.toContain('Верни ОДНО предложение');
     expect(p).not.toContain('AI-режиссёр.');
+  });
+});
+
+describe('SCRIPT_SYSTEM_PROMPT narrator persona authoring (1.4.E.T6)', () => {
+  const baseInput = {
+    user_prompt: 'тест',
+    duration_sec: 30,
+    format: '9:16' as const,
+    style: '3d_pixar' as const,
+  };
+
+  it('prompt contains 7-axis labels: Physiology, Accent, Timbre, Tempo, Pitch, Baseline, Speech patterns', () => {
+    const p = buildScriptPrompt(baseInput);
+    expect(p).toContain('Physiology');
+    expect(p).toContain('Accent');
+    expect(p).toContain('Timbre');
+    expect(p).toContain('Tempo');
+    expect(p).toContain('Pitch');
+    expect(p).toContain('Baseline');
+    expect(p).toContain('Speech patterns');
+  });
+
+  it('prompt contains the canonical example persona with em-dashes', () => {
+    const p = buildScriptPrompt(baseInput);
+    expect(p).toContain('Soft, mid-range female voice — General American');
+  });
+
+  it('prompt uses em-dashes (—) as separators in persona example', () => {
+    const p = buildScriptPrompt(baseInput);
+    // The narrator_voice_authoring block should contain em-dashes
+    const idx = p.indexOf('narrator_voice_authoring');
+    expect(idx).toBeGreaterThan(-1);
+    const block = p.slice(idx, idx + 1500);
+    expect(block).toContain('—');
+  });
+
+  it('fifteen_sec example has narrator_voice.persona set (non-empty, 7-axis)', () => {
+    const parsed = JSON.parse(SCRIPT_EXAMPLES.fifteen_sec);
+    const persona: string = parsed.narrator_voice.persona;
+    expect(typeof persona).toBe('string');
+    expect(persona.length).toBeGreaterThan(0);
+    // 7 axes = at least 6 em-dashes
+    const emDashCount = (persona.match(/—/g) ?? []).length;
+    expect(emDashCount).toBeGreaterThanOrEqual(6);
+  });
+
+  it('sixty_sec example has narrator_voice.persona set (non-empty, 7-axis)', () => {
+    const parsed = JSON.parse(SCRIPT_EXAMPLES.sixty_sec);
+    const persona: string = parsed.narrator_voice.persona;
+    expect(typeof persona).toBe('string');
+    expect(persona.length).toBeGreaterThan(0);
+    // 7 axes = at least 6 em-dashes
+    const emDashCount = (persona.match(/—/g) ?? []).length;
+    expect(emDashCount).toBeGreaterThanOrEqual(6);
+  });
+
+  it('personas differ between fifteen_sec and sixty_sec examples', () => {
+    const parsed15 = JSON.parse(SCRIPT_EXAMPLES.fifteen_sec);
+    const parsed60 = JSON.parse(SCRIPT_EXAMPLES.sixty_sec);
+    expect(parsed15.narrator_voice.persona).not.toBe(parsed60.narrator_voice.persona);
   });
 });
 
