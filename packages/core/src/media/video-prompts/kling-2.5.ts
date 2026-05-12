@@ -48,6 +48,18 @@ import {
 import type { VideoPromptInput, VideoPromptOutput } from './types';
 
 // ---------------------------------------------------------------------------
+// Audio cue positioning constants (editorial guidance — Kling has no native audio).
+// These positions are heuristics for the post-production editor; they're not
+// instructions to the model. Tuning these requires updating kling-2.5.test.ts
+// expected timestamps as well.
+// ---------------------------------------------------------------------------
+const KLING_AMBIENT_POSITION_SEC = 0;
+const KLING_MUSIC_FIXED_POSITION_SEC = 2;
+const KLING_MUSIC_FIXED_THRESHOLD_SEC = 8;
+const KLING_MUSIC_SHORT_FRACTION = 0.25;
+const KLING_SFX_FRACTION = 0.7;
+
+// ---------------------------------------------------------------------------
 // Beat timing helpers
 // ---------------------------------------------------------------------------
 
@@ -112,7 +124,10 @@ function buildBeatLines(input: VideoPromptInput): string[] {
   const beats = klingBeats(scene.duration_sec);
   const chars = input.characters_in_scene ?? [];
 
-  // Split description into sentences (same logic as Seedance buildActionBlock)
+  // NOTE: same sentence-distribution heuristic as _seedance-shared.ts buildActionBlock.
+  // Kept inline because Kling's beat semantics are likely to diverge (e.g. cinematic
+  // verb fallback per beat-role instead of generic continuation). DRYing now would
+  // invite a leaky abstraction.
   const sentences = desc
     .split(/(?<=[.!?])\s+/)
     .map((s) => s.trim())
@@ -139,6 +154,7 @@ function buildBeatLines(input: VideoPromptInput): string[] {
       return `${timestamp} ${action} — ${cameraContext}`;
     }
 
+    // 4+ beat fallback is currently unreachable; klingBeats caps at 3 beats. Defensive.
     const subjectCueVerb = SUBJECT_CUES[i] ?? 'continues';
     const subjectCue = `${chars[0]!.name} ${subjectCueVerb}`;
     return `${timestamp} ${action} — ${cameraContext} — ${subjectCue}`;
@@ -183,18 +199,21 @@ function buildAudioLine(input: VideoPromptInput): string {
 
   // Ambient at t=0
   if (ad.ambient) {
-    cues.push(`[${toMMSS(0)}] ${ad.ambient}`);
+    cues.push(`[${toMMSS(KLING_AMBIENT_POSITION_SEC)}] ${ad.ambient}`);
   }
 
   // Music cue: fixed [00:02] for duration >= 8s; at ~25% for shorter scenes
   if (ad.music) {
-    const musicSec = dur >= 8 ? 2 : Math.round(dur * 0.25);
+    const musicSec =
+      dur >= KLING_MUSIC_FIXED_THRESHOLD_SEC
+        ? KLING_MUSIC_FIXED_POSITION_SEC
+        : Math.round(dur * KLING_MUSIC_SHORT_FRACTION);
     cues.push(`[${toMMSS(musicSec)}] ${ad.music}`);
   }
 
   // SFX[0] at ~70% of duration
   if (ad.sfx && ad.sfx.length > 0) {
-    const sfxSec = Math.round(dur * 0.7);
+    const sfxSec = Math.round(dur * KLING_SFX_FRACTION);
     cues.push(`[${toMMSS(sfxSec)}] ${ad.sfx[0]}`);
   }
 

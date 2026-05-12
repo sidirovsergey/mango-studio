@@ -488,6 +488,22 @@ describe('buildKling25Prompt — Framing line', () => {
     const { prompt } = buildKling25Prompt(input);
     expect(prompt).not.toContain('Framing:');
   });
+
+  it('composition with only shot_size, no angle → no Framing line', () => {
+    const input = makeInput({
+      // biome-ignore lint/suspicious/noExplicitAny: partial composition intentional for this guard test
+      scene: { ...fullScene10s, composition: { shot_size: 'close_up' } as any },
+    });
+    expect(buildKling25Prompt(input).prompt).not.toMatch(/^Framing:/m);
+  });
+
+  it('composition with only angle, no shot_size → no Framing line', () => {
+    const input = makeInput({
+      // biome-ignore lint/suspicious/noExplicitAny: partial composition intentional for this guard test
+      scene: { ...fullScene10s, composition: { angle: 'eye_level' } as any },
+    });
+    expect(buildKling25Prompt(input).prompt).not.toMatch(/^Framing:/m);
+  });
 });
 
 // ---------------------------------------------------------------------------
