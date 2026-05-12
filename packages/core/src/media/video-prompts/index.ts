@@ -6,7 +6,12 @@ import { buildSeedanceLitePrompt } from './seedance-lite';
 import type { VideoPromptInput, VideoPromptOutput } from './types';
 import { buildVeo31Prompt } from './veo-3.1';
 
-export type { VideoPromptInput, VideoPromptOutput };
+export type {
+  VideoPromptInput,
+  VideoPromptSceneInput,
+  VideoPromptOutput,
+  CharacterInScene,
+} from './types';
 
 export function buildVideoPrompt(input: VideoPromptInput): VideoPromptOutput {
   const { model } = input;

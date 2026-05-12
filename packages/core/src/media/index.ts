@@ -79,7 +79,14 @@ export {
 } from './video-models';
 export type { VideoModelMeta } from './video-models';
 
-export { buildFirstFramePrompt, buildVideoPrompt, buildVoicePrompt } from './video-prompts';
+export { buildFirstFramePrompt, buildVoicePrompt } from './video-prompts';
+export { buildVideoPrompt } from './video-prompts/index';
+export type {
+  VideoPromptInput,
+  VideoPromptSceneInput,
+  VideoPromptOutput,
+  CharacterInScene,
+} from './video-prompts/index';
 
 export {
   ShotSizeSchema,

@@ -35,6 +35,10 @@ export type {
   MasterClipVersion,
   AudioMode,
   VersionKind,
+  VideoPromptInput,
+  VideoPromptSceneInput,
+  VideoPromptOutput,
+  CharacterInScene,
 } from './media';
 export {
   ECONOMY_MODELS,
