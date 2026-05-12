@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SCRIPT_EXAMPLES } from './script-author';
 import { ScriptGenSchema } from '../schemas';
+import { SCRIPT_EXAMPLES } from './script-author';
 
 describe('SCRIPT_EXAMPLES', () => {
   it('exports two examples: fifteen_sec and sixty_sec', () => {

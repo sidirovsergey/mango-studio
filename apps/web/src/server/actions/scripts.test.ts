@@ -17,7 +17,11 @@ vi.mock('@mango/core', async () => {
   return {
     ...actual,
     classifyLLMError: vi.fn((err: unknown) => err),
-    getModelParams: vi.fn(() => ({ model: 'x-ai/grok-4.1-fast', temperature: 0.8, max_tokens: 4000 })),
+    getModelParams: vi.fn(() => ({
+      model: 'x-ai/grok-4.1-fast',
+      temperature: 0.8,
+      max_tokens: 4000,
+    })),
   };
 });
 
