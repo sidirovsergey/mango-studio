@@ -9,7 +9,10 @@ import { ANGLE_LABEL, CAMERA_VERB, SHOT_SIZE_LABEL } from '../video-prompts/_see
 
 const REF_LIMIT = 5;
 
-const STYLE_PREAMBLE: Record<Style, string> = {
+// First-frame-specific style preamble (English, optimized for nano-banana).
+// Distinct from `STYLE_PREAMBLE` in ../prompts.ts (Russian, used by avatar/dossier builders).
+// Two locales exist intentionally — first-frame consumes nano-banana which is English-biased (F50).
+const FIRST_FRAME_STYLE_PREAMBLE: Record<Style, string> = {
   '3d_pixar':
     '3D Pixar-style CGI render, soft volumetric lighting, expressive eyes, stylized proportions, detailed textures.',
   '2d_drawn':
@@ -108,8 +111,8 @@ export function buildFirstFramePrompt(input: FirstFramePromptInput): {
   // -------------------------------------------------------------------------
   const parts: string[] = [];
 
-  // [1] Style preamble (Option B — resolved from STYLE_PREAMBLE)
-  parts.push(STYLE_PREAMBLE[project_style]);
+  // [1] Style preamble (Option B — resolved from FIRST_FRAME_STYLE_PREAMBLE)
+  parts.push(FIRST_FRAME_STYLE_PREAMBLE[project_style]);
 
   // [2] Output format
   parts.push(
@@ -180,7 +183,7 @@ export function buildFirstFramePrompt(input: FirstFramePromptInput): {
   }
 
   // [8] Scene description (English preferred)
-  const sceneDesc = (scene.description_en ?? scene.description) || scene.description;
+  const sceneDesc = scene.description_en || scene.description;
   parts.push(sceneDesc);
 
   // [9] Avoid block

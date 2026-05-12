@@ -1,28 +1,34 @@
 /**
- * Shared helpers for video-prompt builders.
+ * Shared helpers for media-prompt builders.
  *
- * Underscore prefix denotes "internal to the video-prompts module" —
- * not for import outside packages/core/src/media/video-prompts/.
+ * Underscore prefix denotes "internal to packages/core/src/media/ (video-prompts
+ * + image-prompts)" — not for import outside packages/core/src/media/.
  *
  * Historically named _seedance-shared because the Seedance Director Brief
  * builders were the first consumers. Has since broadened to cover label
  * mappings (CAMERA_VERB, SHOT_SIZE_LABEL, ANGLE_LABEL) and text-detection
- * primitives (containsCyrillic) used across multiple engines.
+ * primitives (containsCyrillic) used across multiple engines AND image-prompt
+ * builders. The name is now somewhat misleading: the file holds cross-engine
+ * cinematography label tables AND Seedance-family block builders. A future
+ * rename/split (e.g. _cinematography-labels.ts + _seedance-blocks.ts) is
+ * queued for 1.4.D/G when sufficient extraction is appropriate — do not
+ * rename in the meantime without updating all import paths.
  *
  * Used by:
- *   seedance-2.ts          — block builders, label tables, time segments
- *   seedance-lite.ts       — block builders, label tables, time segments
- *   veo-3.1.ts             — CAMERA_VERB, DEFAULT_AVOID, DEFAULT_PACING_LINE,
- *                            containsCyrillic
- *   kling-2.5.ts           — CAMERA_VERB, SHOT_SIZE_LABEL, ANGLE_LABEL,
- *                            DEFAULT_AVOID, DEFAULT_PACING_LINE
- *   ltx.ts                 — CAMERA_VERB, containsCyrillic
- *   generic.ts             — CAMERA_VERB
+ *   seedance-2.ts                   — block builders, label tables, time segments
+ *   seedance-lite.ts                — block builders, label tables, time segments
+ *   veo-3.1.ts                      — CAMERA_VERB, DEFAULT_AVOID, DEFAULT_PACING_LINE,
+ *                                     containsCyrillic
+ *   kling-2.5.ts                    — CAMERA_VERB, SHOT_SIZE_LABEL, ANGLE_LABEL,
+ *                                     DEFAULT_AVOID, DEFAULT_PACING_LINE
+ *   ltx.ts                          — CAMERA_VERB, containsCyrillic
+ *   generic.ts                      — CAMERA_VERB
+ *   image-prompts/first-frame.ts    — CAMERA_VERB, SHOT_SIZE_LABEL, ANGLE_LABEL
  *
  * Seedance-specific block builders (buildSceneBlock, buildSubjectBlock,
  * buildActionBlock, buildCameraBlock, buildPacingBlock, buildAvoidLine) are
- * NOT used by veo/kling/ltx/generic — they consume the leaf primitives only
- * and assemble their own engine-specific block structures.
+ * NOT used by veo/kling/ltx/generic/first-frame — they consume the leaf
+ * primitives only and assemble their own engine-specific block structures.
  */
 
 import type { CameraAngle, CameraMovementKind, ShotSize } from '../cinematography-schemas';
