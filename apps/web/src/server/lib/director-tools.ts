@@ -248,7 +248,7 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
 
     add_character: tool({
       description:
-        'Добавить НОВОГО персонажа в проект. Используй когда пользователь говорит «добавь героя X», «введи персонажа Y» И ТАКОГО ПЕРСОНАЖА ЕЩЁ НЕТ в проекте. Если персонаж с таким именем уже существует (активный или архивный) — НЕ вызывай add_character: либо unarchive_character (если он в архиве), либо refine_character (если в активных и нужно изменить), либо ответь текстом что он уже есть.',
+        'Создать нового персонажа. `instruction` — что юзер сказал про внешность/характер целиком, без сокращения.',
       inputSchema: z.object({
         name: z.string().min(1).max(80).describe('Имя персонажа, как его назвал пользователь'),
         instruction: z
