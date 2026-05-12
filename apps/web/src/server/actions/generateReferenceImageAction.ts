@@ -7,6 +7,7 @@ import { recordPendingJob } from '@/server/lib/scene-helpers';
 import {
   type Character,
   MediaProviderError,
+  type StoredAsset,
   type Tier,
   buildReferenceImagePrompt,
   getDefaultModel,
@@ -21,8 +22,6 @@ const InputSchema = z.object({
 });
 
 type Input = z.infer<typeof InputSchema>;
-
-type StoredAsset = { kind: 'fal_passthrough'; url: string } | { kind: 'supabase'; path: string };
 
 export async function generateReferenceImageAction(rawInput: unknown): Promise<
   | {
@@ -68,8 +67,17 @@ export async function generateReferenceImageAction(rawInput: unknown): Promise<
   if (idx < 0) return { ok: false, error: 'character not found' };
   const character = characters[idx] as Character;
 
+  // Reference image is anchored to the dossier asset bundle. Requires dossier to exist.
+  if (!character.dossier) {
+    return {
+      ok: false,
+      error: 'requires_dossier',
+      error_code: 'PRECONDITION_REQUIRES_DOSSIER',
+    } as const;
+  }
+
   // Idempotency check: if reference_image is already set, return existing asset.
-  if (character.dossier?.reference_image) {
+  if (character.dossier.reference_image) {
     return {
       ok: true,
       status: 'already_exists',

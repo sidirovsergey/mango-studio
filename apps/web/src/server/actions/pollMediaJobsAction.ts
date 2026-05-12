@@ -392,6 +392,15 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
               // Phase 1.4 F53: single-pose 1:1 reference image stored under dossier.reference_image.
               if (character.dossier) {
                 updated.dossier = { ...character.dossier, reference_image: stored };
+              } else {
+                console.warn(
+                  '[pollMediaJobs] character_reference_image completed but character.dossier missing — write dropped',
+                  {
+                    project_id: job.project_id,
+                    character_id: job.character_id,
+                    request_id: job.fal_request_id,
+                  },
+                );
               }
               // If character.dossier hasn't landed yet, drop the write. The dossier→reference_image chain
               // in T3 guarantees ordering when triggered automatically; this branch only fires on a manual

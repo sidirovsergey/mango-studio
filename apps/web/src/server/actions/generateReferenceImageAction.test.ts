@@ -171,14 +171,51 @@ describe('generateReferenceImageAction — idempotency', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 4b. Precondition — dossier required
+// ---------------------------------------------------------------------------
+
+describe('generateReferenceImageAction — precondition', () => {
+  it('returns precondition error when character.dossier is null', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+
+    // makeCharacter defaults to dossier: null — no override needed
+    const sb = makeSupabase(makeProject({ tier: 'economy' }));
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sb);
+
+    const submitCharacterReferenceImage = vi.fn();
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      submitCharacterReferenceImage,
+    });
+
+    const result = await generateReferenceImageAction({
+      project_id: PROJECT_ID,
+      character_id: CHARACTER_ID,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe('requires_dossier');
+    expect(submitCharacterReferenceImage).not.toHaveBeenCalled();
+    expect(recordPendingJob).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 5. Happy path — not yet generated (economy tier)
 // ---------------------------------------------------------------------------
+
+const makeDossier = () => ({
+  storage: { kind: 'fal_passthrough' as const, url: 'https://cdn.fal.ai/dossier.png' },
+  model: 'fal-ai/nano-banana-2',
+  format: '16:9',
+  quality: '720p',
+  generated_at: '2026-01-01T00:00:00Z',
+});
 
 describe('generateReferenceImageAction — happy path', () => {
   it('submits fal job and records pending job for economy tier', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
 
-    const sb = makeSupabase(makeProject({ tier: 'economy' }));
+    const sb = makeSupabase(makeProject({ tier: 'economy' }, { dossier: makeDossier() }));
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sb);
 
     const submitCharacterReferenceImage = vi.fn().mockResolvedValue({
@@ -232,7 +269,7 @@ describe('generateReferenceImageAction — happy path', () => {
   it('uses nano-banana-pro for premium tier', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
 
-    const sb = makeSupabase(makeProject({ tier: 'premium' }));
+    const sb = makeSupabase(makeProject({ tier: 'premium' }, { dossier: makeDossier() }));
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sb);
 
     const submitCharacterReferenceImage = vi.fn().mockResolvedValue({
@@ -269,7 +306,7 @@ describe('generateReferenceImageAction — prompt content', () => {
   it('prompt contains character name, Pure white background, and 1:1', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
 
-    const sb = makeSupabase(makeProject({ tier: 'economy' }));
+    const sb = makeSupabase(makeProject({ tier: 'economy' }, { dossier: makeDossier() }));
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sb);
 
     const submitCharacterReferenceImage = vi.fn().mockResolvedValue({
@@ -312,7 +349,7 @@ describe('generateReferenceImageAction — recordPendingJob', () => {
       id: 'user-abc',
     });
 
-    const sb = makeSupabase(makeProject({ tier: 'economy' }));
+    const sb = makeSupabase(makeProject({ tier: 'economy' }, { dossier: makeDossier() }));
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sb);
 
     (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
