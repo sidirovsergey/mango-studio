@@ -132,7 +132,34 @@ export class OpenRouterLLMProvider implements LLMProvider {
   async chat(input: ChatInput): Promise<ChatResult> {
     const params = getModelParams('chat');
     const start = Date.now();
-    const messages = chatMessagesWithSystem(input.messages);
+
+    // Apply cache_control to the system message when requested (F86).
+    // Anthropic prompt caching is message-level: the OpenRouter provider's
+    // convertToOpenRouterChatMessages reads providerOptions on each message,
+    // not from the request-level providerOptions.anthropic field.
+    const rawMessages = chatMessagesWithSystem(input.messages);
+    const messages =
+      input.cacheControl === 'ephemeral'
+        ? rawMessages.map((msg, idx) =>
+            idx === 0 && msg.role === 'system'
+              ? { ...msg, providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } } }
+              : msg,
+          )
+        : rawMessages;
+
+    // Build request-level OpenRouter provider options.
+    // Extended thinking (F87) is passed as `thinking` in the OpenRouter request
+    // body via restOpenrouterOptions spread — OpenRouter forwards it to Anthropic.
+    const thinkingOpt = input.extendedThinking?.budget_tokens
+      ? {
+          thinking: {
+            type: 'enabled' as const,
+            budget_tokens: input.extendedThinking.budget_tokens,
+          },
+        }
+      : {};
+    const openrouterOpts = { provider: OPENROUTER_PROVIDER_ROUTING, ...thinkingOpt };
+
     try {
       const { text, usage } = await generateText({
         model: this.openrouter(params.model),
@@ -140,8 +167,7 @@ export class OpenRouterLLMProvider implements LLMProvider {
         temperature: params.temperature,
         maxOutputTokens: params.max_tokens,
         providerOptions: {
-          openrouter: { provider: OPENROUTER_PROVIDER_ROUTING },
-          anthropic: { cacheControl: { type: 'ephemeral' } },
+          openrouter: openrouterOpts,
         },
       });
       const llmUsage = await this.buildUsage(params.model, usage, start);
@@ -154,15 +180,17 @@ export class OpenRouterLLMProvider implements LLMProvider {
 
   private async buildUsage(
     model: string,
-    sdkUsage: { inputTokens?: number; outputTokens?: number } | undefined,
+    sdkUsage: { inputTokens?: number; outputTokens?: number; reasoningTokens?: number } | undefined,
     startMs: number,
   ): Promise<LLMUsage> {
     const prompt_tokens = sdkUsage?.inputTokens ?? 0;
     const completion_tokens = sdkUsage?.outputTokens ?? 0;
+    const reasoning_tokens = sdkUsage?.reasoningTokens;
     const cost_usd = await calculateCost(model, prompt_tokens, completion_tokens);
     return {
       prompt_tokens,
       completion_tokens,
+      ...(reasoning_tokens !== undefined && { reasoning_tokens }),
       cost_usd,
       model,
       latency_ms: Date.now() - startMs,

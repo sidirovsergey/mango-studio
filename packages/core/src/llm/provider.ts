@@ -12,6 +12,8 @@ import type { Character } from './types';
 export interface LLMUsage {
   prompt_tokens: number;
   completion_tokens: number;
+  /** Reasoning/thinking tokens used (set when extendedThinking is enabled). */
+  reasoning_tokens?: number;
   cost_usd: number;
   model: string;
   latency_ms: number;
@@ -82,6 +84,19 @@ export interface ChatMessage {
 
 export interface ChatInput {
   messages: ChatMessage[];
+  /**
+   * When 'ephemeral', attaches Anthropic's cache_control marker to the system
+   * message so the static prompt prefix is eligible for prompt caching (F86).
+   * Default: no caching.
+   */
+  cacheControl?: 'ephemeral' | 'none';
+  /**
+   * When set, enables Anthropic's extended thinking (F87).
+   * Passed as `thinking: { type: 'enabled', budget_tokens: N }` in the
+   * OpenRouter request body (provider pass-through to Anthropic).
+   * budget_tokens range: 1024–8192.
+   */
+  extendedThinking?: { budget_tokens: number };
 }
 
 export interface ChatOutput {
