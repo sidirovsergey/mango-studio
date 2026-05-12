@@ -76,18 +76,45 @@ export async function sendChatMessageAction(
   });
   const tools = buildDirectorTools({ project_id });
 
+  // Director Agent uses Sonnet 4.6 — supports prompt caching + extended thinking.
+  // cacheControl goes on the system message itself (message-level, not request-level).
+  // thinking goes in providerOptions.openrouter when model is Sonnet and not disabled.
+  const isSonnet = params.model.toLowerCase().includes('sonnet');
+  const thinkingDisabled = process.env.MANGO_DISABLE_THINKING === '1';
+  const useThinking = isSonnet && !thinkingDisabled;
+
+  const openrouterOptions = {
+    provider: { ignore: ['DeepInfra'] },
+    ...(useThinking ? { thinking: { type: 'enabled' as const, budget_tokens: 2000 } } : {}),
+  };
+
+  // cache_control goes on the system message itself, NOT at request level (per T4 SDK research).
+  // Convert `system: string` to messages with a cacheable system entry.
+  const systemMessage = {
+    role: 'system' as const,
+    content: systemPrompt,
+    providerOptions: {
+      anthropic: { cacheControl: { type: 'ephemeral' } as const },
+    },
+  };
+
+  console.log('[chat] Director Agent mode:', {
+    model: params.model,
+    cache_control: 'ephemeral',
+    thinking: useThinking ? '2000 tokens' : 'disabled',
+  });
+
   const start = Date.now();
   try {
     const result = await generateText({
       model: openrouter(params.model),
-      system: systemPrompt,
-      messages,
+      messages: [systemMessage, ...messages], // system now part of messages array
       tools,
       stopWhen: stepCountIs(5),
       temperature: params.temperature,
       maxOutputTokens: params.max_tokens,
       providerOptions: {
-        openrouter: { provider: { ignore: ['DeepInfra'] } },
+        openrouter: openrouterOptions,
       },
     });
 
