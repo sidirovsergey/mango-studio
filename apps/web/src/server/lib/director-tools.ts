@@ -65,6 +65,7 @@ async function resolveScene(
   first_frame: unknown;
   final_clip: unknown;
   config_overrides?: { model?: string };
+  dialogue?: { speaker: string; text: string } | null;
 } | null> {
   const sb = await getServerSupabase();
   const { data: project, error } = await sb
@@ -81,6 +82,7 @@ async function resolveScene(
       first_frame: unknown;
       final_clip: unknown;
       config_overrides?: { model?: string };
+      dialogue?: { speaker: string; text: string } | null;
     }>;
   };
   return script.scenes?.find((s) => s.scene_id === scene_id) ?? null;
@@ -648,6 +650,73 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
             summary: `Активная версия будет переключена на ${targetSummary}. Downstream final_clip / master_clip станут stale.`,
             warning:
               'Это действие может затронуть собранный ролик — потребуется пересборка master_clip.',
+          },
+          status: 'pending',
+        };
+        return { pending: true, action };
+      },
+    }),
+
+    // ===== Phase 1.4.1 audio chain tools =====
+
+    regen_scene_voice: tool({
+      description:
+        'Перегенерировать озвучку сцены (ElevenLabs TTS). Используй когда пользователь просит «озвучь сцену другим голосом», «перегенерируй озвучку», «попробуй с другим текстом». Destructive — заменит активную voice-версию (история до 5). После новой озвучки auto-chain пересоберёт final_clip.',
+      inputSchema: z.object({
+        scene_id: z.string().min(1).describe('ID сцены, например s1, s2'),
+        voice_id: z
+          .string()
+          .optional()
+          .describe(
+            'Переопределить ElevenLabs voice_id. По умолчанию — голос персонажа/нарратора.',
+          ),
+        text_override: z
+          .string()
+          .optional()
+          .describe('Переопределить текст реплики. По умолчанию — scene.dialogue.text.'),
+      }),
+      execute: async ({ scene_id, voice_id, text_override }): Promise<ToolResult> => {
+        const scene = await resolveScene(project_id, scene_id);
+        if (!scene) return { ok: false, error: 'scene not found' };
+        const text = text_override?.trim() ?? scene.dialogue?.text?.trim();
+        if (!text) return { ok: false, error: 'нет текста реплики — нечего озвучивать' };
+        const action: PendingAction = {
+          id: randomUUID(),
+          kind: 'regen_scene_voice',
+          payload: {
+            project_id,
+            scene_id,
+            ...(voice_id ? { voice_id } : {}),
+            ...(text_override ? { text_override } : {}),
+          },
+          preview: {
+            title: `Перегенерировать озвучку сцены ${scene_id}?`,
+            subject: text.slice(0, 60),
+            summary: `Запустит новую TTS — ${formatCostHint('fal-ai/elevenlabs/tts/multilingual-v2')}. После: auto-chain пересоберёт final_clip.`,
+          },
+          status: 'pending',
+        };
+        return { pending: true, action };
+      },
+    }),
+
+    compose_scene_final_clip: tool({
+      description:
+        'Пересобрать final_clip сцены из текущих активных video + voice версий. Используй после rollback_scene_version (video или voice), чтобы освежить муксированную композицию. Cost-significant (~$0.01).',
+      inputSchema: z.object({
+        scene_id: z.string().min(1),
+      }),
+      execute: async ({ scene_id }): Promise<ToolResult> => {
+        const scene = await resolveScene(project_id, scene_id);
+        if (!scene) return { ok: false, error: 'scene not found' };
+        const action: PendingAction = {
+          id: randomUUID(),
+          kind: 'compose_scene_final_clip',
+          payload: { project_id, scene_id },
+          preview: {
+            title: `Пересобрать финальный клип сцены ${scene_id}?`,
+            subject: scene.description.slice(0, 60),
+            summary: `ffmpeg мукс активного video + voice — ${formatCostHint('fal-ai/ffmpeg-api/merge-audio-video')}.`,
           },
           status: 'pending',
         };

@@ -49,12 +49,41 @@ function resolveVoiceLabel(char: Character): string {
   return found ? found.label : 'custom';
 }
 
+function isFinalClipStale(scene: Scene): boolean {
+  if (!scene.final_clip) return false;
+  // final_clip is a derived asset whose composed_from references the
+  // active video/voice versions at compose time. If either has moved on
+  // (rollback / regen) the mux is stale and Director should suggest
+  // compose_scene_final_clip.
+  const cf = (
+    scene as unknown as {
+      final_clip?: {
+        composed_from?: { video_version_id?: string; voice_audio_version_id?: string | null };
+      };
+    }
+  ).final_clip?.composed_from;
+  if (!cf) return false;
+  if (scene.video_active_version_id && cf.video_version_id !== scene.video_active_version_id) {
+    return true;
+  }
+  if (
+    scene.voice_audio_active_version_id &&
+    cf.voice_audio_version_id !== scene.voice_audio_active_version_id
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function sceneMediaFlags(scene: Scene): string {
   const ff = scene.first_frame_versions && scene.first_frame_versions.length > 0 ? '✓' : '✗';
   const vid = scene.video_versions && scene.video_versions.length > 0 ? '✓' : '✗';
   const aud = scene.voice_audio_versions && scene.voice_audio_versions.length > 0 ? '✓' : '✗';
   const fc = scene.final_clip != null ? '✓' : '✗';
-  return `ff${ff} vid${vid} aud${aud} fc${fc}`;
+  // Phase 1.4.1: when fc=✓ but composed_from drifts from active versions,
+  // suffix `(stale)` so Director can proactively suggest compose_scene_final_clip.
+  const stale = isFinalClipStale(scene) ? ' (stale)' : '';
+  return `ff${ff} vid${vid} aud${aud} fc${fc}${stale}`;
 }
 
 function formatCharacterActiveRow(char: Character): string {
