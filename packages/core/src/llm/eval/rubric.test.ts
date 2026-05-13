@@ -398,12 +398,7 @@ describe('Rubric — per-fixture assertions (strict engines: seedance-2.0, seeda
 
 describe('Rubric — has_aspect_reminder per engine', () => {
   const ENGINES_WITH_REMINDER = ['seedance-2.0', 'veo-3.1'] as const;
-  const ENGINES_WITHOUT_REMINDER = [
-    'seedance-lite',
-    'kling-2.5',
-    'ltx',
-    'generic',
-  ] as const;
+  const ENGINES_WITHOUT_REMINDER = ['seedance-lite', 'kling-2.5', 'ltx', 'generic'] as const;
   const FIXTURES = [
     'quiet',
     'action',
