@@ -48,8 +48,6 @@ import {
   getActiveVersion,
   getDefaultModel,
   getDefaultVideoModel,
-  getVideoModelMeta,
-  resolveAudioMode,
 } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
@@ -155,12 +153,8 @@ function buildVideoForScene(
   const effectiveTier = scene.config_overrides?.tier ?? projectTier;
   const model = scene.config_overrides?.model ?? getDefaultVideoModel(effectiveTier);
   const duration_sec = clampDurationToModel(model, scene.duration_sec);
-  const modelMeta = getVideoModelMeta(model);
-
-  const audioMode = resolveAudioMode(
-    { audio_mode: scene.audio_mode ?? 'auto', dialogue: scene.dialogue },
-    { has_native_audio: modelMeta?.has_native_audio ?? false },
-  );
+  // Post-2026-05-13: audio is always 'native'. resolveAudioMode removed.
+  const audioMode = 'native' as const;
 
   const activeFrame = getActiveVersion({
     versions: scene.first_frame_versions ?? [],

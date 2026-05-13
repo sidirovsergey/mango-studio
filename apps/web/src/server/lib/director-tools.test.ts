@@ -43,13 +43,11 @@ vi.mock('@/server/actions/unarchiveCharacterAction', () => ({
 }));
 vi.mock('@/server/actions/deleteCharacterAction', () => ({ deleteCharacterAction: vi.fn() }));
 vi.mock('@/server/actions/refineCharacterAction', () => ({ refineCharacterAction: vi.fn() }));
-vi.mock('@/server/actions/setCharacterVoiceAction', () => ({
-  setCharacterVoiceAction: vi.fn(),
-}));
+// setCharacterVoiceAction mock + import removed 2026-05-13 — the action and
+// its director-tool wiring were deleted in the audio rip-out.
 
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { regenSceneTextAction } from '@/server/actions/regenSceneTextAction';
-import { setCharacterVoiceAction } from '@/server/actions/setCharacterVoiceAction';
 import { setSceneDurationAction } from '@/server/actions/setSceneDurationAction';
 import { getServerSupabase } from '@mango/db/server';
 import { buildDirectorTools } from './director-tools';
@@ -324,74 +322,17 @@ describe('generate_master_clip', () => {
 const CHARACTER_ID = 'b1ffcc88-0d0c-4ef8-bb6d-6bb9bd380a22';
 const RACHEL_VOICE_ID = '21m00Tcm4TlvDq8ikWAM';
 
-describe('set_character_voice', () => {
-  // 1. Tool definition exists with name + PERMANENT warning in description
-  it('tool definition has correct name and description with PERMANENT warning', () => {
+// set_character_voice describe block deleted 2026-05-13. The director-tool
+// was removed alongside the audio pipeline; native-audio video models render
+// character voices implicitly from dialogue text.
+
+describe('set_character_voice (deleted)', () => {
+  it('is no longer registered on the director tool surface', () => {
     const tools = buildDirectorTools({ project_id: PROJECT_ID });
-    expect(tools.set_character_voice).toBeDefined();
-    // Access the internal description via the tool object
-    const toolDef = tools.set_character_voice as unknown as { description?: string };
-    expect(toolDef.description).toBeDefined();
-    expect(toolDef.description).toMatch(/PERMANENT|rendered/i);
-  });
-
-  // 2. Tool input schema validates correct input
-  it('tool input schema accepts valid character_id + tts_voice_id', async () => {
-    (setCharacterVoiceAction as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      character_id: CHARACTER_ID,
-      tts_voice_id: RACHEL_VOICE_ID,
-    });
-
-    const tools = buildDirectorTools({ project_id: PROJECT_ID });
-    const result = await callTool(tools.set_character_voice, {
-      character_id: CHARACTER_ID,
-      tts_voice_id: RACHEL_VOICE_ID,
-    });
-
-    expect(result).toMatchObject({ ok: true });
-  });
-
-  // 3. Tool handler calls setCharacterVoiceAction with the right args
-  it('handler calls setCharacterVoiceAction with project_id, character_id, tts_voice_id', async () => {
-    (setCharacterVoiceAction as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      character_id: CHARACTER_ID,
-      tts_voice_id: RACHEL_VOICE_ID,
-    });
-
-    const tools = buildDirectorTools({ project_id: PROJECT_ID });
-    await callTool(tools.set_character_voice, {
-      character_id: CHARACTER_ID,
-      tts_voice_id: RACHEL_VOICE_ID,
-    });
-
-    expect(setCharacterVoiceAction).toHaveBeenCalledWith({
-      project_id: PROJECT_ID,
-      character_id: CHARACTER_ID,
-      tts_voice_id: RACHEL_VOICE_ID,
-    });
-  });
-
-  // 4. Tool surfaces voice_locked error verbatim
-  it('routes voice_locked error back to the chat surface with details', async () => {
-    const lockedMsg =
-      'Scene "s1" has rendered audio. Voice changes after audio render would create inconsistency.';
-    (setCharacterVoiceAction as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: false,
-      error: 'voice_locked',
-      details: lockedMsg,
-    });
-
-    const tools = buildDirectorTools({ project_id: PROJECT_ID });
-    const result = await callTool(tools.set_character_voice, {
-      character_id: CHARACTER_ID,
-      tts_voice_id: RACHEL_VOICE_ID,
-    });
-
-    expect(result).toMatchObject({ ok: false });
-    // The error should contain "voice_locked" or the details message so the LLM sees it
-    const errorStr = JSON.stringify(result);
-    expect(errorStr).toMatch(/voice_locked|rendered audio/i);
+    expect((tools as Record<string, unknown>).set_character_voice).toBeUndefined();
   });
 });
+
+// Silence unused-variable warnings for legacy fixture constants.
+void CHARACTER_ID;
+void RACHEL_VOICE_ID;

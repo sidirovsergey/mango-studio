@@ -18,8 +18,13 @@ import {
   getActiveVersion,
   getDefaultVideoModel,
   getVideoModelMeta,
-  resolveAudioMode,
 } from '@mango/core';
+
+// Audio mode is hardcoded to 'native' post-2026-05-13 rip-out. Every active
+// video model carries native audio; the silent_tts → TTS → mux chain is gone.
+// Legacy scenes with audio_mode='silent_tts' on the jsonb still serialize fine
+// but the dispatcher no longer honours them — we always send native.
+const RESOLVED_AUDIO_MODE = 'native' as const;
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
 
@@ -121,18 +126,12 @@ export async function generateSceneVideoAction(
     input.model_override ?? scene.config_overrides?.model ?? getDefaultVideoModel(effectiveTier);
   const duration_sec = clampDurationToModel(model, scene.duration_sec);
 
-  // Resolve effective audio mode (drives whether silent_tts pipeline will follow).
-  // F73 fix: pass the RESOLVED audioMode to the dispatcher — not the raw scene.audio_mode.
-  // Builders treat 'auto' the same as 'native', so passing raw 'auto' bypasses the Cyrillic→silent_tts
-  // coercion that resolveAudioMode applies upstream.
+  // Audio mode is always 'native' after the 2026-05-13 audio-pipeline rip-out.
+  // resolveAudioMode + silent_tts gating + ElevenLabs TTS chain are gone;
+  // every active model bakes audio into the video clip directly.
   const modelMeta = getVideoModelMeta(model);
-  const audioMode = resolveAudioMode(
-    {
-      audio_mode: scene.audio_mode ?? 'auto',
-      dialogue: scene.dialogue,
-    },
-    { has_native_audio: modelMeta?.has_native_audio ?? false },
-  );
+  const audioMode = RESOLVED_AUDIO_MODE;
+  void modelMeta; // kept for cost-hint logging if a caller adds it back later
 
   // Project characters matching this scene's character_ids to slim CharacterInScene shape.
   // Stale refs (deleted characters) are silently dropped with a warning — matches house style

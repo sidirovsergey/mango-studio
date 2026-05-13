@@ -13,11 +13,11 @@ import {
   refineScriptAction,
   regenScriptAction,
 } from '@/server/actions/scripts';
-import { setCharacterVoiceAction } from '@/server/actions/setCharacterVoiceAction';
+// setCharacterVoiceAction import removed 2026-05-13 with the audio pipeline.
 import { setSceneDurationAction } from '@/server/actions/setSceneDurationAction';
 import { unarchiveCharacterAction } from '@/server/actions/unarchiveCharacterAction';
 import type { Character, PendingAction } from '@mango/core';
-import { VIDEO_MODELS, VOICE_POOL } from '@mango/core';
+import { VIDEO_MODELS } from '@mango/core';
 import { formatCostHint } from '@mango/core/media/prompt-cost';
 import { getServerSupabase } from '@mango/db/server';
 import { tool } from 'ai';
@@ -439,34 +439,9 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
       },
     }),
 
-    // ===== Voice tools (Phase 1.4.E) =====
-
-    set_character_voice: tool({
-      description: `Set or change the TTS voice for a character. PERMANENT WARNING: once any scene with this character's dialogue has been rendered to audio, the voice cannot be changed (changing it would create inconsistent audio across scenes). The current VOICE_POOL IDs are: ${VOICE_POOL.map((v) => `${v.id} (${v.label}, ${v.gender}, ${v.tone})`).join('; ')}. User-supplied IDs outside the pool are accepted when needed (pass any ElevenLabs voice_id), but are not validated server-side.`,
-      inputSchema: z.object({
-        character_id: z.string().min(1).describe('UUID of the character to update'),
-        tts_voice_id: z
-          .string()
-          .min(1)
-          .describe('ElevenLabs voice ID — use one of the VOICE_POOL IDs listed above'),
-      }),
-      execute: async ({ character_id, tts_voice_id }): Promise<ToolResult> => {
-        try {
-          const result = await setCharacterVoiceAction({
-            project_id,
-            character_id,
-            tts_voice_id,
-          });
-          if (!result.ok) {
-            const detail = 'details' in result ? ` — ${result.details}` : '';
-            return { ok: false, error: `${result.error}${detail}` };
-          }
-          return { ok: true, character_id: result.character_id, tts_voice_id: result.tts_voice_id };
-        } catch (err) {
-          return { ok: false, error: shortError(err) };
-        }
-      },
-    }),
+    // Voice tools removed 2026-05-13 — native-audio video models render
+    // character voices implicitly from the dialogue text. Director can no
+    // longer be asked to set_character_voice; the action is gone.
 
     // ===== Scene tools (Phase 1.3) =====
 

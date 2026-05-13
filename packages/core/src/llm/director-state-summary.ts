@@ -9,7 +9,6 @@
  * media status to make correct tool-routing decisions.
  */
 
-import { getVoiceById } from '../media/voices';
 import type { Scene } from './schemas';
 import type { Character } from './types';
 
@@ -43,10 +42,11 @@ function padRight(text: string, width: number): string {
 }
 
 function resolveVoiceLabel(char: Character): string {
-  const voiceId = char.voice?.tts_voice_id;
-  if (!voiceId) return 'unset';
-  const found = getVoiceById(voiceId);
-  return found ? found.label : 'custom';
+  // ElevenLabs voice pool retired 2026-05-13 along with the TTS pipeline.
+  // Active video models generate native audio; voice picker is gone. We
+  // surface a stable label so any historic Director-prompt fixtures keep
+  // their shape during the rolling deploy.
+  return char.voice?.tts_voice_id ? 'native' : 'unset';
 }
 
 function isFinalClipStale(scene: Scene): boolean {

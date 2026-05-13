@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { DIRECTOR_AGENT_EXAMPLES } from './examples/director-agent';
-import { SCRIPT_EXAMPLES } from './examples/script-author';
 import {
   CHAT_SYSTEM_PROMPT,
   buildDirectorSystemPrompt,
@@ -417,7 +416,12 @@ describe('buildRefinePrompt (1.4.B.T3)', () => {
   });
 });
 
-describe('SCRIPT_SYSTEM_PROMPT narrator persona authoring (1.4.E.T6)', () => {
+describe('SCRIPT_SYSTEM_PROMPT narrator persona authoring (retired 2026-05-13)', () => {
+  // The narrator_voice + 7-axis persona authoring block was removed when the
+  // ElevenLabs TTS pipeline got ripped out. Native-audio video models render
+  // narration from the dialogue text directly. The remaining test asserts the
+  // negative: the old voice_pool / narrator_voice_authoring sections are
+  // GONE from the prompt.
   const baseInput = {
     user_prompt: 'тест',
     duration_sec: 30,
@@ -425,55 +429,15 @@ describe('SCRIPT_SYSTEM_PROMPT narrator persona authoring (1.4.E.T6)', () => {
     style: '3d_pixar' as const,
   };
 
-  it('prompt contains 7-axis labels: Physiology, Accent, Timbre, Tempo, Pitch, Baseline, Speech patterns', () => {
+  it('prompt no longer carries a narrator_voice / voice_pool authoring block', () => {
     const p = buildScriptPrompt(baseInput);
-    expect(p).toContain('Physiology');
-    expect(p).toContain('Accent');
-    expect(p).toContain('Timbre');
-    expect(p).toContain('Tempo');
-    expect(p).toContain('Pitch');
-    expect(p).toContain('Baseline');
-    expect(p).toContain('Speech patterns');
+    expect(p).not.toMatch(/<voice_pool>/);
+    expect(p).not.toMatch(/<narrator_voice_authoring>/);
   });
 
-  it('prompt contains the canonical example persona with em-dashes', () => {
+  it('prompt explicitly tells the LLM not to emit narrator_voice', () => {
     const p = buildScriptPrompt(baseInput);
-    expect(p).toContain('Soft, mid-range female voice — General American');
-  });
-
-  it('prompt uses em-dashes (—) as separators in persona example', () => {
-    const p = buildScriptPrompt(baseInput);
-    // The narrator_voice_authoring block should contain em-dashes
-    const idx = p.indexOf('narrator_voice_authoring');
-    expect(idx).toBeGreaterThan(-1);
-    const block = p.slice(idx, idx + 1500);
-    expect(block).toContain('—');
-  });
-
-  it('fifteen_sec example has narrator_voice.persona set (non-empty, 7-axis)', () => {
-    const parsed = JSON.parse(SCRIPT_EXAMPLES.fifteen_sec);
-    const persona: string = parsed.narrator_voice.persona;
-    expect(typeof persona).toBe('string');
-    expect(persona.length).toBeGreaterThan(0);
-    // 7 axes = at least 6 em-dashes
-    const emDashCount = (persona.match(/—/g) ?? []).length;
-    expect(emDashCount).toBeGreaterThanOrEqual(6);
-  });
-
-  it('sixty_sec example has narrator_voice.persona set (non-empty, 7-axis)', () => {
-    const parsed = JSON.parse(SCRIPT_EXAMPLES.sixty_sec);
-    const persona: string = parsed.narrator_voice.persona;
-    expect(typeof persona).toBe('string');
-    expect(persona.length).toBeGreaterThan(0);
-    // 7 axes = at least 6 em-dashes
-    const emDashCount = (persona.match(/—/g) ?? []).length;
-    expect(emDashCount).toBeGreaterThanOrEqual(6);
-  });
-
-  it('personas differ between fifteen_sec and sixty_sec examples', () => {
-    const parsed15 = JSON.parse(SCRIPT_EXAMPLES.fifteen_sec);
-    const parsed60 = JSON.parse(SCRIPT_EXAMPLES.sixty_sec);
-    expect(parsed15.narrator_voice.persona).not.toBe(parsed60.narrator_voice.persona);
+    expect(p).toContain('DO NOT emit a top-level "narrator_voice" object');
   });
 });
 

@@ -1,6 +1,16 @@
 import type { AssetContext, StoredAsset } from './storage/StorageProvider';
-import type { VoiceSettingsDefault } from './voices';
 export type { AssetContext } from './storage/StorageProvider';
+
+// Audio pipeline retired 2026-05-13. VoiceSettingsDefault used to live in
+// ./voices; kept as a structural alias here so MediaProvider implementations
+// that still implement the (now-dead) submitVoice contract keep compiling
+// during the rolling deploy. Once no caller references it, delete.
+type VoiceSettingsDefault = {
+  stability?: number;
+  similarity_boost?: number;
+  style?: number;
+  speed?: number;
+};
 
 export type DossierFormat = '16:9' | '1:1';
 export type DossierQuality = '720p' | '1080p' | '2k';
