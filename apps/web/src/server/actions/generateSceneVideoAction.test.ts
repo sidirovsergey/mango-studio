@@ -315,46 +315,35 @@ async function runAndCapturePrompt(
   return call[0].prompt;
 }
 
-describe('generateSceneVideoAction — per-engine prompt signatures (T7)', () => {
-  it('Seedance 2.0: prompt contains [SCENE], [AUDIO], and Avoid:', async () => {
-    const prompt = await runAndCapturePrompt('bytedance/seedance-2.0/image-to-video', {
-      audio_mode: 'native',
-      dialogue: null,
+describe('generateSceneVideoAction — unified prompt signature', () => {
+  // Post-2026-05-13: per-engine dispatch was retired. Every active model
+  // (Grok Imagine Video, Seedance 2.0 Pro, Veo 3.1) runs through one
+  // unified builder that emits the [AESTHETIC] / [SCENE] / [SUBJECT] /
+  // [ACTION] / [CAMERA] / [AUDIO] / [PERFORMANCE] / [MICRO ACTION] /
+  // [Pacing/Style] / Avoid block grammar. Per-engine-specific assertions
+  // (Seedance Lite no-audio, Veo's [Cinematography] header, Kling beat
+  // markers, LTX label-style) deleted alongside their builders.
+  for (const modelId of [
+    'xai/grok-imagine-video/image-to-video',
+    'bytedance/seedance-2.0/image-to-video',
+    'fal-ai/veo3.1/image-to-video',
+  ]) {
+    it(`${modelId}: prompt carries the unified block grammar`, async () => {
+      const prompt = await runAndCapturePrompt(modelId, {
+        audio_mode: 'native',
+        dialogue: null,
+      });
+      expect(prompt).toContain('[AESTHETIC]');
+      expect(prompt).toContain('[SCENE]');
+      expect(prompt).toContain('[SUBJECT]');
+      expect(prompt).toContain('[ACTION]');
+      expect(prompt).toContain('[CAMERA]');
+      expect(prompt).toContain('[AUDIO]');
+      expect(prompt).toContain('[MICRO ACTION]');
+      expect(prompt).toContain('[Pacing/Style]');
+      expect(prompt).toContain('Avoid:');
     });
-    expect(prompt).toContain('[SCENE]');
-    expect(prompt).toContain('[AUDIO]');
-    expect(prompt).toContain('Avoid:');
-  });
-
-  it('Seedance Lite: prompt contains [SCENE] but NOT [AUDIO]', async () => {
-    const prompt = await runAndCapturePrompt('fal-ai/bytedance/seedance/v1/lite/image-to-video');
-    expect(prompt).toContain('[SCENE]');
-    expect(prompt).not.toContain('[AUDIO]');
-  });
-
-  it('Veo 3.1: prompt contains [Cinematography] and [Style]', async () => {
-    const prompt = await runAndCapturePrompt('fal-ai/veo3.1/image-to-video', {
-      audio_mode: 'native',
-      dialogue: null,
-    });
-    expect(prompt).toContain('[Cinematography]');
-    expect(prompt).toContain('[Style]');
-  });
-
-  it('Kling 2.5: prompt contains [00:00– beat marker and Reference: @Image1', async () => {
-    const prompt = await runAndCapturePrompt(
-      'fal-ai/kling-video/v2.5-turbo/standard/image-to-video',
-    );
-    expect(prompt).toContain('[00:00–');
-    expect(prompt).toContain('Reference: @Image1');
-  });
-
-  it('LTX: prompt contains Description:, Camera:, and Audio:', async () => {
-    const prompt = await runAndCapturePrompt('fal-ai/ltx-video');
-    expect(prompt).toContain('Description:');
-    expect(prompt).toContain('Camera:');
-    expect(prompt).toContain('Audio:');
-  });
+  }
 });
 
 // ---------------------------------------------------------------------------

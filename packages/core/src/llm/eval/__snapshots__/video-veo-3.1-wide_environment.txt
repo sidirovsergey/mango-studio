@@ -1,24 +1,31 @@
 [AESTHETIC]
 Vertical 9:16, ultra cinematic luxury animation, Pixar + Apple + Netflix grade, 4K render, deep shadows, volumetric light, premium materials.
 
-[Cinematography]
-Crane Up, slow, 24mm wide, лёгкая дисторсия по краям lens, 24fps cinematic.
+[SCENE]
+Lighting: cool blue-magenta dawn key + soft fill from overcast horizon
+Time: рассвет, 5:30 утра
+Key: справа сверху, горизонт
 
-[Subject]
-Subject as established in @Image1.
+[SUBJECT]
+Subject: as established in @Image1
 
-[Action]
-Coastal cliff jagged with basalt columns, sea below in slow rolling swells, magenta dawn light catching the cliff tops, no human presence.
+[ACTION]
+0–3s: Coastal cliff jagged with basalt columns, sea below in slow rolling swells, magenta dawn light catching the cliff tops, no human presence.
+3–7s: continued action from previous beat
+7–10s: continued action from previous beat
 
-[Context]
-cool blue-magenta dawn key + soft fill from overcast horizon, рассвет, 5:30 утра.
+[CAMERA]
+Crane Up (slow) — 24mm wide, лёгкая дисторсия по краям; shot: Extreme Wide, High Angle
+
+[AUDIO]
+No dialogue, no music; ambient room tone only — voice dubbed in post
 
 [MICRO ACTION]
 Subtle facial expression and naturalistic micro-blinks (every 2–3 seconds).
 Body holds intention; no idle fidgeting or random head bobbing.
 Gaze and attention anchored to: утёс и рассветный горизонт.
 
-[Style]
-Cinematic, naturalistic pacing; consistent grading.
+[Pacing/Style]
+Cinematic, naturalistic pacing; consistent grading
 
 Avoid: abrupt cuts, scene changes, lens flares masking faces, multiple disconnected vignettes, text overlays

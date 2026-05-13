@@ -1,17 +1,24 @@
 [AESTHETIC]
 Vertical 9:16, ultra cinematic luxury animation, Pixar + Apple + Netflix grade, 4K render, deep shadows, volumetric light, premium materials.
 
-[Cinematography]
-Orbit, slow, 50mm, мягкое боке на листве lens, 24fps cinematic.
+[SCENE]
+Lighting: dappled forest key — sun patches through canopy + cool shadow fill
+Time: полдень, лес
+Key: сверху сквозь листву, разрозненные пятна
 
-[Subject]
-Руслан — Рыжий лис с пушистым хвостом и острыми ушами. Хитрый, но добродушный.; Чёрная — Иссиня-чёрная ворона с умными фиолетовыми глазами и хриплым голосом.; @Image1.
+[SUBJECT]
+Subject: Руслан — Рыжий лис с пушистым хвостом и острыми ушами. Хитрый, но добродушный., Чёрная — Иссиня-чёрная ворона с умными фиолетовыми глазами и хриплым голосом.; together in frame; reference: @Image1
 
-[Action]
-Red fox and black crow face each other on a moss-covered log, fox tilts head, crow ruffles feathers, light leaks through canopy.
+[ACTION]
+0–4s: Red fox and black crow face each other on a moss-covered log, fox tilts head, crow ruffles feathers, light leaks through canopy.
+4–8s: continued action from previous beat
+8–12s: continued action from previous beat
 
-[Context]
-dappled forest key — sun patches through canopy + cool shadow fill, полдень, лес.
+[CAMERA]
+Orbit (slow) — 50mm, мягкое боке на листве; shot: Medium, Eye Level
+
+[AUDIO]
+No dialogue, no music; ambient room tone only — voice dubbed in post
 
 [PERFORMANCE]
 Speaker: 00000000-0000-0000-0004-000000000001
@@ -28,7 +35,7 @@ Minimal extraneous body movement during dialogue beats; jaw/lip activity matches
 One slow blink mid-line; subtle eyebrow micro-motion on emphasised words.
 Gaze and attention anchored to: встреча Руслана и Чёрной.
 
-[Style]
-Cinematic, naturalistic pacing; consistent grading.
+[Pacing/Style]
+Cinematic, naturalistic pacing; consistent grading
 
 Avoid: abrupt cuts, scene changes, lens flares masking faces, multiple disconnected vignettes, text overlays

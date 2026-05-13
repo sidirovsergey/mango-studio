@@ -267,138 +267,16 @@ describe('Rubric — Seedance 2.0 snapshots (threshold ≥ 5)', () => {
   }
 });
 
-// ── 2b. Seedance Lite (strict — ≥5 axes; has_audio_line = false) ─────────────
-
-describe('Rubric — Seedance Lite snapshots (threshold ≥ 5)', () => {
-  const fixtures = ['quiet', 'action', 'dialogue_close_up', 'wide_environment', 'multi_character'];
-
-  for (const label of fixtures) {
-    it(`seedance-lite × ${label} → axis_coverage_score ≥ 5, has_audio_line = false`, () => {
-      const prompt = readSnapshot(`video-seedance-lite-${label}.txt`);
-      const result = scoreVideoPrompt(prompt);
-      expect(result.axis_coverage_score).toBeGreaterThanOrEqual(5);
-      expect(result.has_camera_verb).toBe(true);
-      expect(result.has_audio_line).toBe(false); // Lite intentionally omits [AUDIO]
-      expect(result.has_english_mirror).toBe(true);
-      expect(result.has_negative_list).toBe(true);
-    });
-  }
-});
-
-// ── 2c. Kling 2.5 (strict — ≥5 axes) ────────────────────────────────────────
-
-describe('Rubric — Kling 2.5 snapshots (threshold ≥ 5)', () => {
-  const fixtures = ['quiet', 'action', 'dialogue_close_up', 'wide_environment', 'multi_character'];
-
-  for (const label of fixtures) {
-    it(`kling-2.5 × ${label} → axis_coverage_score ≥ 5`, () => {
-      const prompt = readSnapshot(`video-kling-2.5-${label}.txt`);
-      const result = scoreVideoPrompt(prompt);
-      expect(result.axis_coverage_score).toBeGreaterThanOrEqual(5);
-      expect(result.has_camera_verb).toBe(true);
-      expect(result.has_audio_line).toBe(true); // Audio: line always present in Kling
-      expect(result.has_english_mirror).toBe(true);
-      expect(result.has_negative_list).toBe(true);
-    });
-  }
-});
-
-// ── 2d. Veo 3.1 (RELAXED — ≥3 axes; builder gap documented) ─────────────────
-
-/**
- * Veo 3.1 builder KNOWN GAPS:
- *   - No shot_size / angle framing labels in output
- *   - No Audio: line in output
- * This caps Veo 3.1 at ≤4/7 axis coverage.
- * Threshold relaxed to ≥3 (NOT masked — this is an honest test).
- * Fix requires updating veo-3.1.ts to: (1) add Framing: line, (2) add Audio: line.
- */
-describe('Rubric — Veo 3.1 snapshots (RELAXED threshold ≥ 3; builder gap)', () => {
-  const fixtures = ['quiet', 'action', 'dialogue_close_up', 'wide_environment', 'multi_character'];
-
-  for (const label of fixtures) {
-    it(`veo-3.1 × ${label} → axis_coverage_score ≥ 3 (builder gap: max ~4/7)`, () => {
-      const prompt = readSnapshot(`video-veo-3.1-${label}.txt`);
-      const result = scoreVideoPrompt(prompt);
-      expect(result.axis_coverage_score).toBeGreaterThanOrEqual(3);
-      expect(result.has_camera_verb).toBe(true);
-      // Veo does NOT emit shot/angle framing labels (builder gap)
-      expect(result.axes_present.shot_size).toBe(false);
-      expect(result.axes_present.angle).toBe(false);
-      // NOTE: dialogue_close_up has `Dialogue:` in the action block → audio = true
-      // Other scenes have no Audio: line → audio = false. Not asserted here due to scene variance.
-      expect(result.has_negative_list).toBe(true); // Avoid: present in Veo
-      expect(result.has_english_mirror).toBe(true); // description_en always English
-    });
-  }
-});
-
-// ── 2e. LTX (relaxed — ≥3 axes) ──────────────────────────────────────────────
-
-describe('Rubric — LTX snapshots (threshold ≥ 3)', () => {
-  const fixtures = ['quiet', 'action', 'dialogue_close_up', 'wide_environment', 'multi_character'];
-
-  for (const label of fixtures) {
-    it(`ltx × ${label} → axis_coverage_score ≥ 3`, () => {
-      const prompt = readSnapshot(`video-ltx-${label}.txt`);
-      const result = scoreVideoPrompt(prompt);
-      expect(result.axis_coverage_score).toBeGreaterThanOrEqual(3);
-      expect(result.has_camera_verb).toBe(true);
-      expect(result.has_audio_line).toBe(true); // LTX always has Audio: line
-    });
-  }
-});
-
-// ── 2f. Generic (minimal — ≥1 axis) ──────────────────────────────────────────
-
-describe('Rubric — Generic snapshots (threshold ≥ 1)', () => {
-  const fixtures = ['quiet', 'action', 'dialogue_close_up', 'wide_environment', 'multi_character'];
-
-  for (const label of fixtures) {
-    it(`generic × ${label} → axis_coverage_score ≥ 1`, () => {
-      const prompt = readSnapshot(`video-generic-${label}.txt`);
-      const result = scoreVideoPrompt(prompt);
-      expect(result.axis_coverage_score).toBeGreaterThanOrEqual(1);
-    });
-  }
-});
-
-// ── 2g. Per-fixture deep assertions (strict engines only) ─────────────────────
-
-/**
- * For each canonical fixture × each strict engine, assert score ≥ 5.
- * This block mirrors the per-fixture requirement from the task spec.
- */
-describe('Rubric — per-fixture assertions (strict engines: seedance-2.0, seedance-lite, kling-2.5)', () => {
-  const STRICT_ENGINES = ['seedance-2.0', 'seedance-lite', 'kling-2.5'] as const;
-  const FIXTURES = [
-    'quiet',
-    'action',
-    'dialogue_close_up',
-    'wide_environment',
-    'multi_character',
-  ] as const;
-
-  for (const engine of STRICT_ENGINES) {
-    for (const fixture of FIXTURES) {
-      it(`${engine} × ${fixture} → score ≥ 5`, () => {
-        const prompt = readSnapshot(`video-${engine}-${fixture}.txt`);
-        const result = scoreVideoPrompt(prompt);
-        expect(result.axis_coverage_score).toBeGreaterThanOrEqual(5);
-      });
-    }
-  }
-});
-
-// ── 2h. has_aspect_reminder per engine ────────────────────────────────────────
+// ── 2b. has_aspect_reminder for the unified builder ───────────────────────────
 //
-// Post-2026-05-13 audit: Seedance 2.0 and Veo 3.1 now embed the aspect ratio
-// in the [AESTHETIC] header line ("Vertical 9:16, …"). Other engines still
-// rely on output metadata only.
+// Post-2026-05-13 (Kalashnikov simplification): legacy engine snapshots
+// (seedance-lite, kling-2.5, ltx, generic, veo-3.1) deleted. The unified
+// builder routes every active model — Grok Imagine Video, Seedance 2.0 Pro,
+// Veo 3.1 — through the same code path used to produce the seedance-2.0
+// fixtures. The unified [AESTHETIC] header always embeds "Vertical 9:16",
+// so the aspect_reminder rubric returns true for every fixture.
 
-describe('Rubric — has_aspect_reminder per engine', () => {
-  const ENGINES_WITH_REMINDER = ['seedance-2.0', 'veo-3.1'] as const;
-  const ENGINES_WITHOUT_REMINDER = ['seedance-lite', 'kling-2.5', 'ltx', 'generic'] as const;
+describe('Rubric — has_aspect_reminder = true for unified builder (seedance-2.0 fixtures)', () => {
   const FIXTURES = [
     'quiet',
     'action',
@@ -407,23 +285,11 @@ describe('Rubric — has_aspect_reminder per engine', () => {
     'multi_character',
   ] as const;
 
-  for (const engine of ENGINES_WITH_REMINDER) {
-    for (const fixture of FIXTURES) {
-      it(`${engine} × ${fixture} → has_aspect_reminder = true ([AESTHETIC] header embeds 9:16)`, () => {
-        const prompt = readSnapshot(`video-${engine}-${fixture}.txt`);
-        const result = scoreVideoPrompt(prompt);
-        expect(result.has_aspect_reminder).toBe(true);
-      });
-    }
-  }
-
-  for (const engine of ENGINES_WITHOUT_REMINDER) {
-    for (const fixture of FIXTURES) {
-      it(`${engine} × ${fixture} → has_aspect_reminder = false (aspect lives in output metadata only)`, () => {
-        const prompt = readSnapshot(`video-${engine}-${fixture}.txt`);
-        const result = scoreVideoPrompt(prompt);
-        expect(result.has_aspect_reminder).toBe(false);
-      });
-    }
+  for (const fixture of FIXTURES) {
+    it(`seedance-2.0 × ${fixture} → has_aspect_reminder = true ([AESTHETIC] header)`, () => {
+      const prompt = readSnapshot(`video-seedance-2.0-${fixture}.txt`);
+      const result = scoreVideoPrompt(prompt);
+      expect(result.has_aspect_reminder).toBe(true);
+    });
   }
 });

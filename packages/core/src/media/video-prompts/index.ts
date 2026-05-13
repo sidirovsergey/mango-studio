@@ -1,10 +1,25 @@
-import { buildGenericVideoPrompt } from './generic';
-import { buildKling25Prompt } from './kling-2.5';
-import { buildLtxPrompt } from './ltx';
+/**
+ * Unified video prompt builder.
+ *
+ * Post-2026-05-13 (Kalashnikov simplification): one prompt format for every
+ * engine. Active engines — Grok Imagine Video, Seedance 2.0 Pro, Veo 3.1 —
+ * all accept structured text prompts and respond well to the same block
+ * grammar (AESTHETIC / SCENE / SUBJECT / ACTION / CAMERA / AUDIO /
+ * PERFORMANCE / MICRO ACTION / Pacing/Style / Avoid).
+ *
+ * Previous per-engine builders (seedance-lite, kling-2.5, ltx, generic, veo-3.1
+ * variants) deleted alongside the legacy models — they targeted engines that
+ * are no longer user-selectable. The shared implementation lives in
+ * `seedance-2.ts`; the filename is historical (Seedance 2.0 was the first
+ * engine on this template), the function itself is engine-agnostic.
+ *
+ * If a future engine genuinely needs a different format, branch here — but
+ * resist: the user's strongest preference is fewer moving parts over
+ * marginal per-engine quality gains.
+ */
+
 import { buildSeedance2Prompt } from './seedance-2';
-import { buildSeedanceLitePrompt } from './seedance-lite';
 import type { VideoPromptInput, VideoPromptOutput } from './types';
-import { buildVeo31Prompt } from './veo-3.1';
 
 export type {
   VideoPromptInput,
@@ -14,13 +29,5 @@ export type {
 } from './types';
 
 export function buildVideoPrompt(input: VideoPromptInput): VideoPromptOutput {
-  const { model } = input;
-  if (model === 'bytedance/seedance-2.0/image-to-video') return buildSeedance2Prompt(input);
-  if (model === 'fal-ai/bytedance/seedance/v1/lite/image-to-video')
-    return buildSeedanceLitePrompt(input);
-  if (model === 'fal-ai/veo3.1/image-to-video') return buildVeo31Prompt(input);
-  if (model.startsWith('fal-ai/kling-video/v2.5-turbo/')) return buildKling25Prompt(input);
-  if (model === 'fal-ai/ltx-video') return buildLtxPrompt(input);
-  console.warn(`[video-prompts] unknown model ${model}; using generic builder`);
-  return buildGenericVideoPrompt(input);
+  return buildSeedance2Prompt(input);
 }

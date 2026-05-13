@@ -42,13 +42,13 @@ import { CANONICAL_SCENES, CANONICAL_SCRIPTS } from './snapshot-fixtures';
 
 const STYLES: Style[] = ['3d_pixar', '2d_drawn', 'clay_art'];
 
+// Post-2026-05-13: per-engine snapshots collapsed into a single unified builder.
+// Every active model id (Grok, Seedance 2.0, Veo 3.1) emits the same prompt,
+// so we keep just the seedance-2.0 label as the canonical snapshot bucket.
+// Legacy engine labels (seedance-lite, kling-2.5, ltx, generic, veo-3.1) gone
+// with their builders.
 const VIDEO_MODELS = [
   { id: 'bytedance/seedance-2.0/image-to-video', label: 'seedance-2.0' },
-  { id: 'fal-ai/bytedance/seedance/v1/lite/image-to-video', label: 'seedance-lite' },
-  { id: 'fal-ai/veo3.1/image-to-video', label: 'veo-3.1' },
-  { id: 'fal-ai/kling-video/v2.5-turbo/standard/image-to-video', label: 'kling-2.5' },
-  { id: 'fal-ai/ltx-video', label: 'ltx' },
-  { id: 'unknown/test-model', label: 'generic' },
 ] as const;
 
 /** Synthetic first_frame_storage used as a stable stand-in for real uploads. */

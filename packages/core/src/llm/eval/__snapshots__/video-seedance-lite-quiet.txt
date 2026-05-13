@@ -1,3 +1,6 @@
+[AESTHETIC]
+Vertical 9:16, ultra cinematic luxury animation, Pixar + Apple + Netflix grade, 4K render, deep shadows, volumetric light, premium materials.
+
 [SCENE]
 Lighting: soft golden-hour key + warm fill + cool rim from outside
 Time: раннее утро
@@ -11,6 +14,15 @@ Ginger tabby cat Apelsin sleeps curled on a sunlit windowsill, slow chest rise a
 
 [CAMERA]
 Static (slow) — 85mm f/1.8, мягкое боке на шторе; shot: Full, Eye Level
+
+[AUDIO]
+No dialogue, no music; ambient room tone only — voice dubbed in post
+
+[MICRO ACTION]
+Subtle facial expression and naturalistic micro-blinks (every 2–3 seconds).
+Body holds intention; no idle fidgeting or random head bobbing.
+Gaze and attention anchored to: Апельсин на подоконнике.
+Energy: curious, slightly heightened — invites the viewer in.
 
 [Pacing/Style]
 Cinematic, naturalistic pacing; consistent grading
