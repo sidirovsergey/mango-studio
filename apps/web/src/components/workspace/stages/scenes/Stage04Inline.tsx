@@ -3,6 +3,7 @@
 import { usePollJobs } from '@/hooks/use-poll-jobs';
 import { generateMasterClipAction } from '@/server/actions/generateMasterClipAction';
 import '@/styles/storyboard-inline.css';
+import '@/styles/audio-pipeline.css';
 import type { Database } from '@mango/db';
 import { useEffect, useState, useTransition } from 'react';
 import { CostMeter } from './CostMeter';

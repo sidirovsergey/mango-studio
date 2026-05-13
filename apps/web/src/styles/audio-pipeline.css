@@ -1,0 +1,197 @@
+/* Phase 1.4.1 — audio pipeline UI states */
+
+.audio-pipeline-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 12px;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+}
+.audio-pipeline-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text, #111);
+}
+.audio-pipeline-sub {
+  font-size: 11px;
+  color: var(--text-muted, #777);
+}
+
+.audio-pipeline-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 12px;
+  width: 100%;
+  height: 100%;
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: 8px;
+}
+.audio-pipeline-error-icon {
+  font-size: 22px;
+}
+.audio-pipeline-error-label {
+  font-size: 13px;
+  color: rgb(185, 28, 28);
+  font-weight: 500;
+}
+.audio-pipeline-retry {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgb(220, 38, 38);
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+.audio-pipeline-retry:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.audio-pipeline-error-detail {
+  font-size: 10px;
+  color: var(--text-muted, #777);
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Master clip audio badge in Stage 05 */
+.master-audio-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.master-audio-badge.ok {
+  background: rgba(34, 197, 94, 0.12);
+  color: rgb(21, 128, 61);
+}
+.master-audio-badge.warn {
+  background: rgba(234, 179, 8, 0.14);
+  color: rgb(133, 77, 14);
+}
+
+/* Finalize confirm dialog */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+.modal-panel {
+  background: var(--surface, white);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 540px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text-muted, #777);
+}
+.modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+.modal-sub {
+  font-size: 13px;
+  color: var(--text-muted, #777);
+  margin: 0 0 16px;
+}
+.finalize-scene-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.finalize-scene-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  align-items: center;
+}
+.finalize-scene-row.state-ready {
+  background: rgba(34, 197, 94, 0.08);
+}
+.finalize-scene-row.state-in_flight {
+  background: rgba(59, 130, 246, 0.08);
+}
+.finalize-scene-row.state-failed {
+  background: rgba(220, 38, 38, 0.08);
+}
+.finalize-scene-num {
+  font-family: var(--font-mono, monospace);
+  color: var(--text-muted, #777);
+}
+.finalize-scene-desc {
+  color: var(--text, #111);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.finalize-scene-state {
+  font-weight: 500;
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.modal-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #ddd);
+  background: var(--surface, white);
+  cursor: pointer;
+  font-size: 13px;
+}
+.modal-btn.primary {
+  background: var(--accent, #f97316);
+  color: white;
+  border-color: var(--accent, #f97316);
+}
+.modal-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.modal-error {
+  background: rgba(220, 38, 38, 0.08);
+  color: rgb(185, 28, 28);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
