@@ -107,6 +107,42 @@ export async function generateFirstFrameAction(
     scene.character_ids.includes(c.id),
   );
 
+  // Continuity backfill — characters created before the 1.4 migration landed in
+  // Supabase had their dossier → reference_image auto-chain silently aborted
+  // (`character_reference_image` kind was rejected by the old CHECK constraint).
+  // These characters now have `dossier.storage` (multi-pose model sheet) but
+  // NO `dossier.reference_image` (the single-pose 1:1 anchor first_frame
+  // actually needs). The buildFirstFramePrompt fallback feeds the multi-pose
+  // sheet to nano-banana, which then renders an entirely different character —
+  // exactly the "different person every scene" symptom the user reports.
+  //
+  // For every character in this scene that has a dossier but no
+  // reference_image, kick off the reference_image job and tell the caller to
+  // retry once it lands. Idempotent: generateReferenceImageAction returns
+  // 'already_exists' if the chain has since completed.
+  const charactersNeedingRef = characters_in_scene.filter(
+    (c) => c.dossier && !c.dossier.reference_image,
+  );
+  if (charactersNeedingRef.length > 0) {
+    const { generateReferenceImageAction } = await import('./generateReferenceImageAction');
+    const triggered: string[] = [];
+    for (const c of charactersNeedingRef) {
+      const r = await generateReferenceImageAction({
+        project_id: input.project_id,
+        character_id: c.id,
+      });
+      if (r.ok && r.status === 'pending') triggered.push(c.name);
+    }
+    if (triggered.length > 0) {
+      return {
+        ok: false,
+        error: `Сначала допилю reference-картинки для: ${triggered.join(', ')}. Это займёт ~20-30s; попробуй заново через полминуты.`,
+      };
+    }
+    // If nothing triggered (all already_exists or failed individually), fall through
+    // and let the prompt builder do its best — the fallback warning will still log.
+  }
+
   // Determine first_frame_source: bulk overrides to manual_text2img
   const first_frame_source =
     input.mode === 'bulk' ? 'manual_text2img' : (scene.first_frame_source ?? 'auto_continuity');
