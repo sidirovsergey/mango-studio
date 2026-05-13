@@ -116,6 +116,14 @@ export async function generateMasterClipAction(
   }));
   const clip_urls = resolved.map((r) => r.url);
 
+  // Phase 1.4.1: stamp has_full_audio so the Stage 05 badge reflects
+  // whether the master is the muxed-with-voice version or fell back to
+  // silent raw video for any scene.
+  const has_full_audio = resolved.every((r) => {
+    const sceneInScript = script.scenes.find((x) => x.scene_id === r.scene_id);
+    return !!sceneInScript?.final_clip;
+  });
+
   const provider = getMediaProvider();
   const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
 
@@ -130,6 +138,7 @@ export async function generateMasterClipAction(
     request_input: {
       ...(handle.request_input ?? {}),
       composed,
+      has_full_audio,
     },
   });
 

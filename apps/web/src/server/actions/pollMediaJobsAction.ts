@@ -303,12 +303,17 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
                 video_version_id: '',
                 voice_audio_version_id: null,
               }));
+          const hasFullAudio =
+            typeof requestInput.has_full_audio === 'boolean'
+              ? (requestInput.has_full_audio as boolean)
+              : undefined;
           const newVersion: MasterClipVersion = {
             version_id: randomUUID(),
             storage: bucketedStored,
             generated_at,
             cost_usd: cost_usd ?? null,
             composed_from_scene_versions: composed,
+            ...(hasFullAudio !== undefined ? { has_full_audio: hasFullAudio } : {}),
           };
           const { versions, active_version_id, dropped } = appendVersion(
             {
