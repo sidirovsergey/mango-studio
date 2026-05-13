@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  AUDIO_CHAIN_COST_HINT_USD,
-  type ChainScene,
-  planNextChainStep,
-} from './audio-chain';
+import { AUDIO_CHAIN_COST_HINT_USD, type ChainScene, planNextChainStep } from './audio-chain';
 
 const baseScene: ChainScene = {
   scene_id: 's1',

@@ -1,8 +1,4 @@
-import {
-  resolveAudioMode,
-  type SceneForAudio,
-  type VideoModelMetaForAudio,
-} from './audio-mode';
+import { type SceneForAudio, type VideoModelMetaForAudio, resolveAudioMode } from './audio-mode';
 
 export const AUDIO_CHAIN_COST_HINT_USD = 0.06;
 
