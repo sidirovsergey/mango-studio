@@ -1,5 +1,6 @@
 'use client';
 
+import { buildProspectivePromptAction } from '@/server/actions/buildProspectivePromptAction';
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
 import { useEffect, useState, useTransition } from 'react';
@@ -27,10 +28,48 @@ export function PromptEditorModal({ projectId, sceneId, kind, onClose }: Props) 
   const [text, setText] = useState(active?.prompt ?? '');
   const [pending, startT] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [isProspective, setIsProspective] = useState<boolean>(!active);
+  const [prospectiveModel, setProspectiveModel] = useState<string | null>(null);
+  const [prospectiveLoading, setProspectiveLoading] = useState<boolean>(false);
 
+  // Sync text from the active version's prompt when it lands.
   useEffect(() => {
-    setText(active?.prompt ?? '');
+    if (active?.prompt) {
+      setText(active.prompt);
+      setIsProspective(false);
+    }
   }, [active?.prompt]);
+
+  // No version yet → fetch the prospective prompt the generator *would*
+  // build right now so the user can preview and edit before clicking
+  // "Apply & generate". Mirrors generateFirstFrameAction / generateSceneVideoAction
+  // exactly via buildProspectivePromptAction, so editing is honest: what you
+  // see is what the engine receives (minus your edits).
+  useEffect(() => {
+    if (active) return; // already have a real version
+    let cancelled = false;
+    setProspectiveLoading(true);
+    void buildProspectivePromptAction({
+      project_id: projectId,
+      scene_id: sceneId,
+      kind,
+    }).then((r) => {
+      if (cancelled) return;
+      setProspectiveLoading(false);
+      if (r.ok) {
+        setText(r.prompt);
+        setIsProspective(true);
+        setProspectiveModel(r.model);
+      }
+      // Error path: leave textarea empty — the user can still type their own
+      // prompt. We don't surface a hard error here because the build can fail
+      // legitimately for video-without-first_frame in some configs, and
+      // the side-panel will guide the user instead.
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [active, projectId, sceneId, kind]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -94,6 +133,13 @@ export function PromptEditorModal({ projectId, sceneId, kind, onClose }: Props) 
             ✕
           </button>
         </div>
+        {isProspective && !active && (
+          <div className="modal-hint" role="note">
+            {prospectiveLoading
+              ? 'Собираю промпт из текущих полей сцены…'
+              : 'Это предварительный промпт. Отредактируй текст ниже — он отправится в генератор как есть.'}
+          </div>
+        )}
         <textarea
           ref={(el) => {
             if (el && document.activeElement !== el) el.focus();
@@ -103,16 +149,25 @@ export function PromptEditorModal({ projectId, sceneId, kind, onClose }: Props) 
           onChange={(e) => setText(e.target.value)}
           rows={12}
           spellCheck={false}
+          placeholder={prospectiveLoading ? '' : 'Промпт будет здесь…'}
         />
         <div className="modal-meta">
           <span>{wordCount} слов</span>
           <span className="dot">·</span>
-          <span>модель: {active?.model ?? '—'}</span>
-          {active && (
+          <span>модель: {active?.model ?? prospectiveModel ?? '—'}</span>
+          {active ? (
             <>
               <span className="dot">·</span>
               <span>версия от {new Date(active.generated_at).toLocaleString('ru-RU')}</span>
             </>
+          ) : (
+            isProspective &&
+            !prospectiveLoading && (
+              <>
+                <span className="dot">·</span>
+                <span className="prospective-tag">черновик</span>
+              </>
+            )
           )}
         </div>
         {error && <div className="modal-error">⚠ {error}</div>}

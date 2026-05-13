@@ -378,7 +378,7 @@ function PromptSection({ kind, label, prompt, version, onOpen, disabled }: Promp
         </span>
       </div>
       <p className={`prompt-body${prompt ? '' : ' empty'}`}>
-        {prompt ?? '— ещё не сгенерирован —'}
+        {prompt ?? '— ещё не сгенерирован. Нажми «редактировать» чтобы открыть черновик. —'}
       </p>
     </section>
   );

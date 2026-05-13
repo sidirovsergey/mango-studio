@@ -52,9 +52,31 @@ export function usePollJobs(projectId: string) {
       if (!job?.id) return;
 
       if (TERMINAL_STATUSES.has(job.status)) {
-        // Terminal jobs: remove from active list, then do a tick to refresh script
-        removeJob(job.id);
-        void tick();
+        // ⚠ Ordering matters: the realtime payload arrives the moment
+        // pollMediaJobsAction writes the new version to the projects.script
+        // jsonb AND marks the job 'completed'. If we remove the job *first*,
+        // the UI flips lockedByGen → false before setScript lands, and the
+        // scene briefly renders in its "no active version, click to generate"
+        // state. The user sees that intermediate frame and reads it as
+        // "generation got reverted".
+        //
+        // Fetch the fresh script first, push it into provider state, and
+        // only then drop the inflight job entry. The spinner stays on for
+        // the extra ~200ms, but `activeFrame` / `activeVideo` flip on in
+        // the same render as the spinner flips off — no flicker.
+        void (async () => {
+          try {
+            const fresh = await fetchProjectScriptAction({ project_id: projectId });
+            if (fresh.ok && fresh.script) {
+              setScript(fresh.script as Parameters<typeof setScript>[0]);
+            }
+          } catch {
+            // network errors: removeJob still runs in the finally below,
+            // and the periodic tick will reconcile.
+          } finally {
+            removeJob(job.id);
+          }
+        })();
       } else {
         // pending / running: upsert into active list
         upsertJob(job);
