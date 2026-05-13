@@ -56,6 +56,15 @@ export interface GenerateCharacterReferenceImageInput {
   model: string;
   /** Always '1:1' — single-pose neutral-background square. */
   aspect_ratio: '1:1';
+  /**
+   * Optional image-to-image references. When provided, the provider routes
+   * through the edit-model variant of the image model so the output stays
+   * visually consistent with the dossier. Critical for character continuity
+   * — without this, reference_image is an independent text-to-image roll
+   * and the resulting first_frame renders an entirely different character
+   * (the "Норм аватарка и Норм досье — разные персонажи" bug).
+   */
+  image_refs?: StoredAsset[];
 }
 
 // === Scene first frame (Phase 1.3) ===

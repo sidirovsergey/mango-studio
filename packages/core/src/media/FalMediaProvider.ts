@@ -153,9 +153,33 @@ export class FalMediaProvider implements MediaProvider {
     input: GenerateCharacterReferenceImageInput,
     _ctx: AssetContext,
   ): Promise<JobHandle> {
-    return this.submit(input.model, {
+    // Image-to-image when refs provided — same routing as submitFirstFrame so
+    // the reference_image is visually anchored to the dossier instead of
+    // being an independent text-to-image roll.
+    let model = input.model;
+    let editPayload: Record<string, unknown> = {};
+    if (input.image_refs && input.image_refs.length > 0) {
+      const editModel = getEditModel(input.model);
+      if (!editModel) {
+        throw new MediaProviderError(
+          'invalid_input',
+          `Model ${input.model} doesn't support image-to-image for reference_image`,
+        );
+      }
+      if (!this.opts.resolveImageUrl) {
+        throw new MediaProviderError(
+          'invalid_input',
+          'resolveImageUrl required for image-to-image reference_image',
+        );
+      }
+      model = editModel;
+      const urls = await this.resolveRefs(input.image_refs);
+      editPayload = { image_urls: urls, image_url: urls[0] };
+    }
+    return this.submit(model, {
       prompt: input.prompt,
-      aspect_ratio: formatAspectFor(input.model, '1:1'),
+      ...editPayload,
+      aspect_ratio: formatAspectFor(model, '1:1'),
     });
   }
 

@@ -106,6 +106,16 @@ export async function generateReferenceImageAction(rawInput: unknown): Promise<
   const prompt = buildReferenceImagePrompt(charForPrompt, style);
   const ctx = { user_id: user.id, project_id: input.project_id, character_id: character.id };
 
+  // Image-to-image anchor: pass the multi-pose dossier sheet as the visual
+  // reference so the resulting 1:1 reference_image stays consistent with
+  // the dossier. Without this, the model re-rolls the character from text
+  // independently and renders a different person every time — exactly the
+  // "Норм аватарка и Норм досье — разные персонажи" symptom from the live
+  // preview test.
+  const image_refs: StoredAsset[] = character.dossier.storage
+    ? [character.dossier.storage as StoredAsset]
+    : [];
+
   try {
     const provider = getMediaProvider();
 
@@ -114,6 +124,7 @@ export async function generateReferenceImageAction(rawInput: unknown): Promise<
         prompt,
         model,
         aspect_ratio: '1:1',
+        ...(image_refs.length > 0 ? { image_refs } : {}),
       },
       ctx,
     );
