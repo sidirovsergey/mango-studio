@@ -22,10 +22,12 @@ import {
   type ScriptGenOutput,
   type StoredAsset,
   appendVersion,
+  planNextChainStep,
   runPollTick,
 } from '@mango/core';
 import { getVideoModelMeta } from '@mango/core/media';
 import { getServerSupabase } from '@mango/db/server';
+import { submitFinalClipJob, submitVoiceJob } from '@/server/lib/audio-chain-helpers';
 import { generateReferenceImageAction } from './generateReferenceImageAction';
 import { mirrorSceneAssetToStorage } from './mirrorSceneAssetToStorage';
 
@@ -68,11 +70,12 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
 
   const { data: project, error: projErr } = await sb
     .from('projects')
-    .select('user_id, script')
+    .select('user_id, script, tier')
     .eq('id', input.project_id)
     .single();
   if (projErr || !project) return { ok: false, error: 'project not found' };
   if (project.user_id !== user.id) return { ok: false, error: 'forbidden' };
+  const projectTier = (project.tier ?? 'economy') as 'economy' | 'premium';
 
   const provider = getMediaProvider();
   const storage = getStorageProvider();
@@ -444,6 +447,28 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
           })
           .eq('id', job.id);
 
+        // ── Audio chain advancement (Phase 1.4.1) ───────────────────────
+        // After a video or voice job lands, ask planNextChainStep what
+        // (if anything) should happen next for this scene and enqueue it.
+        // The helpers are idempotent via recordPendingJob's dedup, so
+        // double-polling is safe.
+        if (job.scene_id && (job.kind === 'video' || job.kind === 'voice')) {
+          try {
+            await advanceAudioChain(nextScript, job.scene_id, {
+              user_id: job.user_id,
+              project_id: job.project_id,
+              project_tier: projectTier,
+            });
+          } catch (e) {
+            console.warn('[pollMediaJobs] audio chain advance failed', {
+              project_id: job.project_id,
+              scene_id: job.scene_id,
+              kind: job.kind,
+              error: e instanceof Error ? e.message : String(e),
+            });
+          }
+        }
+
         // F53 (Task 1.4.D.T3): after dossier write completes, chain reference_image generation.
         // Fire-and-forget: dossier is already saved above; ref-image failure must not roll it back.
         if (chainReferenceImageFor) {
@@ -511,3 +536,110 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
 
 // keep referenced imports stable for type narrowing
 void applyAssetToScript;
+
+type ChainSceneInScript = {
+  scene_id: string;
+  audio_mode?: 'native' | 'silent_tts' | 'auto';
+  dialogue?: { speaker: string; text: string } | null;
+  config_overrides?: { tier?: 'economy' | 'premium'; model?: string };
+  video_versions?: SceneAssetVersion[];
+  video_active_version_id?: string | null;
+  voice_audio_versions?: SceneAssetVersion[];
+  voice_audio_active_version_id?: string | null;
+  final_clip?: {
+    composed_from: { video_version_id: string; voice_audio_version_id: string | null };
+  } | null;
+};
+
+async function advanceAudioChain(
+  script: ScriptGenOutput,
+  scene_id: string,
+  ctx: { user_id: string; project_id: string; project_tier: 'economy' | 'premium' },
+): Promise<void> {
+  const scene = (script.scenes as unknown as ChainSceneInScript[]).find(
+    (s) => s.scene_id === scene_id,
+  );
+  if (!scene) return;
+  if (!scene.dialogue || !scene.dialogue.text || !scene.dialogue.text.trim()) return;
+
+  const activeVideo = scene.video_versions?.find(
+    (v) => v.version_id === scene.video_active_version_id,
+  );
+  const videoModelId =
+    activeVideo?.model ?? scene.config_overrides?.model ?? undefined;
+  const modelMeta = {
+    has_native_audio: videoModelId
+      ? (getVideoModelMeta(videoModelId)?.has_native_audio ?? false)
+      : false,
+  };
+
+  const step = planNextChainStep(
+    {
+      scene_id: scene.scene_id,
+      audio_mode: scene.audio_mode,
+      video_versions: (scene.video_versions ?? []).map((v) => ({ version_id: v.version_id })),
+      video_active_version_id: scene.video_active_version_id ?? null,
+      voice_audio_versions: (scene.voice_audio_versions ?? []).map((v) => ({
+        version_id: v.version_id,
+      })),
+      voice_audio_active_version_id: scene.voice_audio_active_version_id ?? null,
+      final_clip: scene.final_clip ?? null,
+      model_meta: modelMeta,
+    },
+    scene.dialogue ?? null,
+  );
+
+  if (!step) return;
+
+  const effectiveTier = scene.config_overrides?.tier ?? ctx.project_tier;
+  const characters = ((script as unknown as { characters?: Character[] }).characters ??
+    []) as Character[];
+  const narratorVoice = (script as unknown as {
+    narrator_voice?: {
+      tts_voice_id: string;
+      description?: string;
+      stability?: number;
+      similarity_boost?: number;
+      style?: number;
+      speed?: number;
+    };
+  }).narrator_voice ?? null;
+
+  if (step.kind === 'voice') {
+    await submitVoiceJob({
+      user_id: ctx.user_id,
+      project_id: ctx.project_id,
+      scene_id: scene.scene_id,
+      dialogue: scene.dialogue!,
+      characters,
+      narrator_voice: narratorVoice,
+      effective_tier: effectiveTier,
+      video_model_id: videoModelId,
+      initial_retry_count: 0,
+    });
+    return;
+  }
+
+  // step.kind === 'final_clip'
+  if (!activeVideo) return;
+  const activeVoice = step.voice_audio_version_id
+    ? scene.voice_audio_versions?.find((v) => v.version_id === step.voice_audio_version_id)
+    : null;
+  await submitFinalClipJob({
+    user_id: ctx.user_id,
+    project_id: ctx.project_id,
+    scene_id: scene.scene_id,
+    video_version: {
+      version_id: step.video_version_id,
+      storage: activeVideo.storage,
+      has_native_audio: modelMeta.has_native_audio,
+    },
+    voice_version: activeVoice
+      ? { version_id: activeVoice.version_id, storage: activeVoice.storage }
+      : null,
+    initial_retry_count: 0,
+    current_script: script as unknown as {
+      scenes: Array<Record<string, unknown> & { scene_id: string }>;
+    },
+  });
+}
