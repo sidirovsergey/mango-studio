@@ -1,3 +1,6 @@
+[AESTHETIC]
+Vertical 9:16, ultra cinematic luxury animation, Pixar + Apple + Netflix grade, 4K render, deep shadows, volumetric light, premium materials.
+
 [Cinematography]
 Crane Up, slow, 24mm wide, лёгкая дисторсия по краям lens, 24fps cinematic.
 
@@ -9,6 +12,11 @@ Coastal cliff jagged with basalt columns, sea below in slow rolling swells, mage
 
 [Context]
 cool blue-magenta dawn key + soft fill from overcast horizon, рассвет, 5:30 утра.
+
+[MICRO ACTION]
+Subtle facial expression and naturalistic micro-blinks (every 2–3 seconds).
+Body holds intention; no idle fidgeting or random head bobbing.
+Gaze and attention anchored to: утёс и рассветный горизонт.
 
 [Style]
 Cinematic, naturalistic pacing; consistent grading.

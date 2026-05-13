@@ -367,38 +367,49 @@ describe('generateSceneVideoAction — F73 regression (resolved audio_mode)', ()
     // It passes even if the F73 fix is reverted because raw scene.audio_mode='silent_tts'
     // and resolveAudioMode('silent_tts') return the same value — there is nothing to coerce.
     // The actual bug-catching test is the "auto+Cyrillic" case below.
-    const DIALOGUE_TEXT = 'Secret dialogue that must not appear';
+    //
+    // Post-2026-05-13: dialogue text is intentionally allowed in [PERFORMANCE]
+    // block (visual lipsync guidance). The F66 invariant is scoped to [AUDIO].
+    const DIALOGUE_TEXT = 'Secret dialogue that must not appear in AUDIO block';
     const prompt = await runAndCapturePrompt('bytedance/seedance-2.0/image-to-video', {
       audio_mode: 'silent_tts',
       dialogue: { speaker: 'narrator', text: DIALOGUE_TEXT },
     });
-    expect(prompt).not.toContain(DIALOGUE_TEXT);
+    const audioStart = prompt.indexOf('[AUDIO]');
+    const audioEnd = prompt.indexOf('[PERFORMANCE]', audioStart);
+    const audioBlock = prompt.slice(audioStart, audioEnd > -1 ? audioEnd : prompt.length);
+    expect(audioBlock).not.toContain(DIALOGUE_TEXT);
     // The quiet-bed directive from Seedance 2.0 builder (F66) should appear instead
     expect(prompt).toContain('[AUDIO]');
     expect(prompt).toContain('voice dubbed in post');
   });
 
-  it('F73 critical: auto+Cyrillic dialogue — builder MUST NOT render dialogue text in prompt', async () => {
+  it('F73 critical: auto+Cyrillic dialogue — builder MUST NOT render dialogue text in [AUDIO] block', async () => {
     // F73 critical: the raw scene.audio_mode is 'auto' but resolveAudioMode coerces it to
     // 'silent_tts' for Cyrillic dialogue. The dispatcher MUST receive the resolved value,
     // not the raw value.
     //
     // With the F73 fix (passing resolved audioMode='silent_tts'):
-    //   → builder emits F66 quiet-bed directive; NO dialogue text in prompt.
+    //   → builder emits F66 quiet-bed directive; NO dialogue text in [AUDIO] block.
     // Without the fix (passing raw scene.audio_mode='auto'):
     //   → builder treats 'auto' as 'native', emits Dialogue: narrator — "Секретный диалог…"
-    //     in the prompt.
+    //     in [AUDIO] block.
     //
-    // This test FAILS when the fix is reverted (audioMode → scene.audio_mode in buildVideoPrompt call).
+    // Post-2026-05-13: dialogue text DOES appear in [PERFORMANCE] block (visual
+    // lipsync guidance). The F73 invariant is scoped to [AUDIO] — that's where
+    // a regression to "native audio for Cyrillic" would surface.
     const CYRILLIC_DIALOGUE = 'Секретный диалог, который не должен появиться';
     const prompt = await runAndCapturePrompt('bytedance/seedance-2.0/image-to-video', {
       audio_mode: 'auto',
       dialogue: { speaker: 'narrator', text: CYRILLIC_DIALOGUE },
     });
-    // The raw dialogue text must NOT appear — resolveAudioMode should have coerced 'auto'→'silent_tts'
-    expect(prompt).not.toContain('Секретный диалог');
-    // Dialogue: header must NOT appear (that's the native-audio path)
-    expect(prompt).not.toContain('Dialogue:');
+    const audioStart = prompt.indexOf('[AUDIO]');
+    const audioEnd = prompt.indexOf('[PERFORMANCE]', audioStart);
+    const audioBlock = prompt.slice(audioStart, audioEnd > -1 ? audioEnd : prompt.length);
+    // The raw dialogue text must NOT appear in AUDIO — resolveAudioMode should coerce 'auto'→'silent_tts'
+    expect(audioBlock).not.toContain('Секретный диалог');
+    // Dialogue: header must NOT appear in AUDIO (that's the native-audio path)
+    expect(audioBlock).not.toContain('Dialogue:');
     // [AUDIO] block must be present (Seedance 2.0 builder structure)
     expect(prompt).toContain('[AUDIO]');
     // F66 quiet-bed directive must appear instead of dialogue rendering

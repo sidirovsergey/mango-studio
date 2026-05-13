@@ -57,8 +57,8 @@ export function buildScriptPrompt(
   const tier = ctx.tier ?? 'economy';
   const tierConstraints =
     tier === 'economy'
-      ? 'scene durations must be 5 or 10 s only'
-      : 'scene durations 4–12 s (integer), flexible';
+      ? 'scene durations must be 5 or 10 s only — STRONGLY prefer 10s. Use 5s only as a final tail-beat or hook-cut, never as the default unit.'
+      : 'scene durations 4–12 s (integer); STRONGLY prefer 10s as the default. Drop to 6–9s only when a beat is rhythmically required (hook spike, reaction cut, joke punch). Avoid sequences of <8s scenes.';
 
   const styleHuman = STYLE_LABEL[input.style] ?? input.style;
 
@@ -98,20 +98,24 @@ ${ctx.existingCharacters.map((c) => `- ${c.id}: ${c.name} (${c.description})`).j
 </engine_constraints>
 
 <cadence_table>
-| Duration | Scene count target |
-|---|---|
-| 15s | 3 |
-| 20s | 4 |
-| 30s | 6 |
-| 40s | 8 |
-| 60s | 10-12 |
-| 90s | 14-18 |
+Target ~10s per scene by default. Shorter beats (5–8s) are reserved for rhythmic punctuation, not the default unit. Each scene is a self-contained cinematic moment with internal beats, not a fragment of a longer action.
+
+| Duration | Scene count target | Default scene length |
+|---|---|---|
+| 15s | 2          | 10s + 5s tail              |
+| 20s | 2          | 2×10s                      |
+| 30s | 3          | 3×10s                      |
+| 40s | 4          | 4×10s                      |
+| 60s | 6          | 6×10s                      |
+| 90s | 9          | 9×10s (premium); 5-7s acceptable only if narrative needs it |
 </cadence_table>
 
 <arc_patterns>
-- ≤15s: Hook → Build → Payoff
+- ≤15s: Hook → Payoff (each scene is a full beat — do not fragment a single action across scenes)
 - 20-40s: Hook → Setup → Rising → Payoff
 - 60-90s: Hook → Setup → Rising → Climax → Payoff → CTA
+
+ANTI-FRAGMENTATION RULE: A scene must be a meaningful cinematic moment — character intent + camera idea + outcome. If you find yourself splitting one continuous action ("character walks to door" → "character opens door" → "character steps through") into separate scenes, COLLAPSE them into one 10s scene with internal sub-beats described in description_ru/description_en.
 </arc_patterns>
 
 <output_schema>

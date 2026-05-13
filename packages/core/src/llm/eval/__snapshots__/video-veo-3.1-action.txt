@@ -1,3 +1,6 @@
+[AESTHETIC]
+Vertical 9:16, ultra cinematic luxury animation, Pixar + Apple + Netflix grade, 4K render, deep shadows, volumetric light, premium materials.
+
 [Cinematography]
 Tracking, medium, 50mm, небольшое motion blur на фоне lens, 24fps cinematic.
 
@@ -9,6 +12,12 @@ Black labrador Grom sprints toward a wooden fence, launches with hind legs coile
 
 [Context]
 overcast diffuse key + naturalistic fill, полдень, пасмурно.
+
+[MICRO ACTION]
+Subtle facial expression and naturalistic micro-blinks (every 2–3 seconds).
+Body holds intention; no idle fidgeting or random head bobbing.
+Gaze and attention anchored to: Гром в прыжке над забором.
+Energy: peak intensity, contained — read in the eyes, not in big gestures.
 
 [Style]
 Cinematic, naturalistic pacing; consistent grading.

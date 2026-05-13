@@ -252,7 +252,9 @@ describe('buildVeo31Prompt — Russian dialogue skipped in [Action]', () => {
 // ---------------------------------------------------------------------------
 
 describe('buildVeo31Prompt — lowercase Cyrillic ё detected', () => {
-  it('lowercase "ё" (U+0451) is detected as Cyrillic and dialogue is skipped', () => {
+  it('lowercase "ё" (U+0451) is detected as Cyrillic and dialogue is skipped from [Action] block', () => {
+    // Post-2026-05-13: Cyrillic dialogue is still excluded from [Action] (native
+    // audio path), but appears in [PERFORMANCE] block for visual lipsync.
     const input = makeInput({
       audio_mode: 'native',
       scene: {
@@ -261,8 +263,11 @@ describe('buildVeo31Prompt — lowercase Cyrillic ё detected', () => {
       },
     });
     const { prompt } = buildVeo31Prompt(input);
-    expect(prompt).not.toContain('ёжик идёт');
-    expect(prompt).not.toMatch(/Dialogue:/);
+    const actionStart = prompt.indexOf('[Action]');
+    const ctxStart = prompt.indexOf('[Context]');
+    const actionBlock = prompt.slice(actionStart, ctxStart);
+    expect(actionBlock).not.toContain('ёжик идёт');
+    expect(actionBlock).not.toMatch(/Dialogue:/);
   });
 });
 
@@ -577,5 +582,95 @@ describe('buildVeo31Prompt — description_en fallback', () => {
     const ctxStart = prompt.indexOf('[Context]');
     const actionBlock = prompt.slice(actionStart, ctxStart);
     expect(actionBlock).toContain('Рыжий кот');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Premium enrichment — [AESTHETIC] / [PERFORMANCE] / [MICRO ACTION]
+// ---------------------------------------------------------------------------
+
+describe('buildVeo31Prompt — [AESTHETIC] header', () => {
+  it('appears first in the prompt', () => {
+    const { prompt } = buildVeo31Prompt(makeInput());
+    expect(prompt.indexOf('[AESTHETIC]')).toBe(0);
+  });
+
+  it('premium tier emits luxury-grade vocabulary', () => {
+    const { prompt } = buildVeo31Prompt(makeInput({ tier: 'premium' }));
+    const head = prompt.slice(0, prompt.indexOf('[Cinematography]'));
+    expect(head).toContain('ultra cinematic luxury animation');
+    expect(head).toContain('Pixar + Apple + Netflix grade');
+    expect(head).toContain('4K render');
+  });
+
+  it('Vertical 9:16 is always present', () => {
+    expect(buildVeo31Prompt(makeInput()).prompt).toContain('Vertical 9:16');
+  });
+});
+
+describe('buildVeo31Prompt — [PERFORMANCE] block', () => {
+  it('emitted when scene has dialogue (regardless of audio_mode)', () => {
+    const { prompt } = buildVeo31Prompt(makeInput({ audio_mode: 'silent_tts' }));
+    expect(prompt).toContain('[PERFORMANCE]');
+    expect(prompt).toContain('Lipsync timing');
+  });
+
+  it('omitted when dialogue is null', () => {
+    const { prompt } = buildVeo31Prompt(makeInput({ scene: { ...fullScene8s, dialogue: null } }));
+    expect(prompt).not.toContain('[PERFORMANCE]');
+  });
+
+  it('emits sub-second timing brackets for an 8s scene', () => {
+    const { prompt } = buildVeo31Prompt(makeInput());
+    expect(prompt).toMatch(/0\.0–0\.6s:/);
+    expect(prompt).toMatch(/0\.6–7\.6s:/);
+    expect(prompt).toMatch(/7\.6–8\.0s:/);
+  });
+
+  it('Speech rule guard is emitted for Cyrillic dialogue', () => {
+    const input = makeInput({
+      scene: { ...fullScene8s, dialogue: { speaker: 'Кот', text: 'Я вижу тебя.' } },
+    });
+    const { prompt } = buildVeo31Prompt(input);
+    expect(prompt).toContain('Speech rule');
+    expect(prompt).toContain('clearly');
+  });
+
+  it('Speech rule guard absent for pure-English dialogue', () => {
+    const { prompt } = buildVeo31Prompt(makeInput());
+    expect(prompt).not.toContain('Speech rule');
+  });
+});
+
+describe('buildVeo31Prompt — [MICRO ACTION] block', () => {
+  it('always present', () => {
+    const { prompt } = buildVeo31Prompt(makeInput({ scene: { ...fullScene8s, dialogue: null } }));
+    expect(prompt).toContain('[MICRO ACTION]');
+  });
+
+  it('uses dialogue-aware copy when scene has dialogue', () => {
+    const { prompt } = buildVeo31Prompt(makeInput());
+    expect(prompt).toContain('Minimal extraneous body movement during dialogue beats');
+  });
+
+  it('anchors gaze to subject_focus when available', () => {
+    const { prompt } = buildVeo31Prompt(makeInput());
+    expect(prompt).toContain('Gaze and attention anchored to: Кот');
+  });
+});
+
+describe('buildVeo31Prompt — full enriched order', () => {
+  it('AESTHETIC → Cinematography → Subject → Action → Context → PERFORMANCE → MICRO ACTION → Style → Avoid:', () => {
+    const { prompt } = buildVeo31Prompt(makeInput());
+    const idx = (s: string): number => prompt.indexOf(s);
+    expect(idx('[AESTHETIC]')).toBe(0);
+    expect(idx('[Cinematography]')).toBeGreaterThan(idx('[AESTHETIC]'));
+    expect(idx('[Subject]')).toBeGreaterThan(idx('[Cinematography]'));
+    expect(idx('[Action]')).toBeGreaterThan(idx('[Subject]'));
+    expect(idx('[Context]')).toBeGreaterThan(idx('[Action]'));
+    expect(idx('[PERFORMANCE]')).toBeGreaterThan(idx('[Context]'));
+    expect(idx('[MICRO ACTION]')).toBeGreaterThan(idx('[PERFORMANCE]'));
+    expect(idx('[Style]')).toBeGreaterThan(idx('[MICRO ACTION]'));
+    expect(idx('Avoid:')).toBeGreaterThan(idx('[Style]'));
   });
 });

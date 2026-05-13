@@ -390,13 +390,16 @@ describe('Rubric — per-fixture assertions (strict engines: seedance-2.0, seeda
   }
 });
 
-// ── 2h. has_aspect_reminder = false for ALL video snapshots (builder gap) ─────
+// ── 2h. has_aspect_reminder per engine ────────────────────────────────────────
+//
+// Post-2026-05-13 audit: Seedance 2.0 and Veo 3.1 now embed the aspect ratio
+// in the [AESTHETIC] header line ("Vertical 9:16, …"). Other engines still
+// rely on output metadata only.
 
-describe('Rubric — has_aspect_reminder = false for all video snapshots (builder gap)', () => {
-  const ALL_ENGINES = [
-    'seedance-2.0',
+describe('Rubric — has_aspect_reminder per engine', () => {
+  const ENGINES_WITH_REMINDER = ['seedance-2.0', 'veo-3.1'] as const;
+  const ENGINES_WITHOUT_REMINDER = [
     'seedance-lite',
-    'veo-3.1',
     'kling-2.5',
     'ltx',
     'generic',
@@ -409,9 +412,19 @@ describe('Rubric — has_aspect_reminder = false for all video snapshots (builde
     'multi_character',
   ] as const;
 
-  for (const engine of ALL_ENGINES) {
+  for (const engine of ENGINES_WITH_REMINDER) {
     for (const fixture of FIXTURES) {
-      it(`${engine} × ${fixture} → has_aspect_reminder = false (aspect is in output metadata, not prompt text)`, () => {
+      it(`${engine} × ${fixture} → has_aspect_reminder = true ([AESTHETIC] header embeds 9:16)`, () => {
+        const prompt = readSnapshot(`video-${engine}-${fixture}.txt`);
+        const result = scoreVideoPrompt(prompt);
+        expect(result.has_aspect_reminder).toBe(true);
+      });
+    }
+  }
+
+  for (const engine of ENGINES_WITHOUT_REMINDER) {
+    for (const fixture of FIXTURES) {
+      it(`${engine} × ${fixture} → has_aspect_reminder = false (aspect lives in output metadata only)`, () => {
         const prompt = readSnapshot(`video-${engine}-${fixture}.txt`);
         const result = scoreVideoPrompt(prompt);
         expect(result.has_aspect_reminder).toBe(false);

@@ -29,6 +29,9 @@ import {
   CAMERA_VERB,
   DEFAULT_AVOID,
   DEFAULT_PACING_LINE,
+  buildAestheticHeader,
+  buildMicroActionBlock,
+  buildPerformanceBlock,
   containsCyrillic,
 } from './_seedance-shared';
 import type { CharacterInScene, VideoPromptInput, VideoPromptOutput } from './types';
@@ -226,11 +229,17 @@ function buildAvoidLine(input: VideoPromptInput): string {
  *   Avoid:           negative list
  */
 export function buildVeo31Prompt(input: VideoPromptInput): VideoPromptOutput {
+  // [PERFORMANCE] is dialogue-gated — emits empty string when no dialogue.
+  const performance = buildPerformanceBlock(input);
+
   const blocks = [
+    buildAestheticHeader(input),
     buildCinematographyBlock(input),
     buildSubjectBlock(input),
     buildActionBlock(input),
     buildContextBlock(input),
+    ...(performance ? [performance] : []),
+    buildMicroActionBlock(input),
     buildStyleBlock(input),
     buildAvoidLine(input),
   ];

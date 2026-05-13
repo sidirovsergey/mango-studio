@@ -289,7 +289,8 @@ describe('buildScriptPrompt tier plumbing (T5)', () => {
     const p = buildScriptPrompt(baseInput, { tier: 'premium' });
     expect(p).toContain('Tier: premium');
     // tier constraint variable used in <task> reinforcement
-    expect(p).toContain('scene durations 4–12 s (integer), flexible');
+    expect(p).toContain('scene durations 4–12 s (integer)');
+    expect(p).toContain('STRONGLY prefer 10s');
     const taskStart = p.indexOf('<task>');
     const taskBlock = p.slice(taskStart);
     expect(taskBlock).toContain('4–12 s');
@@ -317,7 +318,7 @@ describe('buildScriptPrompt XML structure (T2)', () => {
     expect(p).toContain('<engine_constraints>');
     expect(p).toContain('Tier: premium');
     expect(p).toContain('<cadence_table>');
-    expect(p).toContain('| 30s | 6 |');
+    expect(p).toMatch(/\|\s*30s\s*\|\s*3\b/); // new cadence: 30s → 3 scenes × 10s
     expect(p).toContain('<arc_patterns>');
     expect(p).toContain('<output_schema>');
     expect(p).toContain('"composition"');
