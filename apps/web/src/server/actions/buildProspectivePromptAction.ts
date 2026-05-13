@@ -3,7 +3,7 @@
 /**
  * Prospective prompt builder — gives the user the *exact* prompt that would
  * be sent to fal at the next click of "create frame" / "create video",
- * before any version exists. Lets them edit it in the PromptEditorModal
+ * before any version exists. Lets them edit it in the side panel + modal
  * preflight rather than waiting for the first version to land just to see
  * what the engine was told.
  *
@@ -19,6 +19,14 @@
  * prompt itself already references; this only affects `image_refs` (unused
  * for text preview) and the [Subject] block's "reference: @Image1" suffix,
  * which stays correct.
+ *
+ * Two exported actions:
+ *   - buildProspectivePromptAction(project_id, scene_id, kind)
+ *     → single scene, single kind. Used by PromptEditorModal on open.
+ *   - buildAllProspectivePromptsAction(project_id)
+ *     → batch across all scenes for both kinds. Used by Stage04Provider on
+ *       mount + after every poll-driven setScript, so the SceneSidePanel
+ *       can render the prompt inline (not just inside the modal).
  */
 
 import { getCurrentUser } from '@/lib/auth/get-user';
@@ -38,6 +46,7 @@ import {
   buildVideoPrompt,
   clampDurationToModel,
   getActiveVersion,
+  getDefaultModel,
   getDefaultVideoModel,
   getVideoModelMeta,
   resolveAudioMode,
@@ -49,6 +58,10 @@ const InputSchema = z.object({
   project_id: z.string().uuid(),
   scene_id: z.string().min(1),
   kind: z.enum(['first_frame', 'video']),
+});
+
+const AllInputSchema = z.object({
+  project_id: z.string().uuid(),
 });
 
 type SceneShape = {
@@ -86,78 +99,59 @@ const FIRST_FRAME_PLACEHOLDER: StoredAsset = {
   url: '@Image1',
 };
 
-export async function buildProspectivePromptAction(
-  rawInput: unknown,
-): Promise<SuccessResult | ErrorResult> {
-  let input: z.infer<typeof InputSchema>;
-  try {
-    input = InputSchema.parse(rawInput);
-  } catch {
-    return { ok: false, error: 'invalid input' };
-  }
+// ─── Pure-function core ──────────────────────────────────────────────────────
+// Lifted out so both single-scene and batch actions share the same byte-for-
+// byte logic as the real generator actions. Synchronous: no DB / network here.
 
-  let user: { id: string };
-  try {
-    user = await getCurrentUser();
-  } catch {
-    return { ok: false, error: 'unauthorized' };
-  }
+function buildFirstFrameForScene(
+  script: ScriptShape,
+  sceneIdx: number,
+  projectStyle: Style,
+): { prompt: string; model: string } | null {
+  const scene = script.scenes[sceneIdx];
+  if (!scene) return null;
 
-  const sb = await getServerSupabase();
-  const { data: project, error } = await sb
-    .from('projects')
-    .select('user_id, tier, script, style')
-    .eq('id', input.project_id)
-    .single();
-  if (error || !project) return { ok: false, error: 'project not found' };
-  if (project.user_id !== user.id) return { ok: false, error: 'forbidden' };
+  const prevScene = sceneIdx > 0 ? script.scenes[sceneIdx - 1] : null;
+  const prev_last_frame = prevScene?.last_frame?.storage ?? null;
 
-  const script = project.script as unknown as ScriptShape | null;
-  if (!script) return { ok: false, error: 'project has no script' };
+  const characters_in_scene = (script.characters ?? []).filter((c) =>
+    scene.character_ids.includes(c.id),
+  );
 
-  const projectTier = (project.tier ?? 'economy') as Tier;
-  const projectStyle = (project.style ?? '3d_pixar') as Style;
+  const first_frame_source = scene.first_frame_source ?? 'auto_continuity';
 
-  const sceneIdx = script.scenes.findIndex((s) => s.scene_id === input.scene_id);
-  if (sceneIdx < 0) return { ok: false, error: 'scene not found' };
-  const scene = script.scenes[sceneIdx]!;
+  const built = buildFirstFramePrompt({
+    scene: {
+      scene_id: scene.scene_id,
+      description: scene.description,
+      description_en: scene.description_en ?? undefined,
+      composition: (scene.composition as Composition | undefined) ?? undefined,
+      camera_movement: (scene.camera_movement as CameraMovement | undefined) ?? undefined,
+      lighting: (scene.lighting as Lighting | undefined) ?? undefined,
+    },
+    characters_in_scene,
+    prev_last_frame,
+    project_style: projectStyle,
+    visual_theme: script.visual_theme ?? undefined,
+    first_frame_source,
+  });
 
-  // -- FIRST FRAME branch ----------------------------------------------------
-  if (input.kind === 'first_frame') {
-    const prevScene = sceneIdx > 0 ? script.scenes[sceneIdx - 1] : null;
-    const prev_last_frame = prevScene?.last_frame?.storage ?? null;
+  // first_frame uses the image model (nano-banana), not a video model. The
+  // tier-defaulted model is fine here — generateFirstFrameAction does the same.
+  const projectTier = (script.tier ?? 'economy') as Tier;
+  const model = getDefaultModel(projectTier);
 
-    const characters_in_scene = (script.characters ?? []).filter((c) =>
-      scene.character_ids.includes(c.id),
-    );
+  return { prompt: built.prompt, model };
+}
 
-    const first_frame_source = scene.first_frame_source ?? 'auto_continuity';
+function buildVideoForScene(
+  script: ScriptShape,
+  sceneIdx: number,
+  projectTier: Tier,
+): { prompt: string; model: string } | null {
+  const scene = script.scenes[sceneIdx];
+  if (!scene) return null;
 
-    const built = buildFirstFramePrompt({
-      scene: {
-        scene_id: scene.scene_id,
-        description: scene.description,
-        description_en: scene.description_en ?? undefined,
-        composition: (scene.composition as Composition | undefined) ?? undefined,
-        camera_movement: (scene.camera_movement as CameraMovement | undefined) ?? undefined,
-        lighting: (scene.lighting as Lighting | undefined) ?? undefined,
-      },
-      characters_in_scene,
-      prev_last_frame,
-      project_style: projectStyle,
-      visual_theme: script.visual_theme ?? undefined,
-      first_frame_source,
-    });
-
-    // Model isn't strictly part of the prompt but lets the modal surface
-    // "what will run". Mirror generateFirstFrameAction's selection.
-    const { getDefaultModel } = await import('@mango/core');
-    const model = getDefaultModel(projectTier);
-
-    return { ok: true, prompt: built.prompt, model };
-  }
-
-  // -- VIDEO branch ----------------------------------------------------------
   const effectiveTier = scene.config_overrides?.tier ?? projectTier;
   const model = scene.config_overrides?.model ?? getDefaultVideoModel(effectiveTier);
   const duration_sec = clampDurationToModel(model, scene.duration_sec);
@@ -168,9 +162,6 @@ export async function buildProspectivePromptAction(
     { has_native_audio: modelMeta?.has_native_audio ?? false },
   );
 
-  // Use the active first_frame if it exists; otherwise the sentinel placeholder.
-  // The latter only affects image_refs (unused for text preview) and the
-  // [Subject] block's "@Image1" suffix, which stays semantically correct.
   const activeFrame = getActiveVersion({
     versions: scene.first_frame_versions ?? [],
     active_version_id: scene.first_frame_active_version_id ?? null,
@@ -217,5 +208,120 @@ export async function buildProspectivePromptAction(
     tier: script.tier ?? effectiveTier,
   });
 
-  return { ok: true, prompt: built.prompt, model };
+  return { prompt: built.prompt, model };
+}
+
+// ─── Public actions ──────────────────────────────────────────────────────────
+
+export async function buildProspectivePromptAction(
+  rawInput: unknown,
+): Promise<SuccessResult | ErrorResult> {
+  let input: z.infer<typeof InputSchema>;
+  try {
+    input = InputSchema.parse(rawInput);
+  } catch {
+    return { ok: false, error: 'invalid input' };
+  }
+
+  let user: { id: string };
+  try {
+    user = await getCurrentUser();
+  } catch {
+    return { ok: false, error: 'unauthorized' };
+  }
+
+  const sb = await getServerSupabase();
+  const { data: project, error } = await sb
+    .from('projects')
+    .select('user_id, tier, script, style')
+    .eq('id', input.project_id)
+    .single();
+  if (error || !project) return { ok: false, error: 'project not found' };
+  if (project.user_id !== user.id) return { ok: false, error: 'forbidden' };
+
+  const script = project.script as unknown as ScriptShape | null;
+  if (!script) return { ok: false, error: 'project has no script' };
+
+  const projectTier = (project.tier ?? 'economy') as Tier;
+  const projectStyle = (project.style ?? '3d_pixar') as Style;
+
+  const sceneIdx = script.scenes.findIndex((s) => s.scene_id === input.scene_id);
+  if (sceneIdx < 0) return { ok: false, error: 'scene not found' };
+
+  const result =
+    input.kind === 'first_frame'
+      ? buildFirstFrameForScene(script, sceneIdx, projectStyle)
+      : buildVideoForScene(script, sceneIdx, projectTier);
+
+  if (!result) return { ok: false, error: 'could not build prompt' };
+  return { ok: true, prompt: result.prompt, model: result.model };
+}
+
+// Per-scene shape returned by the batch action. Either kind may be null if
+// the build threw (e.g. a malformed legacy scene); the UI falls back to the
+// "ещё не сгенерирован" placeholder for that kind only.
+export interface ProspectivePromptEntry {
+  first_frame: { prompt: string; model: string } | null;
+  video: { prompt: string; model: string } | null;
+}
+
+export type ProspectivePromptMap = Record<string, ProspectivePromptEntry>;
+
+export async function buildAllProspectivePromptsAction(
+  rawInput: unknown,
+): Promise<{ ok: true; prompts: ProspectivePromptMap } | { ok: false; error: string }> {
+  let input: z.infer<typeof AllInputSchema>;
+  try {
+    input = AllInputSchema.parse(rawInput);
+  } catch {
+    return { ok: false, error: 'invalid input' };
+  }
+
+  let user: { id: string };
+  try {
+    user = await getCurrentUser();
+  } catch {
+    return { ok: false, error: 'unauthorized' };
+  }
+
+  const sb = await getServerSupabase();
+  const { data: project, error } = await sb
+    .from('projects')
+    .select('user_id, tier, script, style')
+    .eq('id', input.project_id)
+    .single();
+  if (error || !project) return { ok: false, error: 'project not found' };
+  if (project.user_id !== user.id) return { ok: false, error: 'forbidden' };
+
+  const script = project.script as unknown as ScriptShape | null;
+  if (!script) return { ok: true, prompts: {} };
+
+  const projectTier = (project.tier ?? 'economy') as Tier;
+  const projectStyle = (project.style ?? '3d_pixar') as Style;
+
+  const prompts: ProspectivePromptMap = {};
+  for (let i = 0; i < script.scenes.length; i++) {
+    const scene = script.scenes[i]!;
+    let first_frame: ProspectivePromptEntry['first_frame'] = null;
+    let video: ProspectivePromptEntry['video'] = null;
+    try {
+      first_frame = buildFirstFrameForScene(script, i, projectStyle);
+    } catch (e) {
+      console.warn('[buildAllProspectivePrompts] first_frame build failed', {
+        scene_id: scene.scene_id,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+    try {
+      video = buildVideoForScene(script, i, projectTier);
+    } catch (e) {
+      console.warn('[buildAllProspectivePrompts] video build failed', {
+        scene_id: scene.scene_id,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+    prompts[scene.scene_id] = { first_frame, video };
+  }
+
+  return { ok: true, prompts };
 }

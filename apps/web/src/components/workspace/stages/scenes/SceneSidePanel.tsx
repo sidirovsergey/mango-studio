@@ -74,12 +74,20 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
   const [error, setError] = useState<string | null>(null);
   const [promptModal, setPromptModal] = useState<'first_frame' | 'video' | null>(null);
   const [activeAction, setActiveAction] = useState<ActionId | null>(null);
+  const { prospectivePrompts } = useStage04();
 
   const activeFrame =
     scene.first_frame_versions.find((v) => v.version_id === scene.first_frame_active_version_id) ??
     null;
   const activeVideo =
     scene.video_versions.find((v) => v.version_id === scene.video_active_version_id) ?? null;
+
+  // Pre-built (prospective) prompts come from the Stage04Provider batch cache;
+  // they refresh on every poll-tick alongside the script. When no version is
+  // generated yet, surface this draft so the user can read + edit it inline.
+  const sceneProspective = prospectivePrompts?.[scene.scene_id] ?? null;
+  const frameProspective = sceneProspective?.first_frame?.prompt ?? null;
+  const videoProspective = sceneProspective?.video?.prompt ?? null;
 
   const isGenerating = !!activeJob && ['pending', 'running'].includes(activeJob.status);
   const genKindLabel = activeJob ? (JOB_KIND_LABEL[activeJob.kind] ?? activeJob.kind) : null;
@@ -185,7 +193,8 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
       <PromptSection
         kind="frame"
         label="Промпт первого кадра"
-        prompt={activeFrame?.prompt ?? null}
+        prompt={activeFrame?.prompt ?? frameProspective}
+        isProspective={!activeFrame && !!frameProspective}
         version={
           activeFrame ? versionLabel(scene.first_frame_versions, activeFrame.version_id) : null
         }
@@ -196,7 +205,8 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
       <PromptSection
         kind="video"
         label="Промпт видео"
-        prompt={activeVideo?.prompt ?? null}
+        prompt={activeVideo?.prompt ?? videoProspective}
+        isProspective={!activeVideo && !!videoProspective}
         version={activeVideo ? versionLabel(scene.video_versions, activeVideo.version_id) : null}
         onOpen={() => setPromptModal('video')}
         disabled={lockedByGen}
@@ -335,12 +345,22 @@ interface PromptSectionProps {
   kind: 'frame' | 'video';
   label: string;
   prompt: string | null;
+  /** True when `prompt` is the prospective draft (no version generated yet). */
+  isProspective?: boolean;
   version: string | null;
   onOpen: () => void;
   disabled: boolean;
 }
 
-function PromptSection({ kind, label, prompt, version, onOpen, disabled }: PromptSectionProps) {
+function PromptSection({
+  kind,
+  label,
+  prompt,
+  isProspective,
+  version,
+  onOpen,
+  disabled,
+}: PromptSectionProps) {
   const Icon = kind === 'frame' ? IconFrame : IconClapper;
   return (
     <section className="note-section">
@@ -350,7 +370,11 @@ function PromptSection({ kind, label, prompt, version, onOpen, disabled }: Promp
           {label}
         </span>
         <span className="note-meta">
-          {version && <span className="version-chip">{version}</span>}
+          {version ? (
+            <span className="version-chip">{version}</span>
+          ) : (
+            isProspective && <span className="prospective-tag">черновик</span>
+          )}
           <button
             type="button"
             className="open-btn"

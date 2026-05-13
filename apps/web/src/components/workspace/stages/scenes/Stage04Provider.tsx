@@ -1,5 +1,6 @@
 'use client';
 
+import type { ProspectivePromptMap } from '@/server/actions/buildProspectivePromptAction';
 import type {
   AudioMode,
   Character,
@@ -64,7 +65,16 @@ interface Stage04State {
   projectId: string;
   script: Stage04Script | null;
   jobs: MediaJobRow[];
+  /**
+   * Per-scene byte-for-byte preview of the prompt that would be sent to fal
+   * on the next "Create frame" / "Create video" click. Populated by
+   * buildAllProspectivePromptsAction after every script refresh; null until
+   * the first batch lands. SceneSidePanel reads from this map when no active
+   * version exists yet so the user sees + edits the prompt before generation.
+   */
+  prospectivePrompts: ProspectivePromptMap | null;
   setScript: (script: Stage04Script | null) => void;
+  setProspectivePrompts: (prompts: ProspectivePromptMap | null) => void;
   upsertJob: (job: MediaJobRow) => void;
   removeJob: (jobId: string) => void;
 }
@@ -86,6 +96,7 @@ export function Stage04Provider({
 }: Props) {
   const [script, setScript] = useState<Stage04Script | null>(initialScript);
   const [jobs, setJobs] = useState<MediaJobRow[]>(initialJobs);
+  const [prospectivePrompts, setProspectivePrompts] = useState<ProspectivePromptMap | null>(null);
 
   const upsertJob = useCallback((job: MediaJobRow) => {
     setJobs((prev) => {
@@ -102,8 +113,17 @@ export function Stage04Provider({
   }, []);
 
   const value = useMemo(
-    () => ({ projectId, script, jobs, setScript, upsertJob, removeJob }),
-    [projectId, script, jobs, upsertJob, removeJob],
+    () => ({
+      projectId,
+      script,
+      jobs,
+      prospectivePrompts,
+      setScript,
+      setProspectivePrompts,
+      upsertJob,
+      removeJob,
+    }),
+    [projectId, script, jobs, prospectivePrompts, upsertJob, removeJob],
   );
 
   return <Stage04Context.Provider value={value}>{children}</Stage04Context.Provider>;
