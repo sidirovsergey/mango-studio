@@ -104,6 +104,7 @@ export type Database = {
           character_id: string | null;
           cost_usd: number | null;
           created_at: string | null;
+          delayed_until: string | null;
           error_code: string | null;
           fal_request_id: string;
           id: string;
@@ -113,6 +114,7 @@ export type Database = {
           project_id: string;
           request_input: Json | null;
           result_storage: Json | null;
+          retry_count: number;
           scene_id: string | null;
           status: string;
           updated_at: string | null;
@@ -122,6 +124,7 @@ export type Database = {
           character_id?: string | null;
           cost_usd?: number | null;
           created_at?: string | null;
+          delayed_until?: string | null;
           error_code?: string | null;
           fal_request_id: string;
           id?: string;
@@ -131,6 +134,7 @@ export type Database = {
           project_id: string;
           request_input?: Json | null;
           result_storage?: Json | null;
+          retry_count?: number;
           scene_id?: string | null;
           status: string;
           updated_at?: string | null;
@@ -140,6 +144,7 @@ export type Database = {
           character_id?: string | null;
           cost_usd?: number | null;
           created_at?: string | null;
+          delayed_until?: string | null;
           error_code?: string | null;
           fal_request_id?: string;
           id?: string;
@@ -149,6 +154,7 @@ export type Database = {
           project_id?: string;
           request_input?: Json | null;
           result_storage?: Json | null;
+          retry_count?: number;
           scene_id?: string | null;
           status?: string;
           updated_at?: string | null;
