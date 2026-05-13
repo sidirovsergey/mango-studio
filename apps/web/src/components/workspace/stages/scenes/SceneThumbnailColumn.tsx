@@ -65,16 +65,13 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
   const versionsForMode =
     mode === 'first_frame' ? scene.first_frame_versions : scene.video_versions;
   const activeIdForMode =
-    mode === 'first_frame'
-      ? scene.first_frame_active_version_id
-      : scene.video_active_version_id;
+    mode === 'first_frame' ? scene.first_frame_active_version_id : scene.video_active_version_id;
   const active = mode === 'final' ? null : getActiveVersion(versionsForMode, activeIdForMode);
   const lastVersion =
     versionsForMode.length > 0 ? versionsForMode[versionsForMode.length - 1] : null;
   const isLatest = !!active && !!lastVersion && lastVersion.version_id === active.version_id;
   const isActiveJob = !!activeJob && ['pending', 'running'].includes(activeJob.status);
-  const isAudioJob =
-    !!activeJob && (activeJob.kind === 'voice' || activeJob.kind === 'final_clip');
+  const isAudioJob = !!activeJob && (activeJob.kind === 'voice' || activeJob.kind === 'final_clip');
 
   const handlePickVersion = (vid: string) => {
     if (mode === 'final') return;
@@ -161,8 +158,7 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
 
   // Mode toggle visibility
   const showModeToggle =
-    (scene.final_clip || scene.video_versions.length > 0) &&
-    scene.first_frame_versions.length > 0;
+    (scene.final_clip || scene.video_versions.length > 0) && scene.first_frame_versions.length > 0;
 
   // Audio badge logic (Phase 1.4.1):
   //  - final_clip present → 🎵 со звуком

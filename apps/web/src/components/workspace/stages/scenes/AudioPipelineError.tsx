@@ -36,12 +36,7 @@ export function AudioPipelineError({ projectId, sceneId, kind }: Props) {
         ⚠
       </span>
       <span className="audio-pipeline-error-label">{KIND_LABEL[kind]} не получилась</span>
-      <button
-        type="button"
-        className="audio-pipeline-retry"
-        onClick={onRetry}
-        disabled={pending}
-      >
+      <button type="button" className="audio-pipeline-retry" onClick={onRetry} disabled={pending}>
         {pending ? 'запускаю…' : 'попробовать снова'}
       </button>
       {err && <span className="audio-pipeline-error-detail">{err}</span>}

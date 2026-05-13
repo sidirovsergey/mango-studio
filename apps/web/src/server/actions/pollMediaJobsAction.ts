@@ -2,6 +2,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { getCurrentUser } from '@/lib/auth/get-user';
+import { submitFinalClipJob, submitVoiceJob } from '@/server/lib/audio-chain-helpers';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import {
   type MediaJobKind,
@@ -27,7 +28,6 @@ import {
 } from '@mango/core';
 import { getVideoModelMeta } from '@mango/core/media';
 import { getServerSupabase } from '@mango/db/server';
-import { submitFinalClipJob, submitVoiceJob } from '@/server/lib/audio-chain-helpers';
 import { generateReferenceImageAction } from './generateReferenceImageAction';
 import { mirrorSceneAssetToStorage } from './mirrorSceneAssetToStorage';
 
@@ -539,16 +539,19 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
           const effectiveTier = scene.config_overrides?.tier ?? tier;
           const characters = ((script as unknown as { characters?: Character[] }).characters ??
             []) as Character[];
-          const narratorVoice = (script as unknown as {
-            narrator_voice?: {
-              tts_voice_id: string;
-              description?: string;
-              stability?: number;
-              similarity_boost?: number;
-              style?: number;
-              speed?: number;
-            };
-          }).narrator_voice ?? null;
+          const narratorVoice =
+            (
+              script as unknown as {
+                narrator_voice?: {
+                  tts_voice_id: string;
+                  description?: string;
+                  stability?: number;
+                  similarity_boost?: number;
+                  style?: number;
+                  speed?: number;
+                };
+              }
+            ).narrator_voice ?? null;
           const delayedUntil = new Date(Date.now() + 15_000).toISOString();
 
           if (job.kind === 'voice') {
@@ -661,8 +664,7 @@ async function advanceAudioChain(
   const activeVideo = scene.video_versions?.find(
     (v) => v.version_id === scene.video_active_version_id,
   );
-  const videoModelId =
-    activeVideo?.model ?? scene.config_overrides?.model ?? undefined;
+  const videoModelId = activeVideo?.model ?? scene.config_overrides?.model ?? undefined;
   const modelMeta = {
     has_native_audio: videoModelId
       ? (getVideoModelMeta(videoModelId)?.has_native_audio ?? false)
@@ -690,16 +692,19 @@ async function advanceAudioChain(
   const effectiveTier = scene.config_overrides?.tier ?? ctx.project_tier;
   const characters = ((script as unknown as { characters?: Character[] }).characters ??
     []) as Character[];
-  const narratorVoice = (script as unknown as {
-    narrator_voice?: {
-      tts_voice_id: string;
-      description?: string;
-      stability?: number;
-      similarity_boost?: number;
-      style?: number;
-      speed?: number;
-    };
-  }).narrator_voice ?? null;
+  const narratorVoice =
+    (
+      script as unknown as {
+        narrator_voice?: {
+          tts_voice_id: string;
+          description?: string;
+          stability?: number;
+          similarity_boost?: number;
+          style?: number;
+          speed?: number;
+        };
+      }
+    ).narrator_voice ?? null;
 
   if (step.kind === 'voice') {
     await submitVoiceJob({

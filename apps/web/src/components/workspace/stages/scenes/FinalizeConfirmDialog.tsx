@@ -25,8 +25,7 @@ function resolveSceneAudio(scene: SceneView, jobsForScene: MediaJobRow[]): Scene
   if (scene.final_clip) return { state: 'ready' };
   const inFlight = jobsForScene.find(
     (j) =>
-      (j.kind === 'voice' || j.kind === 'final_clip') &&
-      ['pending', 'running'].includes(j.status),
+      (j.kind === 'voice' || j.kind === 'final_clip') && ['pending', 'running'].includes(j.status),
   );
   if (inFlight) {
     return { state: 'in_flight', kind: inFlight.kind as 'voice' | 'final_clip' };
