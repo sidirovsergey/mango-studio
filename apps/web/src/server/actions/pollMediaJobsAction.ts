@@ -84,11 +84,15 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
     { project_id: input.project_id, user_id: user.id },
     {
       listInflight: async (project_id) => {
+        const nowIso = new Date().toISOString();
         const { data, error } = await sb
           .from('media_jobs')
           .select('*')
           .eq('project_id', project_id)
-          .in('status', ['pending', 'running']);
+          .in('status', ['pending', 'running'])
+          // Phase 1.4.1: skip rows whose delayed_until is still in the future.
+          // Supabase JS .or() with comma-separated PostgREST filters.
+          .or(`delayed_until.is.null,delayed_until.lte.${nowIso}`);
         if (error) throw new Error(error.message);
         return (data ?? []) as unknown as InflightJob[];
       },
@@ -507,6 +511,93 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
             updated_at: new Date().toISOString(),
           })
           .eq('id', job.id);
+
+        // Phase 1.4.1: auto-retry voice / final_clip once with a 15 s backoff.
+        const isAudioKind = job.kind === 'voice' || job.kind === 'final_clip';
+        const currentRetryCount = job.retry_count ?? 0;
+        if (!isAudioKind || currentRetryCount >= 1 || !job.scene_id) return;
+
+        try {
+          const { data: proj } = await sb
+            .from('projects')
+            .select('script, tier')
+            .eq('id', job.project_id)
+            .single();
+          if (!proj?.script) return;
+          const script = proj.script as unknown as ScriptGenOutput;
+          const scene = (script.scenes as unknown as ChainSceneInScript[]).find(
+            (s) => s.scene_id === job.scene_id,
+          );
+          if (!scene) return;
+
+          const tier = (proj.tier ?? 'economy') as 'economy' | 'premium';
+          const effectiveTier = scene.config_overrides?.tier ?? tier;
+          const characters = ((script as unknown as { characters?: Character[] }).characters ??
+            []) as Character[];
+          const narratorVoice = (script as unknown as {
+            narrator_voice?: {
+              tts_voice_id: string;
+              description?: string;
+              stability?: number;
+              similarity_boost?: number;
+              style?: number;
+              speed?: number;
+            };
+          }).narrator_voice ?? null;
+          const delayedUntil = new Date(Date.now() + 15_000).toISOString();
+
+          if (job.kind === 'voice') {
+            if (!scene.dialogue?.text) return;
+            await submitVoiceJob({
+              user_id: job.user_id,
+              project_id: job.project_id,
+              scene_id: scene.scene_id,
+              dialogue: scene.dialogue,
+              characters,
+              narrator_voice: narratorVoice,
+              effective_tier: effectiveTier,
+              video_model_id: scene.config_overrides?.model,
+              initial_retry_count: 1,
+              delayed_until: delayedUntil,
+            });
+          } else {
+            // final_clip retry: re-mux from current active video + voice
+            const activeVideo = scene.video_versions?.find(
+              (v) => v.version_id === scene.video_active_version_id,
+            );
+            if (!activeVideo) return;
+            const activeVoice = scene.voice_audio_versions?.find(
+              (v) => v.version_id === scene.voice_audio_active_version_id,
+            );
+            const meta = getVideoModelMeta(
+              activeVideo.model ?? scene.config_overrides?.model ?? '',
+            );
+            await submitFinalClipJob({
+              user_id: job.user_id,
+              project_id: job.project_id,
+              scene_id: scene.scene_id,
+              video_version: {
+                version_id: activeVideo.version_id,
+                storage: activeVideo.storage,
+                has_native_audio: meta?.has_native_audio ?? false,
+              },
+              voice_version: activeVoice
+                ? { version_id: activeVoice.version_id, storage: activeVoice.storage }
+                : null,
+              initial_retry_count: 1,
+              delayed_until: delayedUntil,
+              current_script: script as unknown as {
+                scenes: Array<Record<string, unknown> & { scene_id: string }>;
+              },
+            });
+          }
+        } catch (e) {
+          console.warn('[pollMediaJobs] auto-retry failed', {
+            job_id: job.id,
+            kind: job.kind,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
       },
 
       recordPendingJob: async (params) =>
