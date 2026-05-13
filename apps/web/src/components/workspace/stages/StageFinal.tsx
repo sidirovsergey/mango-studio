@@ -126,6 +126,27 @@ function StageFinalBody() {
                 <span>версия {versions.findIndex((v) => v.version_id === activeId) + 1}</span>
               </>
             )}
+            {activeMaster.has_full_audio === true && (
+              <>
+                <span className="dot" aria-hidden>
+                  ·
+                </span>
+                <span className="master-audio-badge ok">🎵 со звуком</span>
+              </>
+            )}
+            {activeMaster.has_full_audio === false && (
+              <>
+                <span className="dot" aria-hidden>
+                  ·
+                </span>
+                <span
+                  className="master-audio-badge warn"
+                  title="Часть сцен не озвучена. Вернись в Stage 04, доозвучь и пересобери ролик."
+                >
+                  🔇 без звука
+                </span>
+              </>
+            )}
           </div>
           {url && (
             <a

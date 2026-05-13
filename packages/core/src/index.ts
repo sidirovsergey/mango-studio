@@ -140,6 +140,12 @@ export {
   type NarratorVoiceWithSettings,
 } from './media/audio-mode';
 export type { VoiceSettingsDefault } from './media/voices';
+export {
+  AUDIO_CHAIN_COST_HINT_USD,
+  planNextChainStep,
+  type ChainScene,
+  type ChainStep,
+} from './media/audio-chain';
 
 export {
   ShotSizeSchema,

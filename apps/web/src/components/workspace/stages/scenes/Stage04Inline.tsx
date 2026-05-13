@@ -3,10 +3,12 @@
 import { usePollJobs } from '@/hooks/use-poll-jobs';
 import { generateMasterClipAction } from '@/server/actions/generateMasterClipAction';
 import '@/styles/storyboard-inline.css';
+import '@/styles/audio-pipeline.css';
 import type { Database } from '@mango/db';
 import { useEffect, useState, useTransition } from 'react';
 import { CostMeter } from './CostMeter';
 import { CostWarningToast } from './CostWarningToast';
+import { FinalizeConfirmDialog } from './FinalizeConfirmDialog';
 import { SceneCard } from './SceneCard';
 import { useStage04 } from './Stage04Provider';
 
@@ -32,6 +34,7 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
   const { script, jobs } = useStage04();
   const [masterError, setMasterError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [showFinalizeDialog, setShowFinalizeDialog] = useState(false);
   usePollJobs(projectId);
 
   // Auto-clear error after 6s so it doesn't linger
@@ -57,16 +60,34 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
     }
   }
 
+  // Phase 1.4.1: per-scene audio failure after retry_count is exhausted.
+  // Surfaces the failed-state UI with manual retry button.
+  const failedAudioByScene: Record<string, MediaJobRow> = {};
+  for (const job of jobs) {
+    if (
+      job.scene_id &&
+      job.status === 'error' &&
+      (job.kind === 'voice' || job.kind === 'final_clip') &&
+      (job.retry_count ?? 0) >= 1
+    ) {
+      const existing = failedAudioByScene[job.scene_id];
+      if (!existing || (job.created_at ?? '') > (existing.created_at ?? '')) {
+        failedAudioByScene[job.scene_id] = job;
+      }
+    }
+  }
+
   const totalDuration = scenes.reduce((sum, s) => sum + (s.duration_sec ?? 0), 0);
 
-  // A scene is "ready for master" when it has at least an active video version
-  // (final_clip is the muxed video+voice composition, but the master concat can
-  // fall back to using the raw active video URL when final_clip is missing —
-  // e.g. legacy scenes generated before the mux pipeline existed).
-  const isSceneReady = (s: (typeof scenes)[number]) =>
-    s.final_clip !== null || s.video_active_version_id !== null;
-  const readySceneCount = scenes.filter(isSceneReady).length;
-  const allScenesReady = scenes.length > 0 && readySceneCount === scenes.length;
+  // Phase 1.4.1: split readiness — video readiness drives button enablement,
+  // final-clip readiness decides whether to fire directly or open the
+  // confirm dialog (since silent fallback is now an explicit choice).
+  const isSceneVideoReady = (s: (typeof scenes)[number]) => s.video_active_version_id !== null;
+  const isSceneFinalReady = (s: (typeof scenes)[number]) => s.final_clip !== null;
+  const readySceneCount = scenes.filter(isSceneVideoReady).length;
+  const allVideosReady = scenes.length > 0 && readySceneCount === scenes.length;
+  const allFinalsReady = scenes.length > 0 && scenes.every(isSceneFinalReady);
+  const allScenesReady = allVideosReady; // legacy alias for button-label code below
   const masterInFlight = jobs.some(
     (j) => j.kind === 'master_clip' && ['pending', 'running'].includes(j.status),
   );
@@ -81,11 +102,16 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
       scrollToFinal();
       return;
     }
-    if (!allScenesReady) return;
+    if (!allVideosReady) return;
+    if (!allFinalsReady) {
+      // Some scenes still lack final_clip (voice/mux in flight or failed).
+      // Hand control to the confirm dialog: wait for chain or silent fallback.
+      setShowFinalizeDialog(true);
+      return;
+    }
     startTransition(async () => {
       const r = await generateMasterClipAction({ project_id: projectId });
       if (r.ok) {
-        // Job submitted — scroll user to Stage 05 where the result will land.
         scrollToFinal();
       } else {
         setMasterError(r.error ?? 'не удалось запустить финализацию');
@@ -185,6 +211,7 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
             index={i}
             characters={characters}
             activeJob={jobsByScene[scene.scene_id] ?? null}
+            failedAudioJob={failedAudioByScene[scene.scene_id] ?? null}
             tier={scene.config_overrides?.tier ?? tier}
           />
         ))}
@@ -194,6 +221,19 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
       </div>
 
       <CostWarningToast projectId={projectId} jobs={jobs} />
+
+      {showFinalizeDialog && (
+        <FinalizeConfirmDialog
+          projectId={projectId}
+          scenes={scenes}
+          jobs={jobs}
+          onClose={() => setShowFinalizeDialog(false)}
+          onMasterStarted={() => {
+            setShowFinalizeDialog(false);
+            scrollToFinal();
+          }}
+        />
+      )}
     </section>
   );
 }

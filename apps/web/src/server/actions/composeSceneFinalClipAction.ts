@@ -1,8 +1,7 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/get-user';
-import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { recordPendingJob } from '@/server/lib/scene-helpers';
+import { submitFinalClipJob } from '@/server/lib/audio-chain-helpers';
 import {
   type SceneAssetVersion,
   type StoredAsset,
@@ -38,11 +37,6 @@ type SceneShape = Record<string, unknown> & {
 };
 
 type ScriptShape = { scenes: SceneShape[] };
-
-function urlOfStorage(storage: StoredAsset): string {
-  if (storage.kind === 'fal_passthrough') return storage.url;
-  return `supabase://${storage.path}`;
-}
 
 export async function composeSceneFinalClipAction(
   rawInput: unknown,
@@ -87,77 +81,44 @@ export async function composeSceneFinalClipAction(
   });
   if (!activeVideo) return { ok: false, error: 'scene has no video yet' };
 
-  // Determine effective audio mode using the same model that produced the video.
   const effectiveTier = scene.config_overrides?.tier ?? projectTier;
   const videoModelId =
     activeVideo.model ?? scene.config_overrides?.model ?? getDefaultVideoModel(effectiveTier);
   const meta = getVideoModelMeta(videoModelId);
   const audioMode = resolveAudioMode(
-    {
-      audio_mode: scene.audio_mode ?? 'auto',
-      dialogue: scene.dialogue,
-    },
+    { audio_mode: scene.audio_mode ?? 'auto', dialogue: scene.dialogue },
     { has_native_audio: meta?.has_native_audio ?? false },
   );
 
-  if (audioMode === 'native') {
-    // Native audio — final_clip is the active video itself; no mux job needed.
-    const updated: ScriptShape = {
-      ...script,
-      scenes: script.scenes.map((s) =>
-        s.scene_id === input.scene_id
-          ? ({
-              ...s,
-              final_clip: {
-                storage: activeVideo.storage,
-                composed_from: {
-                  video_version_id: activeVideo.version_id,
-                  voice_audio_version_id: null,
-                },
-              },
-            } as SceneShape)
-          : s,
-      ),
-    };
-    const { error: upErr } = await sb
-      .from('projects')
-      .update({ script: updated as never })
-      .eq('id', input.project_id);
-    if (upErr) return { ok: false, error: upErr.message };
-    return { ok: true, mode: 'native_passthrough' };
+  // silent_tts: need active voice version.
+  let activeVoice: SceneAssetVersion | null = null;
+  if (audioMode !== 'native') {
+    activeVoice = getActiveVersion({
+      versions: scene.voice_audio_versions ?? [],
+      active_version_id: scene.voice_audio_active_version_id ?? null,
+    });
+    if (!activeVoice) return { ok: false, error: 'scene has no voice_audio yet' };
   }
 
-  // silent_tts: need active voice version.
-  const activeVoice = getActiveVersion({
-    versions: scene.voice_audio_versions ?? [],
-    active_version_id: scene.voice_audio_active_version_id ?? null,
-  });
-  if (!activeVoice) return { ok: false, error: 'scene has no voice_audio yet' };
-
-  const provider = getMediaProvider();
-  const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
-
-  const handle = await provider.submitFinalClipMux(
-    {
-      video_url: urlOfStorage(activeVideo.storage),
-      audio_url: urlOfStorage(activeVoice.storage),
-    },
-    ctx,
-  );
-
-  const { job_id, existing } = await recordPendingJob({
+  const r = await submitFinalClipJob({
     user_id: user.id,
     project_id: input.project_id,
     scene_id: input.scene_id,
-    kind: 'final_clip',
-    model: handle.model_used,
-    fal_request_id: handle.fal_request_id,
-    request_input: {
-      ...(handle.request_input ?? {}),
-      video_version_id: activeVideo.version_id,
-      voice_audio_version_id: activeVoice.version_id,
+    video_version: {
+      version_id: activeVideo.version_id,
+      storage: activeVideo.storage,
+      has_native_audio: meta?.has_native_audio ?? false,
     },
+    voice_version:
+      audioMode === 'native' || !activeVoice
+        ? null
+        : { version_id: activeVoice.version_id, storage: activeVoice.storage },
+    initial_retry_count: 0,
+    current_script: script,
   });
 
-  return { ok: true, job_id, existing };
+  if (!r.ok) return r;
+  return r.mode === 'native_passthrough'
+    ? { ok: true, mode: 'native_passthrough' }
+    : { ok: true, job_id: r.job_id, existing: r.existing };
 }

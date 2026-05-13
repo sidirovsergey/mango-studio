@@ -86,7 +86,10 @@ describe('composeSceneFinalClipAction', () => {
       eq: vi.fn().mockReturnThis(),
       single: vi.fn().mockResolvedValue({ data: project, error: null }),
     };
-    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    // Helper re-uses Supabase for the native-passthrough update — make the
+    // mock sticky so both the action's project-fetch and the helper's
+    // update call resolve.
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
       from: vi.fn(() => ({ ...projectQuery, update })),
     });
 

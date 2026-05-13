@@ -26,7 +26,10 @@ export type ToolChipKind =
   | 'generate_first_frame'
   | 'generate_master_clip'
   // Phase 1.3.5 rollback
-  | 'rollback_scene_version';
+  | 'rollback_scene_version'
+  // Phase 1.4.1 audio chain
+  | 'regen_scene_voice'
+  | 'compose_scene_final_clip';
 
 export type SyncHintStatus = 'visible' | 'triggered' | 'dismissed';
 
@@ -67,7 +70,10 @@ export type PendingActionKind =
   | 'set_scene_model'
   | 'generate_master_clip'
   // Phase 1.3.5 rollback
-  | 'rollback_scene_version';
+  | 'rollback_scene_version'
+  // Phase 1.4.1 audio chain
+  | 'regen_scene_voice'
+  | 'compose_scene_final_clip';
 
 export type PendingActionStatus = 'pending' | 'executed' | 'cancelled';
 

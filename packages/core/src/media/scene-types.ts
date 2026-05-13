@@ -97,6 +97,12 @@ export const MasterClipVersionSchema = z.object({
   generated_at: z.string(),
   cost_usd: z.number().nullable(),
   composed_from_scene_versions: z.array(MasterClipComposedSchema),
+  /**
+   * Phase 1.4.1: true when every contributing scene supplied a final_clip
+   * (silent_tts mux OR native passthrough). False when at least one scene
+   * fell back to silent raw video. Undefined for legacy masters pre-fix.
+   */
+  has_full_audio: z.boolean().optional(),
 });
 export type MasterClipVersion = z.infer<typeof MasterClipVersionSchema>;
 

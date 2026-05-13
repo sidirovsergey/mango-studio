@@ -21,6 +21,8 @@ export interface InflightJob {
   fal_request_id: string;
   status: 'pending' | 'running';
   request_input: Record<string, unknown>;
+  /** Phase 1.4.1 — number of times the underlying op has been retried (cap=1). */
+  retry_count?: number;
 }
 
 /**

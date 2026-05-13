@@ -3,19 +3,22 @@
 import { cancelMediaJobAction } from '@/server/actions/cancelMediaJobAction';
 import { rollbackVersionAction } from '@/server/actions/rollbackVersionAction';
 import { setActiveVersionAction } from '@/server/actions/setActiveVersionAction';
-import type { SceneAssetVersion } from '@mango/core';
+import type { SceneAssetVersion, StoredAsset } from '@mango/core';
 import type { Database } from '@mango/db';
 import { useState, useTransition } from 'react';
+import { AudioPipelineError } from './AudioPipelineError';
+import { AudioPipelineSpinner } from './AudioPipelineSpinner';
 import type { SceneView } from './Stage04Provider';
 
 type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
-type Mode = 'first_frame' | 'video';
+type Mode = 'first_frame' | 'video' | 'final';
 
 interface Props {
   projectId: string;
   scene: SceneView;
   index: number;
   activeJob: MediaJobRow | null;
+  failedAudioJob: MediaJobRow | null;
 }
 
 function getActiveVersion(
@@ -32,6 +35,12 @@ function getAssetUrl(v: SceneAssetVersion): string | null {
     : `/api/scene-asset?path=${encodeURIComponent(v.storage.path)}`;
 }
 
+function getFinalClipUrl(storage: StoredAsset): string {
+  return storage.kind === 'fal_passthrough'
+    ? storage.url
+    : `/api/scene-asset?path=${encodeURIComponent(storage.path)}`;
+}
+
 const JOB_KIND_LABEL_SHORT: Record<string, string> = {
   first_frame: 'Кадр',
   video: 'Видео',
@@ -41,25 +50,31 @@ const JOB_KIND_LABEL_SHORT: Record<string, string> = {
   master_clip: 'Master',
 };
 
-export function SceneThumbnailColumn({ projectId, scene, activeJob }: Props) {
-  const [mode, setMode] = useState<Mode>(() =>
-    scene.video_versions.length > 0 ? 'video' : 'first_frame',
-  );
+export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJob }: Props) {
+  const [mode, setMode] = useState<Mode>(() => {
+    if (scene.final_clip) return 'final';
+    if (scene.video_versions.length > 0) return 'video';
+    return 'first_frame';
+  });
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const activeJobLabel = activeJob
     ? (JOB_KIND_LABEL_SHORT[activeJob.kind] ?? activeJob.kind)
     : null;
 
-  const versions = mode === 'first_frame' ? scene.first_frame_versions : scene.video_versions;
-  const activeId =
+  const versionsForMode =
+    mode === 'first_frame' ? scene.first_frame_versions : scene.video_versions;
+  const activeIdForMode =
     mode === 'first_frame' ? scene.first_frame_active_version_id : scene.video_active_version_id;
-  const active = getActiveVersion(versions, activeId);
-  const lastVersion = versions.length > 0 ? versions[versions.length - 1] : null;
+  const active = mode === 'final' ? null : getActiveVersion(versionsForMode, activeIdForMode);
+  const lastVersion =
+    versionsForMode.length > 0 ? versionsForMode[versionsForMode.length - 1] : null;
   const isLatest = !!active && !!lastVersion && lastVersion.version_id === active.version_id;
   const isActiveJob = !!activeJob && ['pending', 'running'].includes(activeJob.status);
+  const isAudioJob = !!activeJob && (activeJob.kind === 'voice' || activeJob.kind === 'final_clip');
 
   const handlePickVersion = (vid: string) => {
+    if (mode === 'final') return;
     startTransition(async () => {
       const r = await setActiveVersionAction({
         project_id: projectId,
@@ -73,6 +88,7 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob }: Props) {
   };
 
   const handleRollback = () => {
+    if (mode === 'final') return;
     startTransition(async () => {
       const r = await rollbackVersionAction({
         project_id: projectId,
@@ -102,10 +118,77 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob }: Props) {
     return !!(ff && vd && ff.generated_at > vd.generated_at);
   })();
 
+  // Mode-dependent media render
+  const renderMedia = () => {
+    if (mode === 'final' && scene.final_clip) {
+      return (
+        // biome-ignore lint/a11y/useMediaCaption: AI scene final mix
+        <video
+          src={getFinalClipUrl(scene.final_clip.storage)}
+          controls
+          loop
+          playsInline
+          className="thumb-media"
+        />
+      );
+    }
+    if (mode === 'video' && active) {
+      return (
+        // biome-ignore lint/a11y/useMediaCaption: AI scene clip — no caption track yet
+        <video
+          src={getAssetUrl(active) ?? undefined}
+          controls
+          loop
+          playsInline
+          className="thumb-media"
+        />
+      );
+    }
+    if (mode === 'first_frame' && active) {
+      return (
+        <img
+          src={getAssetUrl(active) ?? undefined}
+          alt={`Сцена ${scene.scene_id}`}
+          className="thumb-media"
+        />
+      );
+    }
+    return <div className="thumb-empty">Не сгенерировано</div>;
+  };
+
+  // Mode toggle visibility
+  const showModeToggle =
+    (scene.final_clip || scene.video_versions.length > 0) && scene.first_frame_versions.length > 0;
+
+  // Audio badge logic (Phase 1.4.1):
+  //  - final_clip present → 🎵 со звуком
+  //  - audio_mode='native' + has_native_audio → 🎵 native
+  //  - audio_mode='native' + silent model → 🔇
+  //  - otherwise → no audio badge (chain in progress)
+  const audioBadge = (() => {
+    if (isActiveJob || failedAudioJob) return null;
+    if (scene.final_clip) return { icon: '🎵', title: 'Финальный микс готов' };
+    if (scene.audio_mode === 'native' && active?.has_native_audio) {
+      return { icon: '🎵', title: 'Native audio' };
+    }
+    if (scene.audio_mode === 'native' && active?.has_native_audio === false) {
+      return { icon: '🔇', title: 'Silent (native mode + silent model)' };
+    }
+    return null;
+  })();
+
   return (
     <div className="thumb-col">
       <div className="thumb">
-        {isActiveJob ? (
+        {failedAudioJob ? (
+          <AudioPipelineError
+            projectId={projectId}
+            sceneId={scene.scene_id}
+            kind={failedAudioJob.kind as 'voice' | 'final_clip'}
+          />
+        ) : isActiveJob && isAudioJob ? (
+          <AudioPipelineSpinner kind={activeJob.kind as 'voice' | 'final_clip'} />
+        ) : isActiveJob ? (
           <div className="thumb-loading">
             <button
               type="button"
@@ -123,32 +206,14 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob }: Props) {
               <span className="thumb-loading-sub">обычно 30–90 сек</span>
             </div>
           </div>
-        ) : active ? (
-          mode === 'video' ? (
-            // biome-ignore lint/a11y/useMediaCaption: AI scene clip — no caption track yet
-            <video
-              src={getAssetUrl(active) ?? undefined}
-              controls
-              loop
-              playsInline
-              className="thumb-media"
-            />
-          ) : (
-            // Next.js Image isn't suitable here — signed-url passthrough varies per render
-            <img
-              src={getAssetUrl(active) ?? undefined}
-              alt={`Сцена ${scene.scene_id}`}
-              className="thumb-media"
-            />
-          )
         ) : (
-          <div className="thumb-empty">Не сгенерировано</div>
+          renderMedia()
         )}
-        {!isActiveJob && (
+        {!isActiveJob && !failedAudioJob && (
           <div className="thumb-badges">
-            {active?.has_native_audio !== undefined && (
-              <span className="badge" title={active.has_native_audio ? 'Native audio' : 'Silent'}>
-                {active.has_native_audio ? '🎵' : '🔇'}
+            {audioBadge && (
+              <span className="badge" title={audioBadge.title}>
+                {audioBadge.icon}
               </span>
             )}
             {stale && (
@@ -158,7 +223,7 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob }: Props) {
             )}
           </div>
         )}
-        {scene.first_frame_versions.length > 0 && scene.video_versions.length > 0 && (
+        {showModeToggle && (
           <div className="thumb-mode" role="tablist">
             <button
               type="button"
@@ -169,36 +234,51 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob }: Props) {
             >
               🖼️ Кадр
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'video'}
-              className={mode === 'video' ? 'active' : ''}
-              onClick={() => setMode('video')}
-            >
-              🎬 Видео
-            </button>
+            {scene.video_versions.length > 0 && (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'video'}
+                className={mode === 'video' ? 'active' : ''}
+                onClick={() => setMode('video')}
+              >
+                🎬 Видео
+              </button>
+            )}
+            {scene.final_clip && (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'final'}
+                className={mode === 'final' ? 'active' : ''}
+                onClick={() => setMode('final')}
+              >
+                🔊 Финал
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      <div className="versions-strip">
-        <span className="versions-label">v:</span>
-        {versions.map((v, i) => (
-          <button
-            key={v.version_id}
-            type="button"
-            className={`ver-dot ${v.version_id === activeId ? 'current' : ''}`}
-            onClick={() => handlePickVersion(v.version_id)}
-            disabled={pending}
-            title={`v${i + 1} — ${v.generated_at}`}
-            aria-label={`Версия ${i + 1}`}
-          />
-        ))}
-        <span className="ver-count">{versions.length} / 5</span>
-      </div>
+      {mode !== 'final' && (
+        <div className="versions-strip">
+          <span className="versions-label">v:</span>
+          {versionsForMode.map((v, i) => (
+            <button
+              key={v.version_id}
+              type="button"
+              className={`ver-dot ${v.version_id === activeIdForMode ? 'current' : ''}`}
+              onClick={() => handlePickVersion(v.version_id)}
+              disabled={pending}
+              title={`v${i + 1} — ${v.generated_at}`}
+              aria-label={`Версия ${i + 1}`}
+            />
+          ))}
+          <span className="ver-count">{versionsForMode.length} / 5</span>
+        </div>
+      )}
 
-      {!isLatest && active && (
+      {mode !== 'final' && !isLatest && active && (
         <button type="button" className="rollback-btn" onClick={handleRollback} disabled={pending}>
           ↺ откат на пред.
         </button>

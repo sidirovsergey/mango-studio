@@ -9,7 +9,13 @@ import { setSceneModelAction } from '@/server/actions/setSceneModelAction';
 import { setSceneTierAction } from '@/server/actions/setSceneTierAction';
 import { toggleSceneContinuityAction } from '@/server/actions/toggleSceneContinuityAction';
 import { uploadSceneAssetAction } from '@/server/actions/uploadSceneAssetAction';
-import { type Character, getActiveVideoModels, getVideoModelMeta } from '@mango/core';
+import {
+  AUDIO_CHAIN_COST_HINT_USD,
+  type Character,
+  getActiveVideoModels,
+  getVideoModelMeta,
+  resolveAudioMode,
+} from '@mango/core';
 import type { Database } from '@mango/db';
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { PromptEditorModal } from './PromptEditorModal';
@@ -108,11 +114,22 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
 
   const videoCostHint = (() => {
     const modelId = scene.config_overrides?.model ?? null;
-    if (modelId) {
-      const meta = getVideoModelMeta(modelId);
-      if (meta) return COST_HINT_LABEL[meta.cost_hint];
+    const modelMeta = modelId ? getVideoModelMeta(modelId) : null;
+    const baseLabel = (() => {
+      if (modelMeta) return COST_HINT_LABEL[modelMeta.cost_hint];
+      return tier === 'premium' ? '$0.40' : '$0.18';
+    })();
+    // Surface the audio-chain cost up-front for scenes that will go through
+    // the silent_tts → mux pipeline (Phase 1.4.1).
+    const audioMode = resolveAudioMode(
+      { audio_mode: scene.audio_mode, dialogue: scene.dialogue },
+      { has_native_audio: modelMeta?.has_native_audio ?? false },
+    );
+    const hasDialogue = !!scene.dialogue?.text?.trim();
+    if (audioMode === 'silent_tts' && hasDialogue) {
+      return `${baseLabel} + $${AUDIO_CHAIN_COST_HINT_USD.toFixed(2)} озвучка`;
     }
-    return tier === 'premium' ? '$0.40' : '$0.18';
+    return baseLabel;
   })();
 
   const sceneTitle = (() => {
