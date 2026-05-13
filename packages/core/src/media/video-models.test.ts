@@ -11,10 +11,10 @@ import {
 } from './video-models';
 
 describe('VIDEO_MODELS registry', () => {
-  it('has economy default and premium default', () => {
-    expect(getDefaultVideoModel('economy')).toBe(
-      'fal-ai/bytedance/seedance/v1/lite/image-to-video',
-    );
+  it('has economy default (Grok Imagine Video) and premium default (Seedance 2.0)', () => {
+    // Post-2026-05-13 simplification: economy switched from Seedance Lite to
+    // Grok Imagine Video so every active model carries native audio.
+    expect(getDefaultVideoModel('economy')).toBe('xai/grok-imagine-video/image-to-video');
     expect(getDefaultVideoModel('premium')).toBe('bytedance/seedance-2.0/image-to-video');
   });
 
@@ -29,11 +29,19 @@ describe('VIDEO_MODELS registry', () => {
     expect(getVideoModelMeta('fal-ai/unknown/model')).toBeNull();
   });
 
-  it('checks if model belongs to tier', () => {
+  it('checks if model belongs to active tier set', () => {
+    // Active economy = Grok only.
+    expect(isVideoModelInTier('xai/grok-imagine-video/image-to-video', 'economy')).toBe(true);
+    // Active premium = Seedance 2.0 default + Veo 3.1 alt + Grok alt.
+    expect(isVideoModelInTier('xai/grok-imagine-video/image-to-video', 'premium')).toBe(true);
+    expect(isVideoModelInTier('bytedance/seedance-2.0/image-to-video', 'premium')).toBe(true);
+    expect(isVideoModelInTier('fal-ai/veo3.1/image-to-video', 'premium')).toBe(true);
+    // Legacy models stay parsed via getVideoModelMeta but are no longer in
+    // active sets.
     expect(isVideoModelInTier('fal-ai/bytedance/seedance/v1/lite/image-to-video', 'economy')).toBe(
-      true,
+      false,
     );
-    expect(isVideoModelInTier('fal-ai/bytedance/seedance/v1/lite/image-to-video', 'premium')).toBe(
+    expect(isVideoModelInTier('fal-ai/kling-video/v2.5-turbo/pro/image-to-video', 'premium')).toBe(
       false,
     );
   });

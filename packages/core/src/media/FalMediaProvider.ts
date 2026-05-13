@@ -49,6 +49,9 @@ const MODEL_COST_FALLBACK_USD: Record<string, number> = {
   'fal-ai/bytedance/seedance-2.0/image-to-video': 0.4,
   'fal-ai/veo3.1/image-to-video': 0.5,
   'fal-ai/kling-video/v2.5-turbo/pro/image-to-video': 0.35,
+  // Grok Imagine Video — 480p $0.05/s + $0.002 image input; 720p $0.07/s + $0.002.
+  // 10s × 480p ≈ $0.50, 10s × 720p ≈ $0.70. Mid-range cost-wise.
+  'xai/grok-imagine-video/image-to-video': 0.5,
   'fal-ai/ffmpeg-api/extract-frame': 0.001,
   'fal-ai/ffmpeg-api/merge-videos': 0.002,
   'fal-ai/ffmpeg-api/merge-audio-video': 0.002,
@@ -183,11 +186,22 @@ export class FalMediaProvider implements MediaProvider {
       throw new MediaProviderError('invalid_input', 'resolveImageUrl required for video');
     }
     const ref_url = await this.opts.resolveImageUrl(input.first_frame_ref);
+
+    // Grok Imagine Video takes an explicit `resolution` enum (480p / 720p);
+    // omit for engines that don't recognise the field. Default 480p when
+    // caller doesn't specify — keeps economy cost predictable.
+    const isGrok = input.model.startsWith('xai/grok-imagine-video');
+    const extra: Record<string, unknown> = {};
+    if (isGrok) {
+      extra.resolution = input.resolution ?? '480p';
+    }
+
     return this.submit(input.model, {
       prompt: input.prompt,
       image_url: ref_url,
       duration: input.duration_sec,
       aspect_ratio: input.aspect_ratio,
+      ...extra,
     });
   }
 

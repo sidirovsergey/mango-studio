@@ -63,6 +63,8 @@ export interface GenerateSceneVideoInput {
   first_frame_ref: StoredAsset;
   duration_sec: number;
   aspect_ratio: '9:16';
+  /** Grok Imagine Video accepts an optional resolution flag. Ignored by other models. */
+  resolution?: '480p' | '720p';
 }
 
 // === TTS ===
