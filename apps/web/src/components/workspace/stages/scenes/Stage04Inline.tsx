@@ -58,6 +58,23 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
     }
   }
 
+  // Phase 1.4.1: per-scene audio failure after retry_count is exhausted.
+  // Surfaces the failed-state UI with manual retry button.
+  const failedAudioByScene: Record<string, MediaJobRow> = {};
+  for (const job of jobs) {
+    if (
+      job.scene_id &&
+      job.status === 'error' &&
+      (job.kind === 'voice' || job.kind === 'final_clip') &&
+      (job.retry_count ?? 0) >= 1
+    ) {
+      const existing = failedAudioByScene[job.scene_id];
+      if (!existing || (job.created_at ?? '') > (existing.created_at ?? '')) {
+        failedAudioByScene[job.scene_id] = job;
+      }
+    }
+  }
+
   const totalDuration = scenes.reduce((sum, s) => sum + (s.duration_sec ?? 0), 0);
 
   // A scene is "ready for master" when it has at least an active video version
@@ -186,6 +203,7 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
             index={i}
             characters={characters}
             activeJob={jobsByScene[scene.scene_id] ?? null}
+            failedAudioJob={failedAudioByScene[scene.scene_id] ?? null}
             tier={scene.config_overrides?.tier ?? tier}
           />
         ))}

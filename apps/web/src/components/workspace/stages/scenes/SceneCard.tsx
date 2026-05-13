@@ -14,15 +14,17 @@ interface Props {
   index: number;
   characters: Character[];
   activeJob: MediaJobRow | null;
+  failedAudioJob: MediaJobRow | null;
   tier: 'economy' | 'premium';
 }
 
 export function SceneCard(props: Props) {
   const num = String(props.index + 1).padStart(2, '0');
+  const { failedAudioJob, ...rest } = props;
   return (
     <article className="scene-row" data-scene-index={num}>
-      <SceneThumbnailColumn {...props} />
-      <SceneSidePanel sceneNum={num} {...props} />
+      <SceneThumbnailColumn {...rest} failedAudioJob={failedAudioJob} />
+      <SceneSidePanel sceneNum={num} {...rest} />
     </article>
   );
 }
