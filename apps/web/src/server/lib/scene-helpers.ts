@@ -36,6 +36,8 @@ export async function recordPendingJob(params: {
   model: string;
   fal_request_id: string;
   request_input: Record<string, unknown>;
+  retry_count?: number;
+  delayed_until?: string | null;
 }): Promise<{ job_id: string; existing: boolean }> {
   const sb = await getServerSupabase();
   const { data, error } = await sb
@@ -50,6 +52,8 @@ export async function recordPendingJob(params: {
       fal_request_id: params.fal_request_id,
       status: 'pending',
       request_input: params.request_input as never,
+      retry_count: params.retry_count ?? 0,
+      delayed_until: params.delayed_until ?? null,
     })
     .select('id')
     .single();
