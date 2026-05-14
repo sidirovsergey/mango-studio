@@ -1,5 +1,12 @@
 'use server';
 
+// Script-gen actions hit Grok 4.1 Fast which can take 30-90s for a full
+// 60s/6-scene premium script with the post-2026-05-13 enriched output
+// schema (composition, camera, lighting, audio_direction, etc. per scene).
+// Vercel's default function timeout is 60s on Pro; bump to 120s so the
+// happy-path doesn't get 504'd mid-stream.
+export const maxDuration = 120;
+
 import { getCurrentUserId } from '@/lib/auth/get-user';
 import { logLLMCall } from '@/server/lib/log-llm-call';
 import {
