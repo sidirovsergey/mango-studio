@@ -6,6 +6,7 @@ import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import {
   finalizeMediaJobReservation,
+  recordPendingJob,
   rollbackMediaJobReservation,
 } from '@/server/lib/scene-helpers';
 import {
@@ -108,73 +109,115 @@ export async function generateCharacterDossierAction(
         character_id: character.id,
       }),
     ]);
+
+    // Rollback the live half if its partner failed quota — never burn a half-pair.
+    const rollbackIfReserved = async (r: typeof dossierRes): Promise<void> => {
+      if (r.ok && r.mode === 'reserved' && !r.dedup) {
+        await rollbackMediaJobReservation(r.job_id);
+      }
+    };
     if (!dossierRes.ok) {
-      if (avatarRes.ok && !avatarRes.dedup) await rollbackMediaJobReservation(avatarRes.job_id);
+      await rollbackIfReserved(avatarRes);
       return { ok: false, error: dossierRes.error };
     }
     if (!avatarRes.ok) {
-      if (!dossierRes.dedup) await rollbackMediaJobReservation(dossierRes.job_id);
+      await rollbackIfReserved(dossierRes);
       return { ok: false, error: avatarRes.error };
     }
-    // If BOTH dedup'd, an active dossier+avatar pair already runs — return the
-    // main job_id as "existing". If one dedup'd and the other didn't, we still
-    // need to submit the non-dedup'd one, so we proceed (this is a recovery
-    // path, e.g. avatar job was cancelled while dossier still running).
-    if (dossierRes.dedup && avatarRes.dedup) {
-      return { ok: true, job_id: dossierRes.job_id };
+
+    // Per-side: was a slot already-active (dedup) or do we need to submit?
+    // 'reserved'+dedup → skip submit, reuse the existing job's id.
+    // 'reserved'+!dedup → submit, then finalize the reservation row.
+    // 'bypass' → submit, then recordPendingJob (legacy insert; no reservation existed).
+    const dossierNeedsSubmit = !(dossierRes.mode === 'reserved' && dossierRes.dedup);
+    const avatarNeedsSubmit = !(avatarRes.mode === 'reserved' && avatarRes.dedup);
+
+    // Both dedup'd → an active dossier+avatar pair already runs. Return early
+    // with the main job_id; do not call provider at all.
+    if (!dossierNeedsSubmit && !avatarNeedsSubmit) {
+      // Narrowing: both reservations are 'reserved' + dedup=true here.
+      return { ok: true, job_id: (dossierRes as { mode: 'reserved'; job_id: string }).job_id };
     }
 
-    let mainHandle: Awaited<ReturnType<typeof provider.submitCharacterDossier>>;
-    let avatarHandle: Awaited<ReturnType<typeof provider.submitCharacterDossier>>;
+    let mainHandle: Awaited<ReturnType<typeof provider.submitCharacterDossier>> | null = null;
+    let avatarHandle: Awaited<ReturnType<typeof provider.submitCharacterDossier>> | null = null;
     try {
-      [mainHandle, avatarHandle] = await Promise.all([
-        provider.submitCharacterDossier(
-          {
-            prompt,
-            model,
-            format: '16:9',
-            quality,
-            image_refs: character.reference_images.map((r) => r.storage),
-          },
-          ctx,
-        ),
-        provider.submitCharacterDossier(
-          {
-            prompt: avatarPrompt,
-            model,
-            format: '1:1',
-            quality,
-            image_refs: [],
-          },
-          ctx,
-        ),
+      const [d, a] = await Promise.all([
+        dossierNeedsSubmit
+          ? provider.submitCharacterDossier(
+              {
+                prompt,
+                model,
+                format: '16:9',
+                quality,
+                image_refs: character.reference_images.map((r) => r.storage),
+              },
+              ctx,
+            )
+          : Promise.resolve(null),
+        avatarNeedsSubmit
+          ? provider.submitCharacterDossier(
+              {
+                prompt: avatarPrompt,
+                model,
+                format: '1:1',
+                quality,
+                image_refs: [],
+              },
+              ctx,
+            )
+          : Promise.resolve(null),
       ]);
+      mainHandle = d;
+      avatarHandle = a;
     } catch (e) {
-      if (!dossierRes.dedup) await rollbackMediaJobReservation(dossierRes.job_id);
-      if (!avatarRes.dedup) await rollbackMediaJobReservation(avatarRes.job_id);
+      await rollbackIfReserved(dossierRes);
+      await rollbackIfReserved(avatarRes);
       throw e;
     }
 
-    await Promise.all([
-      dossierRes.dedup
-        ? Promise.resolve()
-        : finalizeMediaJobReservation({
-            job_id: dossierRes.job_id,
-            model: mainHandle.model_used,
-            fal_request_id: mainHandle.fal_request_id,
-            request_input: mainHandle.request_input,
-          }),
-      avatarRes.dedup
-        ? Promise.resolve()
-        : finalizeMediaJobReservation({
-            job_id: avatarRes.job_id,
-            model: avatarHandle.model_used,
-            fal_request_id: avatarHandle.fal_request_id,
-            request_input: avatarHandle.request_input,
-          }),
+    // Record/finalize each side independently. recordPendingJob is used for
+    // bypass mode (no pre-submit reservation exists; insert tracks the job now).
+    const finalizeSide = async (
+      r: typeof dossierRes,
+      handle: typeof mainHandle,
+      kind: 'character_dossier' | 'character_avatar',
+    ): Promise<string> => {
+      if (r.mode === 'reserved' && r.dedup) {
+        return r.job_id; // existing active job — no submit happened
+      }
+      if (!handle) {
+        // Defensive: needsSubmit was true but handle is null — shouldn't reach.
+        throw new Error(`[dossier] missing fal handle for kind=${kind}`);
+      }
+      if (r.mode === 'reserved') {
+        await finalizeMediaJobReservation({
+          job_id: r.job_id,
+          model: handle.model_used,
+          fal_request_id: handle.fal_request_id,
+          request_input: handle.request_input,
+        });
+        return r.job_id;
+      }
+      // bypass
+      const rec = await recordPendingJob({
+        user_id: user.id,
+        project_id: input.project_id,
+        character_id: character.id,
+        kind,
+        model: handle.model_used,
+        fal_request_id: handle.fal_request_id,
+        request_input: handle.request_input,
+      });
+      return rec.job_id;
+    };
+
+    const [mainJobId, avatarJobId] = await Promise.all([
+      finalizeSide(dossierRes, mainHandle, 'character_dossier'),
+      finalizeSide(avatarRes, avatarHandle, 'character_avatar'),
     ]);
-    const mainJob = { job_id: dossierRes.job_id };
-    const avatarJob = { job_id: avatarRes.job_id };
+    const mainJob = { job_id: mainJobId };
+    void avatarJobId;
 
     // Save full_prompt to character now; dossier+avatar storage land in poll-orchestrator.
     const updated: Character = { ...character, full_prompt: prompt };
@@ -193,7 +236,6 @@ export async function generateCharacterDossierAction(
 
     revalidatePath(`/projects/${input.project_id}`);
     // Return the main job_id; avatar runs in parallel, polling will pick it up.
-    void avatarJob;
     return { ok: true, job_id: mainJob.job_id };
   } catch (e) {
     if (e instanceof MediaProviderError) {

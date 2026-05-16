@@ -5,6 +5,7 @@ import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import {
   finalizeMediaJobReservation,
+  recordPendingJob,
   rollbackMediaJobReservation,
 } from '@/server/lib/scene-helpers';
 import {
@@ -178,8 +179,9 @@ export async function generateFirstFrameAction(
     scene_id: input.scene_id,
   });
   if (!reservation.ok) return { ok: false, error: reservation.error };
-  // dedup=true means an active job for the same target already exists; skip fal.
-  if (reservation.dedup) {
+  // dedup=true means an active OR reserved job for the same target already
+  // exists; skip fal.
+  if (reservation.mode === 'reserved' && reservation.dedup) {
     return { ok: true, job_id: reservation.job_id, existing: true };
   }
 
@@ -193,18 +195,34 @@ export async function generateFirstFrameAction(
       ctx,
     );
   } catch (e) {
-    await rollbackMediaJobReservation(reservation.job_id);
+    if (reservation.mode === 'reserved') {
+      await rollbackMediaJobReservation(reservation.job_id);
+    }
     throw e;
   }
 
-  await finalizeMediaJobReservation({
-    job_id: reservation.job_id,
+  if (reservation.mode === 'reserved') {
+    await finalizeMediaJobReservation({
+      job_id: reservation.job_id,
+      model: handle.model_used,
+      fal_request_id: handle.fal_request_id,
+      request_input: handle.request_input,
+    });
+    return { ok: true, job_id: reservation.job_id, existing: false };
+  }
+
+  // Bypass mode: metering disabled or RPC degraded — fall back to the legacy
+  // insert path so the job is still tracked.
+  const { job_id, existing } = await recordPendingJob({
+    user_id: user.id,
+    project_id: input.project_id,
+    scene_id: input.scene_id,
+    kind: 'first_frame',
     model: handle.model_used,
     fal_request_id: handle.fal_request_id,
     request_input: handle.request_input,
   });
-
-  return { ok: true, job_id: reservation.job_id, existing: false };
+  return { ok: true, job_id, existing };
 }
 
 const BulkInputSchema = z.object({

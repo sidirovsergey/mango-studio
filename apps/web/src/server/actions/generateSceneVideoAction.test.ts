@@ -9,9 +9,13 @@ vi.mock('@/server/lib/scene-helpers', () => ({
   rollbackMediaJobReservation: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('@/server/lib/rate-limit', () => ({
-  reserveMediaJob: vi
-    .fn()
-    .mockResolvedValue({ ok: true, job_id: 'reserved-id', used: 1, dedup: false }),
+  reserveMediaJob: vi.fn().mockResolvedValue({
+    ok: true,
+    mode: 'reserved' as const,
+    job_id: 'reserved-id',
+    used: 1,
+    dedup: false,
+  }),
 }));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
@@ -141,6 +145,7 @@ describe('generateSceneVideoAction', () => {
 
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
+      mode: 'reserved' as const,
       job_id: 'job-video-1',
       used: 1,
       dedup: false,
@@ -195,6 +200,7 @@ describe('generateSceneVideoAction', () => {
     });
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
+      mode: 'reserved' as const,
       job_id: 'j1',
       used: 1,
       dedup: false,
@@ -230,6 +236,7 @@ describe('generateSceneVideoAction', () => {
     });
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
+      mode: 'reserved' as const,
       job_id: 'j-ov',
       used: 1,
       dedup: false,
@@ -272,6 +279,7 @@ describe('generateSceneVideoAction', () => {
     });
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
+      mode: 'reserved' as const,
       job_id: 'j1',
       used: 1,
       dedup: false,
@@ -321,6 +329,7 @@ async function runAndCapturePrompt(
   });
   (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
     ok: true,
+    mode: 'reserved' as const,
     job_id: 'j-snap',
     used: 1,
     dedup: false,

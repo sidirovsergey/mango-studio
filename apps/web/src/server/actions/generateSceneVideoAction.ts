@@ -5,6 +5,7 @@ import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import {
   finalizeMediaJobReservation,
+  recordPendingJob,
   rollbackMediaJobReservation,
 } from '@/server/lib/scene-helpers';
 import {
@@ -212,7 +213,7 @@ export async function generateSceneVideoAction(
     scene_id: input.scene_id,
   });
   if (!reservation.ok) return { ok: false, error: reservation.error };
-  if (reservation.dedup) {
+  if (reservation.mode === 'reserved' && reservation.dedup) {
     return { ok: true, job_id: reservation.job_id, existing: true, audio_mode: audioMode };
   }
 
@@ -230,20 +231,37 @@ export async function generateSceneVideoAction(
       ctx,
     );
   } catch (e) {
-    await rollbackMediaJobReservation(reservation.job_id);
+    if (reservation.mode === 'reserved') {
+      await rollbackMediaJobReservation(reservation.job_id);
+    }
     throw e;
   }
 
-  await finalizeMediaJobReservation({
-    job_id: reservation.job_id,
+  const enrichedRequestInput = {
+    ...(handle.request_input ?? {}),
+    audio_mode: audioMode,
+    first_frame_version_id: activeFrame.version_id,
+  };
+
+  if (reservation.mode === 'reserved') {
+    await finalizeMediaJobReservation({
+      job_id: reservation.job_id,
+      model: handle.model_used,
+      fal_request_id: handle.fal_request_id,
+      request_input: enrichedRequestInput,
+    });
+    return { ok: true, job_id: reservation.job_id, existing: false, audio_mode: audioMode };
+  }
+
+  // Bypass mode: metering disabled or RPC degraded.
+  const { job_id, existing } = await recordPendingJob({
+    user_id: user.id,
+    project_id: input.project_id,
+    scene_id: input.scene_id,
+    kind: 'video',
     model: handle.model_used,
     fal_request_id: handle.fal_request_id,
-    request_input: {
-      ...(handle.request_input ?? {}),
-      audio_mode: audioMode,
-      first_frame_version_id: activeFrame.version_id,
-    },
+    request_input: enrichedRequestInput,
   });
-
-  return { ok: true, job_id: reservation.job_id, existing: false, audio_mode: audioMode };
+  return { ok: true, job_id, existing, audio_mode: audioMode };
 }

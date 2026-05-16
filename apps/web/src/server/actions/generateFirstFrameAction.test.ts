@@ -9,9 +9,13 @@ vi.mock('@/server/lib/scene-helpers', () => ({
   rollbackMediaJobReservation: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('@/server/lib/rate-limit', () => ({
-  reserveMediaJob: vi
-    .fn()
-    .mockResolvedValue({ ok: true, job_id: 'reserved-id', used: 1, dedup: false }),
+  reserveMediaJob: vi.fn().mockResolvedValue({
+    ok: true,
+    mode: 'reserved' as const,
+    job_id: 'reserved-id',
+    used: 1,
+    dedup: false,
+  }),
 }));
 // The dynamic import of generateReferenceImageAction (F53 hard-precondition) pulls
 // in next/cache; stub revalidatePath so the inner action does not throw in test env.
@@ -105,6 +109,7 @@ describe('generateFirstFrameAction', () => {
 
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
+      mode: 'reserved' as const,
       job_id: 'job-1',
       used: 1,
       dedup: false,
@@ -167,6 +172,7 @@ describe('generateFirstFrameAction', () => {
     // reservation returns an existing active job's id and we skip the fal submit.
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
+      mode: 'reserved' as const,
       job_id: 'job-existing',
       used: 0,
       dedup: true,
@@ -211,6 +217,7 @@ describe('generateFirstFrameAction', () => {
     });
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
+      mode: 'reserved' as const,
       job_id: 'job-ref',
       used: 1,
       dedup: false,
@@ -276,6 +283,7 @@ describe('generateFirstFrameAction', () => {
 
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
+      mode: 'reserved' as const,
       job_id: 'job-ov-bypass',
       used: 1,
       dedup: false,
@@ -321,6 +329,7 @@ describe('generateFirstFrameAction', () => {
 
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
+      mode: 'reserved' as const,
       job_id: 'job-ov',
       used: 1,
       dedup: false,
@@ -395,6 +404,7 @@ describe('generateFirstFrameAction', () => {
 
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
+      mode: 'reserved' as const,
       job_id: 'job-bulk',
       used: 1,
       dedup: false,

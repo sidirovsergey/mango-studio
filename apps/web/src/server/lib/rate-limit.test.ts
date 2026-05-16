@@ -22,7 +22,7 @@ beforeEach(() => {
 });
 
 describe('reserveMediaJob', () => {
-  it('returns reservation with allowed=true under quota', async () => {
+  it('returns mode=reserved when RPC accepts the reservation', async () => {
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
       makeSb({
         data: [{ job_id: 'job-1', used: 10, allowed: true, dedup: false }],
@@ -37,14 +37,16 @@ describe('reserveMediaJob', () => {
     });
 
     expect(r.ok).toBe(true);
-    if (r.ok) {
+    if (r.ok && r.mode === 'reserved') {
       expect(r.job_id).toBe('job-1');
       expect(r.used).toBe(10);
       expect(r.dedup).toBe(false);
+    } else {
+      throw new Error('expected mode=reserved');
     }
   });
 
-  it('returns dedup=true when active job already exists', async () => {
+  it('returns mode=reserved with dedup=true when active job already exists', async () => {
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
       makeSb({
         data: [{ job_id: 'existing-job', used: 0, allowed: true, dedup: true }],
@@ -59,13 +61,15 @@ describe('reserveMediaJob', () => {
     });
 
     expect(r.ok).toBe(true);
-    if (r.ok) {
+    if (r.ok && r.mode === 'reserved') {
       expect(r.dedup).toBe(true);
       expect(r.job_id).toBe('existing-job');
+    } else {
+      throw new Error('expected mode=reserved');
     }
   });
 
-  it('rejects when allowed=false (quota hit)', async () => {
+  it('rejects with quota error when allowed=false', async () => {
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
       makeSb({
         data: [{ job_id: null, used: 50, allowed: false, dedup: false }],
@@ -97,7 +101,6 @@ describe('reserveMediaJob', () => {
       kind: 'video',
     });
 
-    // RPC arg verification: limit override forwarded to p_quota_limit
     expect(sb.rpc).toHaveBeenCalledWith(
       'reserve_media_job',
       expect.objectContaining({ p_quota_limit: 5 }),
@@ -108,7 +111,7 @@ describe('reserveMediaJob', () => {
     }
   });
 
-  it('bypasses RPC entirely when MANGO_RATE_LIMIT_ENABLED=0', async () => {
+  it('returns mode=bypass when MANGO_RATE_LIMIT_ENABLED=0 (no RPC call)', async () => {
     process.env.MANGO_RATE_LIMIT_ENABLED = '0';
 
     const r = await reserveMediaJob({
@@ -118,10 +121,11 @@ describe('reserveMediaJob', () => {
     });
 
     expect(r.ok).toBe(true);
+    if (r.ok) expect(r.mode).toBe('bypass');
     expect(getServerSupabase).not.toHaveBeenCalled();
   });
 
-  it('fails open when RPC errors (allow request, warn)', async () => {
+  it('degrades to mode=bypass when RPC errors (fail-open, logs warn)', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
       makeSb({ data: null, error: { message: 'rpc unreachable' } }),
@@ -134,11 +138,31 @@ describe('reserveMediaJob', () => {
     });
 
     expect(r.ok).toBe(true);
+    if (r.ok) expect(r.mode).toBe('bypass');
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
   });
 
-  it('passes scene_id and character_id through to RPC args', async () => {
+  it('degrades to mode=bypass when allowed=true but job_id is null (defensive)', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeSb({
+        data: [{ job_id: null, used: 1, allowed: true, dedup: false }],
+      }),
+    );
+
+    const r = await reserveMediaJob({
+      user_id: USER,
+      project_id: PROJECT,
+      kind: 'first_frame',
+    });
+
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.mode).toBe('bypass');
+    warnSpy.mockRestore();
+  });
+
+  it('passes scene_id, character_id, and stale-reservation TTL through to RPC args', async () => {
     const sb = makeSb({
       data: [{ job_id: 'job-x', used: 1, allowed: true, dedup: false }],
     });
@@ -159,6 +183,7 @@ describe('reserveMediaJob', () => {
         p_kind: 'character_dossier',
         p_character_id: 'char-1',
         p_scene_id: null,
+        p_stale_reserved_minutes: 5,
       }),
     );
   });

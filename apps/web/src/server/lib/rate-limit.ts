@@ -10,21 +10,33 @@
  *   App-level "count → fal.submit → insert" leaves a race where N concurrent
  *   requests all see the same stale count, all submit, and only later record
  *   media_jobs rows. Bursts slip past the quota by parallelism factor. The
- *   `reserve_media_job` Postgres function (migration 20260516000001) wraps the
- *   count and the placeholder insert in a per-user advisory lock so concurrent
- *   reservations serialize.
+ *   `reserve_media_job` Postgres function (migration 20260516000001 + v2)
+ *   wraps the count and the placeholder insert in a per-user advisory lock so
+ *   concurrent reservations serialize. The count INCLUDES 'reserved' rows so
+ *   each pre-submit slot consumes quota atomically.
  *
  * Lifecycle (caller responsibility):
- *   1. reserveMediaJob(...) → { ok, job_id, dedup }
- *   2. if !ok: return quota error
- *   3. if dedup: return early with existing job_id (no fal call)
+ *   1. reserveMediaJob(...) → discriminated { ok, mode, ... }
+ *   2. if !ok: return quota error to user
+ *   3. if mode === 'reserved' && dedup: return early with existing job_id
  *   4. provider.submit(...)
- *   5a. on success: finalizeMediaJobReservation(job_id, fal_request_id, model, request_input)
- *   5b. on failure: rollbackMediaJobReservation(job_id) — frees the slot
+ *   5a. on success:
+ *        - mode === 'reserved' → finalizeMediaJobReservation(...)
+ *        - mode === 'bypass'   → recordPendingJob(...)  (legacy insert path)
+ *   5b. on failure:
+ *        - mode === 'reserved' → rollbackMediaJobReservation(...)
+ *        - mode === 'bypass'   → nothing to roll back (no row exists yet)
+ *
+ * The bypass mode exists for two reasons:
+ *   - Explicit disable via MANGO_RATE_LIMIT_ENABLED=0 (dev/test, emergency turn-off)
+ *   - Belt-and-suspenders: when the RPC call itself returns a soft error (network
+ *     blip, timeout) we degrade to recordPendingJob rather than fail the user's
+ *     request. This is fail-open by design — losing the quota gate is preferable
+ *     to losing media generation entirely while metering is unhealthy.
  *
  * Tuning:
- *   - MANGO_RATE_LIMIT_ENABLED          ('1' default, '0' bypass)
- *   - MANGO_RATE_LIMIT_MEDIA_JOBS_PER_DAY (default 50 — ~3 full projects/day for anon)
+ *   - MANGO_RATE_LIMIT_ENABLED          ('1' default, '0' bypasses)
+ *   - MANGO_RATE_LIMIT_MEDIA_JOBS_PER_DAY (default 50)
  */
 
 import { getServerSupabase } from '@mango/db/server';
@@ -32,9 +44,11 @@ import type { MediaJobKind } from './scene-helpers';
 
 const DEFAULT_QUOTA = 50;
 const QUOTA_WINDOW_HOURS = 24;
+const STALE_RESERVED_MINUTES = 5;
 
 export type ReserveResult =
-  | { ok: true; job_id: string; used: number; dedup: boolean }
+  | { ok: true; mode: 'reserved'; job_id: string; used: number; dedup: boolean }
+  | { ok: true; mode: 'bypass' }
   | { ok: false; error: string };
 
 function quotaLimit(): number {
@@ -56,19 +70,29 @@ export interface ReserveInput {
   character_id?: string | null;
 }
 
+interface ReserveRpcRow {
+  job_id: string | null;
+  used: number;
+  allowed: boolean;
+  dedup: boolean;
+}
+
 /**
- * Atomic quota check + slot reservation. Returns the new reservation row's id,
- * or — when an active job for the same target already exists — that row's id
- * with dedup=true (caller should NOT submit again).
+ * Atomic quota check + slot reservation via Postgres RPC.
  *
- * When quota is exhausted, returns a friendly Russian error and no row is created.
+ * Returns a discriminated union; callers MUST branch on `mode`:
+ *   - 'reserved': a media_jobs row was inserted with status='reserved'.
+ *     Caller proceeds to provider.submit, then finalize or rollback.
+ *   - 'bypass': no row was inserted (quota disabled or metering error).
+ *     Caller proceeds to provider.submit, then uses recordPendingJob to
+ *     insert a real 'pending' row.
+ *
+ * `ok: false` is returned ONLY when the user's quota is exhausted — a real
+ * cap signal from the meter. RPC errors degrade to bypass mode, not failure.
  */
 export async function reserveMediaJob(input: ReserveInput): Promise<ReserveResult> {
   if (!quotaEnabled()) {
-    // Bypass mode: legacy insert path. recordPendingJob still handles dedup
-    // via the unique partial index; callers that go through finalize() will
-    // need a real job_id — emit a synthetic flag the caller treats as bypass.
-    return { ok: true, job_id: '', used: 0, dedup: false };
+    return { ok: true, mode: 'bypass' };
   }
 
   const limit = quotaLimit();
@@ -93,25 +117,27 @@ export async function reserveMediaJob(input: ReserveInput): Promise<ReserveResul
     p_character_id: input.character_id ?? null,
     p_quota_limit: limit,
     p_window_hours: QUOTA_WINDOW_HOURS,
+    p_stale_reserved_minutes: STALE_RESERVED_MINUTES,
   });
   const { data, error } = await rpc;
 
   if (error) {
-    // Fail-open on metering outage — a degraded rate-limit must not block users.
-    console.warn('[rate-limit] reserve_media_job RPC failed, allowing request', {
+    // Fail-open into bypass mode — a degraded metering layer must not block
+    // legitimate users. The caller's recordPendingJob still inserts a tracked
+    // row, just without the burst-race protection.
+    console.warn('[rate-limit] reserve_media_job RPC failed, degrading to bypass', {
       user_id: input.user_id,
       error: error.message,
     });
-    return { ok: true, job_id: '', used: 0, dedup: false };
+    return { ok: true, mode: 'bypass' };
   }
 
-  // RPC returns a one-row set: [{ job_id, used, allowed, dedup }]
   const row: ReserveRpcRow | null = Array.isArray(data) ? (data[0] ?? null) : data;
   if (!row) {
-    console.warn('[rate-limit] reserve_media_job returned empty result, allowing request', {
+    console.warn('[rate-limit] reserve_media_job returned empty result, degrading to bypass', {
       user_id: input.user_id,
     });
-    return { ok: true, job_id: '', used: 0, dedup: false };
+    return { ok: true, mode: 'bypass' };
   }
 
   if (!row.allowed) {
@@ -121,17 +147,19 @@ export async function reserveMediaJob(input: ReserveInput): Promise<ReserveResul
     };
   }
 
+  if (row.job_id === null) {
+    // Shouldn't happen when allowed=true, but stay defensive.
+    console.warn('[rate-limit] reserve_media_job allowed but job_id is null, degrading to bypass', {
+      user_id: input.user_id,
+    });
+    return { ok: true, mode: 'bypass' };
+  }
+
   return {
     ok: true,
-    job_id: row.job_id as string,
+    mode: 'reserved',
+    job_id: row.job_id,
     used: row.used,
     dedup: row.dedup,
   };
-}
-
-interface ReserveRpcRow {
-  job_id: string | null;
-  used: number;
-  allowed: boolean;
-  dedup: boolean;
 }

@@ -6,6 +6,7 @@ import { reserveMediaJob } from '@/server/lib/rate-limit';
 import {
   type MediaJobKind,
   finalizeMediaJobReservation,
+  recordPendingJob,
   rollbackMediaJobReservation,
 } from '@/server/lib/scene-helpers';
 import type { AssetContext, MediaProvider } from '@mango/core';
@@ -49,11 +50,11 @@ export async function retryMediaJobAction(input: { job_id: string }): Promise<
   const submitMethod = KIND_TO_SUBMIT[old.kind];
   if (!submitMethod) return { ok: false, error: `unsupported kind: ${old.kind}` };
 
-  // Atomic quota + reservation. Mark the old job superseded BEFORE reserving
-  // so the unique partial index (status in pending/running) doesn't reject the
-  // reservation row for the same (project, scene/character, kind) target.
-  await sb.from('media_jobs').update({ status: 'superseded' }).eq('id', old.id);
-
+  // Atomic quota + reservation. Old job's status='error' is OUTSIDE the unique
+  // partial index predicate ('pending'/'running'), and reserve_media_job inserts
+  // with status='reserved' which is also outside the predicate — so there's no
+  // index conflict. Defer the supersede until AFTER finalize succeeds so a
+  // failed retry leaves the original 'error' job retryable.
   const reservation = await reserveMediaJob({
     user_id: user.id,
     project_id: old.project_id,
@@ -62,7 +63,7 @@ export async function retryMediaJobAction(input: { job_id: string }): Promise<
     character_id: old.character_id ?? undefined,
   });
   if (!reservation.ok) return { ok: false, error: reservation.error };
-  if (reservation.dedup) {
+  if (reservation.mode === 'reserved' && reservation.dedup) {
     return { ok: true, new_job_id: reservation.job_id };
   }
 
@@ -84,16 +85,40 @@ export async function retryMediaJobAction(input: { job_id: string }): Promise<
   try {
     handle = await submitFn.call(provider, old.request_input, ctx);
   } catch (e) {
-    await rollbackMediaJobReservation(reservation.job_id);
+    if (reservation.mode === 'reserved') {
+      await rollbackMediaJobReservation(reservation.job_id);
+    }
+    // Old 'error' job intentionally left as-is so the user can retry again.
     throw e;
   }
 
-  await finalizeMediaJobReservation({
-    job_id: reservation.job_id,
-    model: handle.model_used,
-    fal_request_id: handle.fal_request_id,
-    request_input: handle.request_input,
-  });
+  let new_job_id: string;
+  if (reservation.mode === 'reserved') {
+    await finalizeMediaJobReservation({
+      job_id: reservation.job_id,
+      model: handle.model_used,
+      fal_request_id: handle.fal_request_id,
+      request_input: handle.request_input,
+    });
+    new_job_id = reservation.job_id;
+  } else {
+    // Bypass mode.
+    const recorded = await recordPendingJob({
+      user_id: user.id,
+      project_id: old.project_id,
+      scene_id: old.scene_id ?? undefined,
+      character_id: old.character_id ?? undefined,
+      kind: old.kind as MediaJobKind,
+      model: handle.model_used,
+      fal_request_id: handle.fal_request_id,
+      request_input: handle.request_input,
+    });
+    new_job_id = recorded.job_id;
+  }
 
-  return { ok: true, new_job_id: reservation.job_id };
+  // Now (and only now) supersede the old 'error' job. If this update fails,
+  // the worst outcome is two rows describing the same retry — non-destructive.
+  await sb.from('media_jobs').update({ status: 'superseded' }).eq('id', old.id);
+
+  return { ok: true, new_job_id };
 }

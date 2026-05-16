@@ -5,6 +5,7 @@ import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import {
   finalizeMediaJobReservation,
+  recordPendingJob,
   rollbackMediaJobReservation,
 } from '@/server/lib/scene-helpers';
 import { type StoredAsset, getVideoModelMeta } from '@mango/core';
@@ -151,7 +152,7 @@ export async function generateMasterClipAction(
     kind: 'master_clip',
   });
   if (!reservation.ok) return { ok: false, error: reservation.error };
-  if (reservation.dedup) {
+  if (reservation.mode === 'reserved' && reservation.dedup) {
     return { ok: true, job_id: reservation.job_id, existing: true };
   }
 
@@ -159,20 +160,36 @@ export async function generateMasterClipAction(
   try {
     handle = await provider.submitMasterConcat({ clip_urls }, ctx);
   } catch (e) {
-    await rollbackMediaJobReservation(reservation.job_id);
+    if (reservation.mode === 'reserved') {
+      await rollbackMediaJobReservation(reservation.job_id);
+    }
     throw e;
   }
 
-  await finalizeMediaJobReservation({
-    job_id: reservation.job_id,
+  const enrichedRequestInput = {
+    ...(handle.request_input ?? {}),
+    composed,
+    has_full_audio,
+  };
+
+  if (reservation.mode === 'reserved') {
+    await finalizeMediaJobReservation({
+      job_id: reservation.job_id,
+      model: handle.model_used,
+      fal_request_id: handle.fal_request_id,
+      request_input: enrichedRequestInput,
+    });
+    return { ok: true, job_id: reservation.job_id, existing: false };
+  }
+
+  // Bypass mode.
+  const { job_id, existing } = await recordPendingJob({
+    user_id: user.id,
+    project_id: input.project_id,
+    kind: 'master_clip',
     model: handle.model_used,
     fal_request_id: handle.fal_request_id,
-    request_input: {
-      ...(handle.request_input ?? {}),
-      composed,
-      has_full_audio,
-    },
+    request_input: enrichedRequestInput,
   });
-
-  return { ok: true, job_id: reservation.job_id, existing: false };
+  return { ok: true, job_id, existing };
 }
