@@ -100,6 +100,13 @@ describe('runPollTick', () => {
           latency_ms: 60000,
         },
       }) as unknown as PollDeps['provider'],
+      finalizeCompleted: vi.fn().mockResolvedValue({
+        project_id: 'p',
+        scene_id: 's1',
+        version_id: 'video-ver-1',
+        kind: 'video',
+        ext: 'mp4',
+      }),
     });
     await runPollTick({ project_id: 'p', user_id: 'u' }, deps);
     expect(
@@ -116,6 +123,7 @@ describe('runPollTick', () => {
       expect.objectContaining({
         kind: 'last_frame_extract',
         scene_id: 's1',
+        request_input: expect.objectContaining({ video_version_id: 'video-ver-1' }),
       }),
     );
   });

@@ -105,6 +105,7 @@ function buildFirstFrameForScene(
   script: ScriptShape,
   sceneIdx: number,
   projectStyle: Style,
+  projectTier: Tier,
 ): { prompt: string; model: string } | null {
   const scene = script.scenes[sceneIdx];
   if (!scene) return null;
@@ -136,8 +137,8 @@ function buildFirstFrameForScene(
 
   // first_frame uses the image model (nano-banana), not a video model. The
   // tier-defaulted model is fine here — generateFirstFrameAction does the same.
-  const projectTier = (script.tier ?? 'economy') as Tier;
-  const model = getDefaultModel(projectTier);
+  const effectiveTier = (script.tier ?? projectTier) as Tier;
+  const model = getDefaultModel(effectiveTier);
 
   return { prompt: built.prompt, model };
 }
@@ -244,7 +245,7 @@ export async function buildProspectivePromptAction(
 
   const result =
     input.kind === 'first_frame'
-      ? buildFirstFrameForScene(script, sceneIdx, projectStyle)
+      ? buildFirstFrameForScene(script, sceneIdx, projectStyle, projectTier)
       : buildVideoForScene(script, sceneIdx, projectTier);
 
   if (!result) return { ok: false, error: 'could not build prompt' };
@@ -299,7 +300,7 @@ export async function buildAllProspectivePromptsAction(
     let first_frame: ProspectivePromptEntry['first_frame'] = null;
     let video: ProspectivePromptEntry['video'] = null;
     try {
-      first_frame = buildFirstFrameForScene(script, i, projectStyle);
+      first_frame = buildFirstFrameForScene(script, i, projectStyle, projectTier);
     } catch (e) {
       console.warn('[buildAllProspectivePrompts] first_frame build failed', {
         scene_id: scene.scene_id,

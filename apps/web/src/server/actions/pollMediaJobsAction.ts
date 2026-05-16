@@ -345,13 +345,17 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
           const sceneIdx = nextScript.scenes.findIndex((s) => s.scene_id === job.scene_id);
           if (sceneIdx >= 0) {
             const scene = nextScript.scenes[sceneIdx]! as unknown as {
-              first_frame_active_version_id: string | null;
+              video_active_version_id?: string | null;
             };
+            const extractedFromVersionId =
+              typeof requestInput.video_version_id === 'string'
+                ? requestInput.video_version_id
+                : (scene.video_active_version_id ?? '');
             const updatedScene = {
               ...nextScript.scenes[sceneIdx]!,
               last_frame: {
                 storage: bucketedStored,
-                extracted_from_version_id: scene.first_frame_active_version_id ?? '',
+                extracted_from_version_id: extractedFromVersionId,
               },
             };
             const scenes = [...nextScript.scenes];
