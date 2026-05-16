@@ -18,7 +18,6 @@ function makeSb(rpcResult: { data: unknown; error: { message: string } | null } 
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.MANGO_RATE_LIMIT_ENABLED = undefined;
-  process.env.MANGO_RATE_LIMIT_MEDIA_JOBS_PER_DAY = undefined;
 });
 
 describe('reserveMediaJob', () => {
@@ -84,31 +83,38 @@ describe('reserveMediaJob', () => {
 
     expect(r.ok).toBe(false);
     if (!r.ok) {
+      // Limit is mirrored from the SQL-side constant (50).
       expect(r.error).toContain('50/50');
     }
   });
 
-  it('respects MANGO_RATE_LIMIT_MEDIA_JOBS_PER_DAY override', async () => {
-    process.env.MANGO_RATE_LIMIT_MEDIA_JOBS_PER_DAY = '5';
+  it('does NOT forward quota tunables to the RPC (SQL-side constants are authoritative)', async () => {
     const sb = makeSb({
-      data: [{ job_id: null, used: 5, allowed: false, dedup: false }],
+      data: [{ job_id: 'job-x', used: 1, allowed: true, dedup: false }],
     });
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sb);
 
-    const r = await reserveMediaJob({
+    await reserveMediaJob({
       user_id: USER,
       project_id: PROJECT,
-      kind: 'video',
+      kind: 'first_frame',
+      scene_id: 'scene-1',
     });
 
-    expect(sb.rpc).toHaveBeenCalledWith(
-      'reserve_media_job',
-      expect.objectContaining({ p_quota_limit: 5 }),
-    );
-    expect(r.ok).toBe(false);
-    if (!r.ok) {
-      expect(r.error).toContain('5/5');
-    }
+    const [rpcName, args] = (sb.rpc as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(rpcName).toBe('reserve_media_job');
+    // Anti-tampering: the public RPC must not let the JS layer (and by
+    // extension a malicious caller of the JS surface) pass these.
+    expect(args).not.toHaveProperty('p_quota_limit');
+    expect(args).not.toHaveProperty('p_window_hours');
+    expect(args).not.toHaveProperty('p_stale_reserved_minutes');
+    // Target args must be present.
+    expect(args.p_user_id).toBe(USER);
+    expect(args.p_project_id).toBe(PROJECT);
+    expect(args.p_kind).toBe('first_frame');
   });
 
   it('returns mode=bypass when MANGO_RATE_LIMIT_ENABLED=0 (no RPC call)', async () => {
@@ -162,7 +168,7 @@ describe('reserveMediaJob', () => {
     warnSpy.mockRestore();
   });
 
-  it('passes scene_id, character_id, and stale-reservation TTL through to RPC args', async () => {
+  it('passes scene_id and character_id through to RPC args', async () => {
     const sb = makeSb({
       data: [{ job_id: 'job-x', used: 1, allowed: true, dedup: false }],
     });
@@ -183,7 +189,6 @@ describe('reserveMediaJob', () => {
         p_kind: 'character_dossier',
         p_character_id: 'char-1',
         p_scene_id: null,
-        p_stale_reserved_minutes: 5,
       }),
     );
   });

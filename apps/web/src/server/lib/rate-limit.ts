@@ -10,10 +10,15 @@
  *   App-level "count → fal.submit → insert" leaves a race where N concurrent
  *   requests all see the same stale count, all submit, and only later record
  *   media_jobs rows. Bursts slip past the quota by parallelism factor. The
- *   `reserve_media_job` Postgres function (migration 20260516000001 + v2)
+ *   `reserve_media_job` Postgres function (migrations 20260516000001..v4)
  *   wraps the count and the placeholder insert in a per-user advisory lock so
  *   concurrent reservations serialize. The count INCLUDES 'reserved' rows so
  *   each pre-submit slot consumes quota atomically.
+ *
+ * Tuning lives SQL-side, not here. The RPC accepts tunable params for signature
+ * compat but silently overrides them with SQL-side constants — anon-callable
+ * RPCs must not let the caller relax the cap, extend the window, or shrink the
+ * stale-reap TTL. To change the cap, deploy a new migration.
  *
  * Lifecycle (caller responsibility):
  *   1. reserveMediaJob(...) → discriminated { ok, mode, ... }
@@ -35,28 +40,23 @@
  *     to losing media generation entirely while metering is unhealthy.
  *
  * Tuning:
- *   - MANGO_RATE_LIMIT_ENABLED          ('1' default, '0' bypasses)
- *   - MANGO_RATE_LIMIT_MEDIA_JOBS_PER_DAY (default 50)
+ *   - MANGO_RATE_LIMIT_ENABLED ('1' default, '0' bypasses)
+ *
+ * Deprecated env (no longer respected — kept here only as a deprecation marker):
+ *   - MANGO_RATE_LIMIT_MEDIA_JOBS_PER_DAY → cap is now a SQL-side constant
  */
 
 import { getServerSupabase } from '@mango/db/server';
 import type { MediaJobKind } from './scene-helpers';
 
-const DEFAULT_QUOTA = 50;
-const QUOTA_WINDOW_HOURS = 24;
-const STALE_RESERVED_MINUTES = 5;
+// Mirrors the SQL-side constant c_quota_limit in migration v4. Used only to
+// shape the user-facing error message; the RPC enforces the real cap.
+const SQL_QUOTA_LIMIT = 50;
 
 export type ReserveResult =
   | { ok: true; mode: 'reserved'; job_id: string; used: number; dedup: boolean }
   | { ok: true; mode: 'bypass' }
   | { ok: false; error: string };
-
-function quotaLimit(): number {
-  const raw = process.env.MANGO_RATE_LIMIT_MEDIA_JOBS_PER_DAY;
-  if (raw === undefined || raw === '') return DEFAULT_QUOTA;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_QUOTA;
-}
 
 function quotaEnabled(): boolean {
   return process.env.MANGO_RATE_LIMIT_ENABLED !== '0';
@@ -95,12 +95,15 @@ export async function reserveMediaJob(input: ReserveInput): Promise<ReserveResul
     return { ok: true, mode: 'bypass' };
   }
 
-  const limit = quotaLimit();
   const sb = await getServerSupabase();
 
   // The generated Supabase types do not know about the `reserve_media_job` RPC
   // (added in migration 20260516000001 — types snapshot predates it). Cast through
   // unknown to escape the Database['public']['Functions'] union.
+  //
+  // Only target args are passed. Quota limit / window / stale-TTL live SQL-side
+  // and are not caller-controllable (see migration v4). The RPC still accepts
+  // tunable args in its signature for backward compat but silently ignores them.
   const rpc = (
     sb.rpc as unknown as (
       name: string,
@@ -115,9 +118,6 @@ export async function reserveMediaJob(input: ReserveInput): Promise<ReserveResul
     p_kind: input.kind,
     p_scene_id: input.scene_id ?? null,
     p_character_id: input.character_id ?? null,
-    p_quota_limit: limit,
-    p_window_hours: QUOTA_WINDOW_HOURS,
-    p_stale_reserved_minutes: STALE_RESERVED_MINUTES,
   });
   const { data, error } = await rpc;
 
@@ -143,7 +143,7 @@ export async function reserveMediaJob(input: ReserveInput): Promise<ReserveResul
   if (!row.allowed) {
     return {
       ok: false,
-      error: `Дневной лимит ${limit} генераций исчерпан (${row.used}/${limit}). Попробуй через несколько часов.`,
+      error: `Дневной лимит ${SQL_QUOTA_LIMIT} генераций исчерпан (${row.used}/${SQL_QUOTA_LIMIT}). Попробуй через несколько часов.`,
     };
   }
 
