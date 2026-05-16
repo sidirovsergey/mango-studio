@@ -1,3 +1,6 @@
+[AESTHETIC]
+Vertical 9:16, ultra cinematic luxury animation, Pixar + Apple + Netflix grade, 4K render, deep shadows, volumetric light, premium materials.
+
 [SCENE]
 Lighting: dappled forest key — sun patches through canopy + cool shadow fill
 Time: полдень, лес
@@ -13,6 +16,24 @@ Subject: Руслан — Рыжий лис с пушистым хвостом �
 
 [CAMERA]
 Orbit (slow) — 50mm, мягкое боке на листве; shot: Medium, Eye Level
+
+[AUDIO]
+No dialogue, no music; ambient room tone only — voice dubbed in post
+
+[PERFORMANCE]
+Speaker: 00000000-0000-0000-0004-000000000001
+Line: "Привет."
+Lipsync timing (mouth shapes, jaw, blinks — visual track only):
+  0.0–0.6s: silent open, steady gaze, one settling blink
+  0.6–11.6s: speaker delivers the line with clear consonants, distinct phrasing, natural pause emphasis on punctuation
+  11.6–12.0s: settling beat, mouth closes, gaze holds
+Delivery: Руслан — спокойно и дружелюбно, почти небрежно
+Speech rule: every word pronounced clearly — no swallowing, no mumbling, no rushed delivery. Articulation reads naturally even when the audio is added in post.
+
+[MICRO ACTION]
+Minimal extraneous body movement during dialogue beats; jaw/lip activity matches the speech timing above.
+One slow blink mid-line; subtle eyebrow micro-motion on emphasised words.
+Gaze and attention anchored to: встреча Руслана и Чёрной.
 
 [Pacing/Style]
 Cinematic, naturalistic pacing; consistent grading

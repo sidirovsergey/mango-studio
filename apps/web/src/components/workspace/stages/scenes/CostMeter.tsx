@@ -20,25 +20,36 @@ export function CostMeter({ projectId, jobs }: Props) {
   const [cost, setCost] = useState<number | null>(null);
   const [pulsing, setPulsing] = useState(false);
   const prevCost = useRef<number | null>(null);
+  const requestSeq = useRef(0);
+  const pulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const completedCount = jobs.filter((j) => j.status === 'completed').length;
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: change triggers
   useEffect(() => {
     let cancelled = false;
+    const seq = ++requestSeq.current;
     (async () => {
       const r = await getProjectCostAction({ project_id: projectId });
-      if (cancelled || !r.ok) return;
+      if (cancelled || seq !== requestSeq.current || !r.ok) return;
       const next = r.cost_usd;
       if (prevCost.current !== null && next > prevCost.current) {
         setPulsing(true);
-        setTimeout(() => setPulsing(false), 900);
+        if (pulseTimer.current) clearTimeout(pulseTimer.current);
+        pulseTimer.current = setTimeout(() => {
+          if (seq === requestSeq.current) setPulsing(false);
+          pulseTimer.current = null;
+        }, 900);
       }
       prevCost.current = next;
       setCost(next);
     })();
     return () => {
       cancelled = true;
+      if (pulseTimer.current) {
+        clearTimeout(pulseTimer.current);
+        pulseTimer.current = null;
+      }
     };
   }, [projectId, jobs.length, completedCount]);
 

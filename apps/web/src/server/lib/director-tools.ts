@@ -13,11 +13,11 @@ import {
   refineScriptAction,
   regenScriptAction,
 } from '@/server/actions/scripts';
-import { setCharacterVoiceAction } from '@/server/actions/setCharacterVoiceAction';
+// setCharacterVoiceAction import removed 2026-05-13 with the audio pipeline.
 import { setSceneDurationAction } from '@/server/actions/setSceneDurationAction';
 import { unarchiveCharacterAction } from '@/server/actions/unarchiveCharacterAction';
 import type { Character, PendingAction } from '@mango/core';
-import { VIDEO_MODELS, VOICE_POOL } from '@mango/core';
+import { VIDEO_MODELS } from '@mango/core';
 import { formatCostHint } from '@mango/core/media/prompt-cost';
 import { getServerSupabase } from '@mango/db/server';
 import { tool } from 'ai';
@@ -439,34 +439,9 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
       },
     }),
 
-    // ===== Voice tools (Phase 1.4.E) =====
-
-    set_character_voice: tool({
-      description: `Set or change the TTS voice for a character. PERMANENT WARNING: once any scene with this character's dialogue has been rendered to audio, the voice cannot be changed (changing it would create inconsistent audio across scenes). The current VOICE_POOL IDs are: ${VOICE_POOL.map((v) => `${v.id} (${v.label}, ${v.gender}, ${v.tone})`).join('; ')}. User-supplied IDs outside the pool are accepted when needed (pass any ElevenLabs voice_id), but are not validated server-side.`,
-      inputSchema: z.object({
-        character_id: z.string().min(1).describe('UUID of the character to update'),
-        tts_voice_id: z
-          .string()
-          .min(1)
-          .describe('ElevenLabs voice ID — use one of the VOICE_POOL IDs listed above'),
-      }),
-      execute: async ({ character_id, tts_voice_id }): Promise<ToolResult> => {
-        try {
-          const result = await setCharacterVoiceAction({
-            project_id,
-            character_id,
-            tts_voice_id,
-          });
-          if (!result.ok) {
-            const detail = 'details' in result ? ` — ${result.details}` : '';
-            return { ok: false, error: `${result.error}${detail}` };
-          }
-          return { ok: true, character_id: result.character_id, tts_voice_id: result.tts_voice_id };
-        } catch (err) {
-          return { ok: false, error: shortError(err) };
-        }
-      },
-    }),
+    // Voice tools removed 2026-05-13 — native-audio video models render
+    // character voices implicitly from the dialogue text. Director can no
+    // longer be asked to set_character_voice; the action is gone.
 
     // ===== Scene tools (Phase 1.3) =====
 
@@ -580,7 +555,7 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
 
     generate_master_clip: tool({
       description:
-        'Финализировать ролик (склейка всех сцен). Cost-significant. Все сцены ДОЛЖНЫ иметь final_clip. Используй когда пользователь говорит «собери ролик», «финализируй», «склей все сцены».',
+        'Финализировать ролик (склейка всех сцен). Cost-significant. Каждая сцена должна иметь активный video (final_clip — это устаревший mux-артефакт; native-audio video из новых моделей даёт звук напрямую через ffmpeg merge-videos). Используй когда пользователь говорит «собери ролик», «финализируй», «склей все сцены».',
       inputSchema: z.object({}),
       execute: async (): Promise<ToolResult> => {
         const sb = await getServerSupabase();
@@ -590,10 +565,28 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
           .eq('id', project_id)
           .single();
         if (!project) return { ok: false, error: 'project not found' };
-        const script = project.script as { scenes?: { final_clip?: unknown }[] } | null;
+        // Codex audit P1.3: master_clip used to require every scene to have a
+        // muxed final_clip — but post-2026-05-13 (audio rip-out) new scenes
+        // never produce final_clip; native audio is baked into the video
+        // version directly and ffmpeg merge-videos preserves it through
+        // concat. Readiness now means: every scene has an active video
+        // version (final_clip still counts as ready for legacy projects).
+        const script = project.script as {
+          scenes?: Array<{
+            final_clip?: unknown;
+            video_active_version_id?: string | null;
+            video_versions?: Array<unknown>;
+          }>;
+        } | null;
         const scenes = script?.scenes ?? [];
         const totalScenes = scenes.length;
-        const readyScenes = scenes.filter((s) => s.final_clip != null).length;
+        const readyScenes = scenes.filter(
+          (s) =>
+            s.final_clip != null ||
+            (s.video_active_version_id != null &&
+              Array.isArray(s.video_versions) &&
+              s.video_versions.length > 0),
+        ).length;
         if (readyScenes < totalScenes) {
           return {
             ok: false,
@@ -607,7 +600,7 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
           preview: {
             title: 'Финализировать ролик?',
             subject: `${totalScenes} сцен`,
-            summary: `Склейка через ffmpeg — ${formatCostHint('fal-ai/ffmpeg-api/merge-audio-video')}.`,
+            summary: `Склейка через ffmpeg — ${formatCostHint('fal-ai/ffmpeg-api/merge-videos')}.`,
           },
           status: 'pending',
         };
@@ -657,71 +650,9 @@ export function buildDirectorTools({ project_id }: DirectorToolsCtx): ToolSet {
       },
     }),
 
-    // ===== Phase 1.4.1 audio chain tools =====
-
-    regen_scene_voice: tool({
-      description:
-        'Перегенерировать озвучку сцены (ElevenLabs TTS). Используй когда пользователь просит «озвучь сцену другим голосом», «перегенерируй озвучку», «попробуй с другим текстом». Destructive — заменит активную voice-версию (история до 5). После новой озвучки auto-chain пересоберёт final_clip.',
-      inputSchema: z.object({
-        scene_id: z.string().min(1).describe('ID сцены, например s1, s2'),
-        voice_id: z
-          .string()
-          .optional()
-          .describe(
-            'Переопределить ElevenLabs voice_id. По умолчанию — голос персонажа/нарратора.',
-          ),
-        text_override: z
-          .string()
-          .optional()
-          .describe('Переопределить текст реплики. По умолчанию — scene.dialogue.text.'),
-      }),
-      execute: async ({ scene_id, voice_id, text_override }): Promise<ToolResult> => {
-        const scene = await resolveScene(project_id, scene_id);
-        if (!scene) return { ok: false, error: 'scene not found' };
-        const text = text_override?.trim() ?? scene.dialogue?.text?.trim();
-        if (!text) return { ok: false, error: 'нет текста реплики — нечего озвучивать' };
-        const action: PendingAction = {
-          id: randomUUID(),
-          kind: 'regen_scene_voice',
-          payload: {
-            project_id,
-            scene_id,
-            ...(voice_id ? { voice_id } : {}),
-            ...(text_override ? { text_override } : {}),
-          },
-          preview: {
-            title: `Перегенерировать озвучку сцены ${scene_id}?`,
-            subject: text.slice(0, 60),
-            summary: `Запустит новую TTS — ${formatCostHint('fal-ai/elevenlabs/tts/multilingual-v2')}. После: auto-chain пересоберёт final_clip.`,
-          },
-          status: 'pending',
-        };
-        return { pending: true, action };
-      },
-    }),
-
-    compose_scene_final_clip: tool({
-      description:
-        'Пересобрать final_clip сцены из текущих активных video + voice версий. Используй после rollback_scene_version (video или voice), чтобы освежить муксированную композицию. Cost-significant (~$0.01).',
-      inputSchema: z.object({
-        scene_id: z.string().min(1),
-      }),
-      execute: async ({ scene_id }): Promise<ToolResult> => {
-        const scene = await resolveScene(project_id, scene_id);
-        if (!scene) return { ok: false, error: 'scene not found' };
-        const action: PendingAction = {
-          id: randomUUID(),
-          kind: 'compose_scene_final_clip',
-          payload: { project_id, scene_id },
-          preview: {
-            title: `Пересобрать финальный клип сцены ${scene_id}?`,
-            subject: scene.description.slice(0, 60),
-            summary: `ffmpeg мукс активного video + voice — ${formatCostHint('fal-ai/ffmpeg-api/merge-audio-video')}.`,
-          },
-          status: 'pending',
-        };
-        return { pending: true, action };
-      },
-    }),
+    // Codex audit P1.4: regen_scene_voice + compose_scene_final_clip director
+    // tools removed alongside the ElevenLabs TTS chain (audio rip-out
+    // 2026-05-13). Native-audio video models render dialogue inline; there's
+    // no separate voice job to regenerate and no final_clip to mux.
   } satisfies ToolSet;
 }

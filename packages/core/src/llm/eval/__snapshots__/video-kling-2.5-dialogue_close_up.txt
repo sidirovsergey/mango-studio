@@ -1,8 +1,40 @@
-Framing: Close Up, Eye Level
-[00:00–00:03] Woman in mid-thirties, dim warm-lit interior, eyes meet camera, a faint smile crosses her lips as she speaks. — Dolly In (slow) — 85mm anamorphic, горизонтальные блики на глазах — Марина acts
-[00:03–00:08] continued action from previous beat — Dolly In (slow) — 85mm anamorphic, горизонтальные блики на глазах — Марина reacts
+[AESTHETIC]
+Vertical 9:16, ultra cinematic luxury animation, Pixar + Apple + Netflix grade, 4K render, deep shadows, volumetric light, premium materials.
 
-Audio: [00:00] тихий комнатный гул, далёкий дождь за окном
-Style: Cinematic, naturalistic pacing; consistent grading
+[SCENE]
+Lighting: key from upper-left + soft fill + subtle golden-hour rim
+Time: вечер
+Key: сверху слева, тёплый янтарный
+
+[SUBJECT]
+Subject: Марина — Женщина лет тридцати пяти, тёмные волосы, серые глаза, спокойный взгляд.; reference: @Image1
+
+[ACTION]
+0–3s: Woman in mid-thirties, dim warm-lit interior, eyes meet camera, a faint smile crosses her lips as she speaks.
+3–8s: continued action from previous beat
+
+[CAMERA]
+Dolly In (slow) — 85mm anamorphic, горизонтальные блики на глазах; shot: Close Up, Eye Level
+
+[AUDIO]
+Ambient: тихий комнатный гул, далёкий дождь за окном. Dialogue: 00000000-0000-0000-0003-000000000001 — "I see you."
+
+[PERFORMANCE]
+Speaker: 00000000-0000-0000-0003-000000000001
+Line: "I see you."
+Lipsync timing (mouth shapes, jaw, blinks — visual track only):
+  0.0–0.6s: silent open, steady gaze, one settling blink
+  0.6–7.6s: speaker delivers the line with clear consonants, distinct phrasing, natural pause emphasis on punctuation
+  7.6–8.0s: settling beat, mouth closes, gaze holds
+Delivery: женский голос, тихо и отчётливо, с лёгкой загадочностью
+
+[MICRO ACTION]
+Minimal extraneous body movement during dialogue beats; jaw/lip activity matches the speech timing above.
+One slow blink mid-line; subtle eyebrow micro-motion on emphasised words.
+Gaze and attention anchored to: лицо Марины.
+Energy: building, deliberate — pressure accumulates frame by frame.
+
+[Pacing/Style]
+Cinematic, naturalistic pacing; consistent grading
+
 Avoid: abrupt cuts, scene changes, lens flares masking faces, multiple disconnected vignettes, text overlays
-Reference: @Image1

@@ -3,11 +3,28 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/auth/get-user', () => ({ getCurrentUser: vi.fn() }));
 vi.mock('@/server/lib/media-provider-factory', () => ({ getMediaProvider: vi.fn() }));
 vi.mock('@mango/db/server', () => ({ getServerSupabase: vi.fn() }));
-vi.mock('@/server/lib/scene-helpers', () => ({ recordPendingJob: vi.fn() }));
+vi.mock('@/server/lib/scene-helpers', () => ({
+  recordPendingJob: vi.fn(),
+  finalizeMediaJobReservation: vi.fn().mockResolvedValue(undefined),
+  rollbackMediaJobReservation: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('@/server/lib/rate-limit', () => ({
+  reserveMediaJob: vi.fn().mockResolvedValue({
+    ok: true,
+    mode: 'reserved' as const,
+    job_id: 'reserved-id',
+    used: 1,
+    dedup: false,
+  }),
+}));
+// The dynamic import of generateReferenceImageAction (F53 hard-precondition) pulls
+// in next/cache; stub revalidatePath so the inner action does not throw in test env.
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { recordPendingJob } from '@/server/lib/scene-helpers';
+import { reserveMediaJob } from '@/server/lib/rate-limit';
+import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
 import { getServerSupabase } from '@mango/db/server';
 import { generateAllFirstFramesAction, generateFirstFrameAction } from './generateFirstFrameAction';
 
@@ -36,6 +53,7 @@ const makeProject = (sceneOverrides: Record<string, unknown>[] = []) => ({
         voice: {},
         dossier: {
           storage: { kind: 'fal_passthrough', url: 'https://cdn.fal.ai/dossier.jpg' },
+          reference_image: { kind: 'fal_passthrough', url: 'https://cdn.fal.ai/alice-ref.jpg' },
           model: 'm',
           format: '16:9',
           quality: '1080p',
@@ -89,9 +107,12 @@ describe('generateFirstFrameAction', () => {
       from: vi.fn(() => builder),
     });
 
-    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
       job_id: 'job-1',
-      existing: false,
+      used: 1,
+      dedup: false,
     });
 
     const result = await generateFirstFrameAction({
@@ -115,12 +136,9 @@ describe('generateFirstFrameAction', () => {
       expect.objectContaining({ user_id: 'u1', project_id: PROJECT_ID }),
     );
 
-    expect(recordPendingJob).toHaveBeenCalledWith(
+    expect(finalizeMediaJobReservation).toHaveBeenCalledWith(
       expect.objectContaining({
-        user_id: 'u1',
-        project_id: PROJECT_ID,
-        scene_id: 's1',
-        kind: 'first_frame',
+        job_id: 'job-1',
         fal_request_id: 'req-123',
       }),
     );
@@ -134,7 +152,7 @@ describe('generateFirstFrameAction', () => {
       model_used: 'fal-ai/nano-banana-pro',
       request_input: {},
     });
-    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       submitFirstFrame,
     });
 
@@ -150,9 +168,14 @@ describe('generateFirstFrameAction', () => {
       from: vi.fn(() => builder),
     });
 
-    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    // dedup=true mirrors the unique-violation case in the old recordPendingJob —
+    // reservation returns an existing active job's id and we skip the fal submit.
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
       job_id: 'job-existing',
-      existing: true,
+      used: 0,
+      dedup: true,
     });
 
     const result = await generateFirstFrameAction({
@@ -165,18 +188,134 @@ describe('generateFirstFrameAction', () => {
       expect(result.existing).toBe(true);
       expect(result.job_id).toBe('job-existing');
     }
+    expect(submitFirstFrame).not.toHaveBeenCalled();
+  });
+
+  it('F53: rejects with retry message when scene char has dossier but no reference_image', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'u1' });
+
+    // Strip reference_image from the default character — mimics the chain still in flight.
+    const project = makeProject();
+    const character = project.script.characters[0]! as {
+      dossier: {
+        storage: unknown;
+        reference_image?: unknown;
+        [k: string]: unknown;
+      };
+    };
+    character.dossier.reference_image = undefined;
+
+    const submitFirstFrame = vi.fn();
+    const submitCharacterReferenceImage = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-ref',
+      model_used: 'fal-ai/nano-banana-pro',
+      request_input: {},
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      submitFirstFrame,
+      submitCharacterReferenceImage,
+    });
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      mode: 'reserved' as const,
+      job_id: 'job-ref',
+      used: 1,
+      dedup: false,
+    });
+
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      single: vi.fn().mockResolvedValue({ data: project, error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      from: vi.fn(() => builder),
+    });
+
+    const result = await generateFirstFrameAction({
+      project_id: PROJECT_ID,
+      scene_id: 's1',
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('Готовлю reference-картинки');
+      expect(result.error).toContain('Alice');
+    }
+    // first-frame fal submit MUST NOT fire while ref is pending.
+    expect(submitFirstFrame).not.toHaveBeenCalled();
+    // Whether the inner generateReferenceImageAction actually fires the fal submit
+    // depends on its own idempotency state; that path is covered exhaustively in
+    // generateReferenceImageAction.test.ts. Here we only assert that first_frame
+    // was correctly blocked.
+  });
+
+  it('F53: prompt_override bypasses guard AND strips implicit character refs', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+
+    // Character has dossier but no reference_image — guard would normally fire.
+    const project = makeProject();
+    const character = project.script.characters[0]! as {
+      dossier: { storage: unknown; reference_image?: unknown; [k: string]: unknown };
+    };
+    character.dossier.reference_image = undefined;
+
+    const submitFirstFrame = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-override-bypass',
+      model_used: 'fal-ai/nano-banana-pro',
+      request_input: {},
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      submitFirstFrame,
+    });
+
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: project, error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    });
+
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      mode: 'reserved' as const,
+      job_id: 'job-ov-bypass',
+      used: 1,
+      dedup: false,
+    });
+
+    const result = await generateFirstFrameAction({
+      project_id: PROJECT_ID,
+      scene_id: 's1',
+      prompt_override: 'TEXT-ONLY OVERRIDE — no character refs wanted',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(submitFirstFrame).toHaveBeenCalledTimes(1);
+    const [submitArgs] = (submitFirstFrame as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      { prompt: string; image_refs: unknown[] },
+      unknown,
+    ];
+    expect(submitArgs.prompt).toBe('TEXT-ONLY OVERRIDE — no character refs wanted');
+    // image_refs must NOT include any character ref — prompt_override skips them entirely.
+    expect(submitArgs.image_refs).toEqual([]);
   });
 
   it('uses prompt_override when provided (skips builder output)', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
 
-    const submitFirstFrame = vi.fn().mockResolvedValue({
+    const submitFirstFrameOverride = vi.fn().mockResolvedValue({
       fal_request_id: 'req-override',
       model_used: 'fal-ai/nano-banana-pro',
       request_input: {},
     });
-    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
-      submitFirstFrame,
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      submitFirstFrame: submitFirstFrameOverride,
     });
 
     const builder = {
@@ -188,9 +327,12 @@ describe('generateFirstFrameAction', () => {
       from: vi.fn(() => builder),
     });
 
-    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      mode: 'reserved' as const,
       job_id: 'job-ov',
-      existing: false,
+      used: 1,
+      dedup: false,
     });
 
     const result = await generateFirstFrameAction({
@@ -200,7 +342,7 @@ describe('generateFirstFrameAction', () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(submitFirstFrame).toHaveBeenCalledWith(
+    expect(submitFirstFrameOverride).toHaveBeenCalledWith(
       expect.objectContaining({ prompt: 'CUSTOM PROMPT TEXT — override path' }),
       expect.any(Object),
     );
@@ -260,9 +402,12 @@ describe('generateFirstFrameAction', () => {
       })),
     });
 
-    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      mode: 'reserved' as const,
       job_id: 'job-bulk',
-      existing: false,
+      used: 1,
+      dedup: false,
     });
 
     const result = await generateAllFirstFramesAction({ project_id: PROJECT_ID });

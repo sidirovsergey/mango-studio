@@ -2,7 +2,12 @@
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { recordPendingJob } from '@/server/lib/scene-helpers';
+import { reserveMediaJob } from '@/server/lib/rate-limit';
+import {
+  finalizeMediaJobReservation,
+  recordPendingJob,
+  rollbackMediaJobReservation,
+} from '@/server/lib/scene-helpers';
 import {
   type CameraMovement,
   type Character,
@@ -107,6 +112,39 @@ export async function generateFirstFrameAction(
     scene.character_ids.includes(c.id),
   );
 
+  // prompt_override is an explicit operator override: the user is authoring the
+  // prompt by hand and may intentionally exclude character refs (text-to-image
+  // mode). Skip both the F53 precondition and implicit character refs.
+  const useCustomPrompt = input.prompt_override !== undefined;
+
+  // F53 hard-precondition. If ANY scene character has a dossier but no
+  // reference_image, do not submit first_frame. Trigger the ref-image job
+  // (idempotent — generateReferenceImageAction dedupes via pre-submit query)
+  // and tell the caller to retry. Falling through to the builder is unsafe:
+  // without strictness the multi-panel dossier.storage could leak into the
+  // fal submission via legacy paths, and even with builder strictness the
+  // resulting first-frame would render without character anchoring.
+  if (!useCustomPrompt) {
+    const charactersNeedingRef = characters_in_scene.filter(
+      (c) => c.dossier && !c.dossier.reference_image,
+    );
+    if (charactersNeedingRef.length > 0) {
+      const { generateReferenceImageAction } = await import('./generateReferenceImageAction');
+      const names: string[] = [];
+      for (const c of charactersNeedingRef) {
+        await generateReferenceImageAction({
+          project_id: input.project_id,
+          character_id: c.id,
+        });
+        names.push(c.name);
+      }
+      return {
+        ok: false,
+        error: `Готовлю reference-картинки для: ${names.join(', ')}. Это ~20-30s; попробуй заново через полминуты.`,
+      };
+    }
+  }
+
   // Determine first_frame_source: bulk overrides to manual_text2img
   const first_frame_source =
     input.mode === 'bulk' ? 'manual_text2img' : (scene.first_frame_source ?? 'auto_continuity');
@@ -121,7 +159,7 @@ export async function generateFirstFrameAction(
       camera_movement: (scene.camera_movement as CameraMovement | undefined) ?? undefined,
       lighting: (scene.lighting as Lighting | undefined) ?? undefined,
     },
-    characters_in_scene,
+    characters_in_scene: useCustomPrompt ? [] : characters_in_scene,
     prev_last_frame,
     project_style,
     visual_theme: script.visual_theme ?? undefined,
@@ -132,14 +170,49 @@ export async function generateFirstFrameAction(
 
   const model = input.model_override ?? getDefaultModel(tier);
 
+  // Atomic quota + reservation. Per-user advisory lock serializes concurrent
+  // reservations so bursts can't slip past the daily cap by parallelism factor.
+  const reservation = await reserveMediaJob({
+    user_id: user.id,
+    project_id: input.project_id,
+    kind: 'first_frame',
+    scene_id: input.scene_id,
+  });
+  if (!reservation.ok) return { ok: false, error: reservation.error };
+  // dedup=true means an active OR reserved job for the same target already
+  // exists; skip fal.
+  if (reservation.mode === 'reserved' && reservation.dedup) {
+    return { ok: true, job_id: reservation.job_id, existing: true };
+  }
+
   const provider = getMediaProvider();
   const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
 
-  const handle = await provider.submitFirstFrame(
-    { prompt, model, aspect_ratio: '9:16', image_refs },
-    ctx,
-  );
+  let handle: Awaited<ReturnType<typeof provider.submitFirstFrame>>;
+  try {
+    handle = await provider.submitFirstFrame(
+      { prompt, model, aspect_ratio: '9:16', image_refs },
+      ctx,
+    );
+  } catch (e) {
+    if (reservation.mode === 'reserved') {
+      await rollbackMediaJobReservation(reservation.job_id);
+    }
+    throw e;
+  }
 
+  if (reservation.mode === 'reserved') {
+    await finalizeMediaJobReservation({
+      job_id: reservation.job_id,
+      model: handle.model_used,
+      fal_request_id: handle.fal_request_id,
+      request_input: handle.request_input,
+    });
+    return { ok: true, job_id: reservation.job_id, existing: false };
+  }
+
+  // Bypass mode: metering disabled or RPC degraded — fall back to the legacy
+  // insert path so the job is still tracked.
   const { job_id, existing } = await recordPendingJob({
     user_id: user.id,
     project_id: input.project_id,
@@ -149,7 +222,6 @@ export async function generateFirstFrameAction(
     fal_request_id: handle.fal_request_id,
     request_input: handle.request_input,
   });
-
   return { ok: true, job_id, existing };
 }
 

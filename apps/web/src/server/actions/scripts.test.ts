@@ -158,3 +158,40 @@ describe('refineScriptAction — F24: visual_theme preservation (T6)', () => {
     expect(callArg.existing_visual_theme).toBeNull();
   });
 });
+
+// ─── Codex audit P2: tier + visual_theme persisted on script-gen ────────────
+
+describe('script-gen actions persist visual_theme + tier (Codex audit P2)', () => {
+  // The post-2026-05-13 video prompt builder owns visual_theme via
+  // script.tier ?? effectiveTier. If tier is dropped at persistence, downstream
+  // prompt assembly silently falls back to economy and reframes the AESTHETIC
+  // line as if the user picked the cheaper tier — bypassing the user's choice.
+  // Same axis as the visual_theme persistence fix; this regression-pins both.
+  it('refineScriptAction writes visual_theme + tier into the persisted jsonb', async () => {
+    const project = makeProjectWithTheme(SAMPLE_VISUAL_THEME);
+    const updateChain = { eq: vi.fn().mockResolvedValue({ error: null }) };
+    const update = vi.fn(() => updateChain);
+    const supabase = {
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: project, error: null }),
+        update,
+      })),
+    };
+    mockGetServerSupabase.mockResolvedValue(supabase as never);
+
+    await refineScriptAction({ project_id: PROJECT_ID, instruction: 'сделай ярче' });
+
+    // The first update call carries the script jsonb persisted from the LLM
+    // result. We expect both visual_theme AND tier from MINIMAL_SCRIPT_OUTPUT
+    // to land verbatim.
+    expect(update).toHaveBeenCalled();
+    const firstCall = (update as ReturnType<typeof vi.fn>).mock.calls[0] as unknown[];
+    const updateArg = firstCall[0] as {
+      script: { visual_theme: unknown; tier: unknown };
+    };
+    expect(updateArg.script.visual_theme).toEqual(SAMPLE_VISUAL_THEME);
+    expect(updateArg.script.tier).toBe('economy');
+  });
+});

@@ -1,16 +1,30 @@
-[Cinematography]
-Static, slow, 85mm f/1.8, мягкое боке на шторе lens, 24fps cinematic.
+[AESTHETIC]
+Vertical 9:16, ultra cinematic luxury animation, Pixar + Apple + Netflix grade, 4K render, deep shadows, volumetric light, premium materials.
 
-[Subject]
-Апельсин — Рыжий полосатый кот с большими зелёными глазами. Ленивый, любит солнечные пятна.; @Image1.
+[SCENE]
+Lighting: soft golden-hour key + warm fill + cool rim from outside
+Time: раннее утро
+Key: слева через окно
 
-[Action]
+[SUBJECT]
+Subject: Апельсин — Рыжий полосатый кот с большими зелёными глазами. Ленивый, любит солнечные пятна.; reference: @Image1
+
+[ACTION]
 Ginger tabby cat Apelsin sleeps curled on a sunlit windowsill, slow chest rise and fall, golden morning light warming his fur.
 
-[Context]
-soft golden-hour key + warm fill + cool rim from outside, раннее утро.
+[CAMERA]
+Static (slow) — 85mm f/1.8, мягкое боке на шторе; shot: Full, Eye Level
 
-[Style]
-Cinematic, naturalistic pacing; consistent grading.
+[AUDIO]
+No dialogue, no music; ambient room tone only — voice dubbed in post
+
+[MICRO ACTION]
+Subtle facial expression and naturalistic micro-blinks (every 2–3 seconds).
+Body holds intention; no idle fidgeting or random head bobbing.
+Gaze and attention anchored to: Апельсин на подоконнике.
+Energy: curious, slightly heightened — invites the viewer in.
+
+[Pacing/Style]
+Cinematic, naturalistic pacing; consistent grading
 
 Avoid: abrupt cuts, scene changes, lens flares masking faces, multiple disconnected vignettes, text overlays

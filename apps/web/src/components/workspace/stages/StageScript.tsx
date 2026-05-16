@@ -98,15 +98,55 @@ export function StageScript({ project, script }: Props) {
   }, [script]);
 
   const handleError = (err: unknown) => {
-    const code = (err as LLMProviderError)?.code ?? 'unknown';
-    setError(ERROR_MESSAGES[code] ?? ERROR_MESSAGES.unknown!);
+    const code = (err as LLMProviderError)?.code;
+    if (code && ERROR_MESSAGES[code]) {
+      setError(ERROR_MESSAGES[code]!);
+      return;
+    }
+    // Surface verbatim Error.message (e.g. client-side timeout escape hatch)
+    // when the throw isn't a coded LLM provider error.
+    if (err instanceof Error && err.message) {
+      setError(err.message);
+      return;
+    }
+    setError(ERROR_MESSAGES.unknown!);
   };
+
+  // Client-side escape hatch for the script-gen actions. Server-side timeout
+  // is 120s (see app/projects/[id]/page.tsx `maxDuration`); we race the promise
+  // against a slightly longer 150s deadline so if Vercel actually returns 504
+  // the user sees a real error instead of an indefinite spinner.
+  const SCRIPT_GEN_TIMEOUT_MS = 150_000;
+  function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const t = setTimeout(() => {
+        reject(
+          new Error(
+            `${label} превысила ${SCRIPT_GEN_TIMEOUT_MS / 1000}s. Проверь логи / перезапусти.`,
+          ),
+        );
+      }, SCRIPT_GEN_TIMEOUT_MS);
+      promise.then(
+        (v) => {
+          clearTimeout(t);
+          resolve(v);
+        },
+        (e) => {
+          clearTimeout(t);
+          reject(e);
+        },
+      );
+    });
+  }
 
   const handleGenerate = () => {
     setError(null);
     startTransition(async () => {
       try {
-        const result = await generateScriptAction({ project_id: project.id });
+        const result = await withTimeout(
+          generateScriptAction({ project_id: project.id }),
+          'Генерация сценария',
+        );
         setCurrentScript(result);
       } catch (err) {
         handleError(err);
@@ -118,7 +158,10 @@ export function StageScript({ project, script }: Props) {
     setError(null);
     startTransition(async () => {
       try {
-        const result = await regenScriptAction({ project_id: project.id });
+        const result = await withTimeout(
+          regenScriptAction({ project_id: project.id }),
+          'Регенерация сценария',
+        );
         setCurrentScript(result);
       } catch (err) {
         handleError(err);
@@ -131,12 +174,15 @@ export function StageScript({ project, script }: Props) {
     if (refineInstruction.trim().length === 0) return;
     setError(null);
     const instruction = refineInstruction.trim();
-    setRefineFormOpen(false);
-    setRefineInstruction('');
     startTransition(async () => {
       try {
-        const result = await refineScriptAction({ project_id: project.id, instruction });
+        const result = await withTimeout(
+          refineScriptAction({ project_id: project.id, instruction }),
+          'Правка сценария',
+        );
         setCurrentScript(result);
+        setRefineFormOpen(false);
+        setRefineInstruction('');
       } catch (err) {
         handleError(err);
       }
@@ -149,8 +195,6 @@ export function StageScript({ project, script }: Props) {
     setError(null);
     const sceneId = activeBeatId;
     const instruction = activeBeatInstruction.trim();
-    setActiveBeatId(null);
-    setActiveBeatInstruction('');
     startTransition(async () => {
       try {
         const result = await refineBeatAction({
@@ -166,6 +210,8 @@ export function StageScript({ project, script }: Props) {
             ),
           });
         }
+        setActiveBeatId(null);
+        setActiveBeatInstruction('');
       } catch (err) {
         handleError(err);
       }
@@ -240,7 +286,10 @@ export function StageScript({ project, script }: Props) {
           className="icon-btn"
           id="scriptRefine"
           title="Уточнить промптом"
-          onClick={() => setRefineFormOpen((v) => !v)}
+          onClick={() => {
+            setError(null);
+            setRefineFormOpen((v) => !v);
+          }}
           disabled={isPending}
         >
           <svg className="i" viewBox="0 0 24 24" aria-hidden="true">
@@ -272,7 +321,10 @@ export function StageScript({ project, script }: Props) {
                   type="button"
                   className={`beat${isPulsing ? ' hl-pulse' : ''}`}
                   data-beat={idx + 1}
-                  onClick={() => setActiveBeatId(scene.scene_id)}
+                  onClick={() => {
+                    setError(null);
+                    setActiveBeatId(scene.scene_id);
+                  }}
                   style={{
                     animation: 'fadeInUp 0.4s ease-out both',
                     animationDelay: `${idx * 0.08}s`,

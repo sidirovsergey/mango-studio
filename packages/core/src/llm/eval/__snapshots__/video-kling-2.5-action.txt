@@ -1,8 +1,31 @@
-Framing: Full, Low Angle
-[00:00–00:03] Black labrador Grom sprints toward a wooden fence, launches with hind legs coiled, paws over the top, lands clean on the far side. — Tracking (medium) — 50mm, небольшое motion blur на фоне — Гром acts
-[00:03–00:07] continued action from previous beat — Tracking (medium) — 50mm, небольшое motion blur на фоне — Гром reacts
+[AESTHETIC]
+Vertical 9:16, ultra cinematic luxury animation, Pixar + Apple + Netflix grade, 4K render, deep shadows, volumetric light, premium materials.
 
-Audio: No native dialogue or music — voice dubbed in post; ambient room tone only
-Style: Cinematic, naturalistic pacing; consistent grading
+[SCENE]
+Lighting: overcast diffuse key + naturalistic fill
+Time: полдень, пасмурно
+Key: сверху равномерно
+
+[SUBJECT]
+Subject: Гром — Чёрный лабрадор-ретривер, молодой, энергичный, с блестящей шерстью.; reference: @Image1
+
+[ACTION]
+0–3s: Black labrador Grom sprints toward a wooden fence, launches with hind legs coiled, paws over the top, lands clean on the far side.
+3–7s: continued action from previous beat
+
+[CAMERA]
+Tracking (medium) — 50mm, небольшое motion blur на фоне; shot: Full, Low Angle
+
+[AUDIO]
+No dialogue, no music; ambient room tone only — voice dubbed in post
+
+[MICRO ACTION]
+Subtle facial expression and naturalistic micro-blinks (every 2–3 seconds).
+Body holds intention; no idle fidgeting or random head bobbing.
+Gaze and attention anchored to: Гром в прыжке над забором.
+Energy: peak intensity, contained — read in the eyes, not in big gestures.
+
+[Pacing/Style]
+Cinematic, naturalistic pacing; consistent grading
+
 Avoid: abrupt cuts, scene changes, lens flares masking faces, multiple disconnected vignettes, text overlays
-Reference: @Image1

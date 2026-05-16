@@ -1,8 +1,11 @@
 import {
   buildActionBlock,
+  buildAestheticHeader,
   buildAvoidLine,
   buildCameraBlock,
+  buildMicroActionBlock,
   buildPacingBlock,
+  buildPerformanceBlock,
   buildSceneBlock,
   buildSubjectBlock,
 } from './_seedance-shared';
@@ -71,12 +74,18 @@ function buildAudioBlock(input: VideoPromptInput): string {
  * - F71: [Pacing/Style] color-grade line from visual_theme.film_look
  */
 export function buildSeedance2Prompt(input: VideoPromptInput): VideoPromptOutput {
+  // [PERFORMANCE] is dialogue-gated — emits empty string when no dialogue.
+  const performance = buildPerformanceBlock(input);
+
   const blocks = [
+    buildAestheticHeader(input),
     buildSceneBlock(input),
     buildSubjectBlock(input),
     buildActionBlock(input),
     buildCameraBlock(input),
     buildAudioBlock(input),
+    ...(performance ? [performance] : []),
+    buildMicroActionBlock(input),
     buildPacingBlock(input),
     buildAvoidLine(input),
   ];

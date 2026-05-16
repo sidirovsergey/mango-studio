@@ -1,6 +1,16 @@
 import type { AssetContext, StoredAsset } from './storage/StorageProvider';
-import type { VoiceSettingsDefault } from './voices';
 export type { AssetContext } from './storage/StorageProvider';
+
+// Audio pipeline retired 2026-05-13. VoiceSettingsDefault used to live in
+// ./voices; kept as a structural alias here so MediaProvider implementations
+// that still implement the (now-dead) submitVoice contract keep compiling
+// during the rolling deploy. Once no caller references it, delete.
+type VoiceSettingsDefault = {
+  stability?: number;
+  similarity_boost?: number;
+  style?: number;
+  speed?: number;
+};
 
 export type DossierFormat = '16:9' | '1:1';
 export type DossierQuality = '720p' | '1080p' | '2k';
@@ -46,6 +56,15 @@ export interface GenerateCharacterReferenceImageInput {
   model: string;
   /** Always '1:1' — single-pose neutral-background square. */
   aspect_ratio: '1:1';
+  /**
+   * Optional image-to-image references. When provided, the provider routes
+   * through the edit-model variant of the image model so the output stays
+   * visually consistent with the dossier. Critical for character continuity
+   * — without this, reference_image is an independent text-to-image roll
+   * and the resulting first_frame renders an entirely different character
+   * (the "Норм аватарка и Норм досье — разные персонажи" bug).
+   */
+  image_refs?: StoredAsset[];
 }
 
 // === Scene first frame (Phase 1.3) ===
@@ -63,6 +82,8 @@ export interface GenerateSceneVideoInput {
   first_frame_ref: StoredAsset;
   duration_sec: number;
   aspect_ratio: '9:16';
+  /** Grok Imagine Video accepts an optional resolution flag. Ignored by other models. */
+  resolution?: '480p' | '720p';
 }
 
 // === TTS ===

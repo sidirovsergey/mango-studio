@@ -293,11 +293,17 @@ describe('buildSeedance2Prompt — audio_mode variants', () => {
     expect(prompt).not.toContain('Dialogue:');
   });
 
-  it('silent_tts: does NOT emit dialogue even if scene.dialogue is non-null', () => {
+  it('silent_tts: does NOT emit dialogue in [AUDIO] block (PERFORMANCE block still carries it for visual lipsync)', () => {
     // scene has dialogue: { speaker: 'Кот', text: 'I see you.' }
+    // Post-2026-05-13: dialogue text moved to [PERFORMANCE] for visual lipsync
+    // guidance even in silent_tts mode. The [AUDIO] block must NOT echo it.
     const input = makeInput({ audio_mode: 'silent_tts' });
     const { prompt } = buildSeedance2Prompt(input);
-    expect(prompt).not.toContain('"I see you."');
+    const audioStart = prompt.indexOf('[AUDIO]');
+    const audioEnd = prompt.indexOf('[PERFORMANCE]', audioStart);
+    const audioBlock = prompt.slice(audioStart, audioEnd > -1 ? audioEnd : prompt.length);
+    expect(audioBlock).not.toContain('"I see you."');
+    expect(audioBlock).not.toContain('Dialogue:');
   });
 
   it('native + no dialogue: music/ambient/sfx present, no Dialogue: line', () => {
@@ -488,5 +494,167 @@ describe('buildSeedance2Prompt — description fallback', () => {
     const cameraIdx = prompt.indexOf('[CAMERA]');
     const actionBlock = prompt.slice(actionIdx, cameraIdx);
     expect(actionBlock).toContain('Рыжий кот');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 8. Premium enrichment — [AESTHETIC] / [PERFORMANCE] / [MICRO ACTION]
+// ---------------------------------------------------------------------------
+
+describe('buildSeedance2Prompt — [AESTHETIC] header', () => {
+  it('appears first in the prompt', () => {
+    const { prompt } = buildSeedance2Prompt(makeInput());
+    expect(prompt.indexOf('[AESTHETIC]')).toBe(0);
+  });
+
+  it('premium tier emits luxury-grade vocabulary', () => {
+    const { prompt } = buildSeedance2Prompt(makeInput({ tier: 'premium' }));
+    const aestheticIdx = prompt.indexOf('[AESTHETIC]');
+    const sceneIdx = prompt.indexOf('[SCENE]');
+    const header = prompt.slice(aestheticIdx, sceneIdx);
+    expect(header).toContain('ultra cinematic luxury animation');
+    expect(header).toContain('Pixar + Apple + Netflix grade');
+    expect(header).toContain('4K render');
+  });
+
+  it('economy tier emits a more restrained polish line', () => {
+    const { prompt } = buildSeedance2Prompt(makeInput({ tier: 'economy' }));
+    const aestheticIdx = prompt.indexOf('[AESTHETIC]');
+    const sceneIdx = prompt.indexOf('[SCENE]');
+    const header = prompt.slice(aestheticIdx, sceneIdx);
+    expect(header).toContain('cinematic stylized animation');
+    expect(header).not.toContain('Pixar + Apple + Netflix grade');
+  });
+
+  it('folds visual_theme.mood, film_look, lighting, lens into the header line', () => {
+    const { prompt } = buildSeedance2Prompt(makeInput());
+    const aestheticIdx = prompt.indexOf('[AESTHETIC]');
+    const sceneIdx = prompt.indexOf('[SCENE]');
+    const header = prompt.slice(aestheticIdx, sceneIdx);
+    expect(header).toContain('contemplative mood');
+    expect(header).toContain('Roger Deakins palette');
+    expect(header).toContain('anamorphic 85mm');
+  });
+
+  it('Vertical 9:16 is always present in the header', () => {
+    const { prompt } = buildSeedance2Prompt(makeInput());
+    expect(prompt).toContain('Vertical 9:16');
+  });
+
+  it('survives missing visual_theme with a sane premium default', () => {
+    const { prompt } = buildSeedance2Prompt(makeInput({ visual_theme: undefined }));
+    expect(prompt).toContain('[AESTHETIC]');
+    expect(prompt).toContain('Vertical 9:16');
+    expect(prompt).toContain('ultra cinematic');
+  });
+});
+
+describe('buildSeedance2Prompt — [PERFORMANCE] block', () => {
+  it('emitted when scene has dialogue', () => {
+    const { prompt } = buildSeedance2Prompt(makeInput());
+    expect(prompt).toContain('[PERFORMANCE]');
+    expect(prompt).toContain('Speaker: Кот');
+    expect(prompt).toContain('Line: "I see you."');
+    expect(prompt).toContain('Lipsync timing');
+  });
+
+  it('omitted when dialogue is null', () => {
+    const { prompt } = buildSeedance2Prompt(
+      makeInput({ scene: { ...fullScene10s, dialogue: null } }),
+    );
+    expect(prompt).not.toContain('[PERFORMANCE]');
+  });
+
+  it('emits sub-second timing brackets for a 10s scene', () => {
+    const { prompt } = buildSeedance2Prompt(makeInput());
+    // Format: `0.0–0.6s:`, `0.6–9.6s:`, `9.6–10.0s:` (lead/middle/tail)
+    expect(prompt).toMatch(/0\.0–0\.6s:/);
+    expect(prompt).toMatch(/0\.6–9\.6s:/);
+    expect(prompt).toMatch(/9\.6–10\.0s:/);
+  });
+
+  it('surfaces voice_notes as Delivery line when present', () => {
+    const { prompt } = buildSeedance2Prompt(makeInput());
+    expect(prompt).toContain('Delivery: soft and curious');
+  });
+
+  it('emits speech-rule guard for Cyrillic dialogue', () => {
+    const input = makeInput({
+      scene: { ...fullScene10s, dialogue: { speaker: 'Кот', text: 'Я вижу тебя.' } },
+    });
+    const { prompt } = buildSeedance2Prompt(input);
+    expect(prompt).toContain('Speech rule');
+    expect(prompt).toContain('clearly');
+    expect(prompt).toContain('no swallowing');
+  });
+
+  it('does NOT emit speech-rule guard for pure-English dialogue', () => {
+    // fixture dialogue is pure English ("I see you.")
+    const { prompt } = buildSeedance2Prompt(makeInput());
+    expect(prompt).not.toContain('Speech rule');
+  });
+
+  it('PERFORMANCE applies even in silent_tts mode (visual lipsync still needed)', () => {
+    const input = makeInput({ audio_mode: 'silent_tts' });
+    const { prompt } = buildSeedance2Prompt(input);
+    expect(prompt).toContain('[PERFORMANCE]');
+    expect(prompt).toContain('Lipsync timing');
+  });
+});
+
+describe('buildSeedance2Prompt — [MICRO ACTION] block', () => {
+  it('always present', () => {
+    const { prompt } = buildSeedance2Prompt(
+      makeInput({ scene: { ...fullScene10s, dialogue: null } }),
+    );
+    expect(prompt).toContain('[MICRO ACTION]');
+  });
+
+  it('uses dialogue-aware copy when scene has dialogue', () => {
+    const { prompt } = buildSeedance2Prompt(makeInput());
+    expect(prompt).toContain('Minimal extraneous body movement during dialogue beats');
+    expect(prompt).toContain('jaw/lip activity');
+  });
+
+  it('uses idle-aware copy when scene has no dialogue', () => {
+    const { prompt } = buildSeedance2Prompt(
+      makeInput({ scene: { ...fullScene10s, dialogue: null } }),
+    );
+    expect(prompt).toContain('naturalistic micro-blinks');
+    expect(prompt).toContain('Body holds intention');
+  });
+
+  it('anchors gaze to subject_focus when available', () => {
+    const { prompt } = buildSeedance2Prompt(makeInput());
+    expect(prompt).toContain('Gaze and attention anchored to: Кот');
+  });
+
+  it('emits arc-aware energy line for hook scenes', () => {
+    const input = makeInput({ scene: { ...fullScene10s, arc_role: 'hook' } });
+    const { prompt } = buildSeedance2Prompt(input);
+    expect(prompt).toContain('Energy: curious');
+  });
+
+  it('emits arc-aware energy line for climax scenes', () => {
+    // fixture is already arc_role: 'climax'
+    const { prompt } = buildSeedance2Prompt(makeInput());
+    expect(prompt).toContain('Energy: peak intensity');
+  });
+});
+
+describe('buildSeedance2Prompt — full enriched order', () => {
+  it('blocks are ordered: AESTHETIC → SCENE → SUBJECT → ACTION → CAMERA → AUDIO → PERFORMANCE → MICRO ACTION → Pacing/Style → Avoid:', () => {
+    const { prompt } = buildSeedance2Prompt(makeInput());
+    const idx = (s: string): number => prompt.indexOf(s);
+    expect(idx('[AESTHETIC]')).toBe(0);
+    expect(idx('[SCENE]')).toBeGreaterThan(idx('[AESTHETIC]'));
+    expect(idx('[SUBJECT]')).toBeGreaterThan(idx('[SCENE]'));
+    expect(idx('[ACTION]')).toBeGreaterThan(idx('[SUBJECT]'));
+    expect(idx('[CAMERA]')).toBeGreaterThan(idx('[ACTION]'));
+    expect(idx('[AUDIO]')).toBeGreaterThan(idx('[CAMERA]'));
+    expect(idx('[PERFORMANCE]')).toBeGreaterThan(idx('[AUDIO]'));
+    expect(idx('[MICRO ACTION]')).toBeGreaterThan(idx('[PERFORMANCE]'));
+    expect(idx('[Pacing/Style]')).toBeGreaterThan(idx('[MICRO ACTION]'));
+    expect(idx('Avoid:')).toBeGreaterThan(idx('[Pacing/Style]'));
   });
 });

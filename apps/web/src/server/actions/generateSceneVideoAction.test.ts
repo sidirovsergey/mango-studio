@@ -3,11 +3,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/auth/get-user', () => ({ getCurrentUser: vi.fn() }));
 vi.mock('@/server/lib/media-provider-factory', () => ({ getMediaProvider: vi.fn() }));
 vi.mock('@mango/db/server', () => ({ getServerSupabase: vi.fn() }));
-vi.mock('@/server/lib/scene-helpers', () => ({ recordPendingJob: vi.fn() }));
+vi.mock('@/server/lib/scene-helpers', () => ({
+  recordPendingJob: vi.fn(),
+  finalizeMediaJobReservation: vi.fn().mockResolvedValue(undefined),
+  rollbackMediaJobReservation: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('@/server/lib/rate-limit', () => ({
+  reserveMediaJob: vi.fn().mockResolvedValue({
+    ok: true,
+    mode: 'reserved' as const,
+    job_id: 'reserved-id',
+    used: 1,
+    dedup: false,
+  }),
+}));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { recordPendingJob } from '@/server/lib/scene-helpers';
+import { reserveMediaJob } from '@/server/lib/rate-limit';
+import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
 import { getServerSupabase } from '@mango/db/server';
 import { generateSceneVideoAction } from './generateSceneVideoAction';
 
@@ -116,7 +130,7 @@ describe('generateSceneVideoAction', () => {
       model_used: 'bytedance/seedance-2.0/image-to-video',
       request_input: { prompt: 'Scene 1', duration_sec: 7 },
     });
-    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       submitSceneVideo,
     });
 
@@ -129,9 +143,12 @@ describe('generateSceneVideoAction', () => {
       from: vi.fn(() => builder),
     });
 
-    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
       job_id: 'job-video-1',
-      existing: false,
+      used: 1,
+      dedup: false,
     });
 
     const result = await generateSceneVideoAction({
@@ -145,7 +162,7 @@ describe('generateSceneVideoAction', () => {
       }),
       expect.objectContaining({ user_id: 'u1' }),
     );
-    expect(recordPendingJob).toHaveBeenCalledWith(
+    expect(finalizeMediaJobReservation).toHaveBeenCalledWith(
       expect.objectContaining({
         request_input: expect.objectContaining({
           first_frame_version_id: 'ff-v2',
@@ -155,7 +172,10 @@ describe('generateSceneVideoAction', () => {
     );
   });
 
-  it('forces silent_tts pipeline when dialogue is Cyrillic + auto', async () => {
+  it('always resolves to native audio_mode (silent_tts retired 2026-05-13)', async () => {
+    // The Cyrillic→silent_tts coercion was removed alongside the ElevenLabs
+    // pipeline. Every active model bakes audio in directly, so even Russian
+    // dialogue routes through the same native-audio path.
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
 
     const project = makeProjectWithVersionedFrame({
@@ -163,7 +183,7 @@ describe('generateSceneVideoAction', () => {
       dialogue: { speaker: 'narrator', text: 'Привет, друзья!' },
     });
 
-    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       submitSceneVideo: vi.fn().mockResolvedValue({
         fal_request_id: 'req-1',
         model_used: 'bytedance/seedance-2.0/image-to-video',
@@ -178,9 +198,12 @@ describe('generateSceneVideoAction', () => {
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => builder),
     });
-    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
       job_id: 'j1',
-      existing: false,
+      used: 1,
+      dedup: false,
     });
 
     const result = await generateSceneVideoAction({
@@ -188,7 +211,7 @@ describe('generateSceneVideoAction', () => {
       scene_id: 's1',
     });
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.audio_mode).toBe('silent_tts');
+    if (result.ok) expect(result.audio_mode).toBe('native');
   });
 
   it('uses prompt_override when provided (skips builder output)', async () => {
@@ -200,7 +223,7 @@ describe('generateSceneVideoAction', () => {
       model_used: 'bytedance/seedance-2.0/image-to-video',
       request_input: { duration_sec: 7 },
     });
-    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       submitSceneVideo,
     });
     const builder = {
@@ -211,9 +234,12 @@ describe('generateSceneVideoAction', () => {
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => builder),
     });
-    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
       job_id: 'j-ov',
-      existing: false,
+      used: 1,
+      dedup: false,
     });
 
     const result = await generateSceneVideoAction({
@@ -236,7 +262,7 @@ describe('generateSceneVideoAction', () => {
       dialogue: { speaker: 'narrator', text: 'Hello world' },
     });
 
-    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       submitSceneVideo: vi.fn().mockResolvedValue({
         fal_request_id: 'req-1',
         model_used: 'fal-ai/veo3.1/image-to-video',
@@ -251,9 +277,12 @@ describe('generateSceneVideoAction', () => {
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => builder),
     });
-    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
       job_id: 'j1',
-      existing: false,
+      used: 1,
+      dedup: false,
     });
 
     // Pick a model that has_native_audio = true via override
@@ -286,7 +315,7 @@ async function runAndCapturePrompt(
     model_used: model,
     request_input: { duration_sec: project.script.scenes[0]!.duration_sec },
   });
-  (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+  (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
     submitSceneVideo,
   });
 
@@ -298,9 +327,12 @@ async function runAndCapturePrompt(
   (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
     from: vi.fn(() => builder),
   });
-  (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+  (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    ok: true,
+    mode: 'reserved' as const,
     job_id: 'j-snap',
-    existing: false,
+    used: 1,
+    dedup: false,
   });
 
   const result = await generateSceneVideoAction({
@@ -315,93 +347,52 @@ async function runAndCapturePrompt(
   return call[0].prompt;
 }
 
-describe('generateSceneVideoAction — per-engine prompt signatures (T7)', () => {
-  it('Seedance 2.0: prompt contains [SCENE], [AUDIO], and Avoid:', async () => {
-    const prompt = await runAndCapturePrompt('bytedance/seedance-2.0/image-to-video', {
-      audio_mode: 'native',
-      dialogue: null,
+describe('generateSceneVideoAction — unified prompt signature', () => {
+  // Post-2026-05-13: per-engine dispatch was retired. Every active model
+  // (Grok Imagine Video, Seedance 2.0 Pro, Veo 3.1) runs through one
+  // unified builder that emits the [AESTHETIC] / [SCENE] / [SUBJECT] /
+  // [ACTION] / [CAMERA] / [AUDIO] / [PERFORMANCE] / [MICRO ACTION] /
+  // [Pacing/Style] / Avoid block grammar. Per-engine-specific assertions
+  // (Seedance Lite no-audio, Veo's [Cinematography] header, Kling beat
+  // markers, LTX label-style) deleted alongside their builders.
+  for (const modelId of [
+    'xai/grok-imagine-video/image-to-video',
+    'bytedance/seedance-2.0/image-to-video',
+    'fal-ai/veo3.1/image-to-video',
+  ]) {
+    it(`${modelId}: prompt carries the unified block grammar`, async () => {
+      const prompt = await runAndCapturePrompt(modelId, {
+        audio_mode: 'native',
+        dialogue: null,
+      });
+      expect(prompt).toContain('[AESTHETIC]');
+      expect(prompt).toContain('[SCENE]');
+      expect(prompt).toContain('[SUBJECT]');
+      expect(prompt).toContain('[ACTION]');
+      expect(prompt).toContain('[CAMERA]');
+      expect(prompt).toContain('[AUDIO]');
+      expect(prompt).toContain('[MICRO ACTION]');
+      expect(prompt).toContain('[Pacing/Style]');
+      expect(prompt).toContain('Avoid:');
     });
-    expect(prompt).toContain('[SCENE]');
-    expect(prompt).toContain('[AUDIO]');
-    expect(prompt).toContain('Avoid:');
-  });
-
-  it('Seedance Lite: prompt contains [SCENE] but NOT [AUDIO]', async () => {
-    const prompt = await runAndCapturePrompt('fal-ai/bytedance/seedance/v1/lite/image-to-video');
-    expect(prompt).toContain('[SCENE]');
-    expect(prompt).not.toContain('[AUDIO]');
-  });
-
-  it('Veo 3.1: prompt contains [Cinematography] and [Style]', async () => {
-    const prompt = await runAndCapturePrompt('fal-ai/veo3.1/image-to-video', {
-      audio_mode: 'native',
-      dialogue: null,
-    });
-    expect(prompt).toContain('[Cinematography]');
-    expect(prompt).toContain('[Style]');
-  });
-
-  it('Kling 2.5: prompt contains [00:00– beat marker and Reference: @Image1', async () => {
-    const prompt = await runAndCapturePrompt(
-      'fal-ai/kling-video/v2.5-turbo/standard/image-to-video',
-    );
-    expect(prompt).toContain('[00:00–');
-    expect(prompt).toContain('Reference: @Image1');
-  });
-
-  it('LTX: prompt contains Description:, Camera:, and Audio:', async () => {
-    const prompt = await runAndCapturePrompt('fal-ai/ltx-video');
-    expect(prompt).toContain('Description:');
-    expect(prompt).toContain('Camera:');
-    expect(prompt).toContain('Audio:');
-  });
+  }
 });
 
-// ---------------------------------------------------------------------------
-// F73 regression test — resolved audio_mode must reach per-engine builders
-// ---------------------------------------------------------------------------
+// F73 + F66 regression block retired 2026-05-13 — silent_tts pipeline gone.
+// Every scene now routes through native audio; the "no dialogue in [AUDIO]
+// block for Cyrillic" invariant is moot because the [AUDIO] block IS the
+// dialogue rendering surface now.
 
-describe('generateSceneVideoAction — F73 regression (resolved audio_mode)', () => {
-  it('scenes already in silent_tts emit F66 quiet-bed line (desired-state documentation)', async () => {
-    // NOTE: This is a documentation-of-desired-state test, NOT a bug-catching regression.
-    // It passes even if the F73 fix is reverted because raw scene.audio_mode='silent_tts'
-    // and resolveAudioMode('silent_tts') return the same value — there is nothing to coerce.
-    // The actual bug-catching test is the "auto+Cyrillic" case below.
-    const DIALOGUE_TEXT = 'Secret dialogue that must not appear';
-    const prompt = await runAndCapturePrompt('bytedance/seedance-2.0/image-to-video', {
-      audio_mode: 'silent_tts',
-      dialogue: { speaker: 'narrator', text: DIALOGUE_TEXT },
-    });
-    expect(prompt).not.toContain(DIALOGUE_TEXT);
-    // The quiet-bed directive from Seedance 2.0 builder (F66) should appear instead
-    expect(prompt).toContain('[AUDIO]');
-    expect(prompt).toContain('voice dubbed in post');
-  });
-
-  it('F73 critical: auto+Cyrillic dialogue — builder MUST NOT render dialogue text in prompt', async () => {
-    // F73 critical: the raw scene.audio_mode is 'auto' but resolveAudioMode coerces it to
-    // 'silent_tts' for Cyrillic dialogue. The dispatcher MUST receive the resolved value,
-    // not the raw value.
-    //
-    // With the F73 fix (passing resolved audioMode='silent_tts'):
-    //   → builder emits F66 quiet-bed directive; NO dialogue text in prompt.
-    // Without the fix (passing raw scene.audio_mode='auto'):
-    //   → builder treats 'auto' as 'native', emits Dialogue: narrator — "Секретный диалог…"
-    //     in the prompt.
-    //
-    // This test FAILS when the fix is reverted (audioMode → scene.audio_mode in buildVideoPrompt call).
-    const CYRILLIC_DIALOGUE = 'Секретный диалог, который не должен появиться';
+describe('generateSceneVideoAction — native audio always (post-rip-out)', () => {
+  it('Russian dialogue renders inside [AUDIO] / [PERFORMANCE] alongside ambient + music', async () => {
+    const CYRILLIC_DIALOGUE = 'Тестовая русская реплика';
     const prompt = await runAndCapturePrompt('bytedance/seedance-2.0/image-to-video', {
       audio_mode: 'auto',
       dialogue: { speaker: 'narrator', text: CYRILLIC_DIALOGUE },
     });
-    // The raw dialogue text must NOT appear — resolveAudioMode should have coerced 'auto'→'silent_tts'
-    expect(prompt).not.toContain('Секретный диалог');
-    // Dialogue: header must NOT appear (that's the native-audio path)
-    expect(prompt).not.toContain('Dialogue:');
-    // [AUDIO] block must be present (Seedance 2.0 builder structure)
+    // No more silent_tts gate — dialogue text reaches both [AUDIO] and
+    // [PERFORMANCE] blocks so the model can render synchronised speech.
+    expect(prompt).toContain(CYRILLIC_DIALOGUE);
     expect(prompt).toContain('[AUDIO]');
-    // F66 quiet-bed directive must appear instead of dialogue rendering
-    expect(prompt).toContain('voice dubbed in post');
   });
 });

@@ -133,6 +133,7 @@ async function onComplete(job: InflightJob, ctx: PollContext, deps: PollDeps): P
   // Side-effect for video kind: when fal didn't return last_frame_url,
   // submit a separate extract job so continuity ref is available for next scene.
   if (job.kind === 'video' && !result.last_frame_url && job.scene_id) {
+    const videoVersionId = hint?.kind === 'video' ? hint.version_id : undefined;
     const handle = await deps.provider.submitLastFrameExtract(
       { video_url: result.primary_url },
       {
@@ -149,7 +150,10 @@ async function onComplete(job: InflightJob, ctx: PollContext, deps: PollDeps): P
       kind: 'last_frame_extract',
       model: handle.model_used,
       fal_request_id: handle.fal_request_id,
-      request_input: handle.request_input,
+      request_input: {
+        ...handle.request_input,
+        ...(videoVersionId ? { video_version_id: videoVersionId } : {}),
+      },
     });
   }
 }

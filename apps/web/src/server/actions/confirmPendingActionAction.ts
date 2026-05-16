@@ -1,16 +1,13 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/get-user';
-import { composeSceneFinalClipAction } from '@/server/actions/composeSceneFinalClipAction';
 import { deleteCharacterAction } from '@/server/actions/deleteCharacterAction';
 import { generateCharacterDossierAction } from '@/server/actions/generateCharacterDossierAction';
 import { generateMasterClipAction } from '@/server/actions/generateMasterClipAction';
 import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
-import { generateSceneVoiceAction } from '@/server/actions/generateSceneVoiceAction';
 import { refineCharacterAction } from '@/server/actions/refineCharacterAction';
 import { rollbackVersionAction } from '@/server/actions/rollbackVersionAction';
 import { setSceneModelAction } from '@/server/actions/setSceneModelAction';
-import { submitVoiceJob } from '@/server/lib/audio-chain-helpers';
 import {
   type Character,
   type PendingAction,
@@ -18,6 +15,13 @@ import {
   type ToolChip,
   detectSyncHint,
 } from '@mango/core';
+
+// composeSceneFinalClipAction / generateSceneVoiceAction / submitVoiceJob
+// deleted 2026-05-13 alongside the ElevenLabs TTS chain. Audio is now baked
+// into the video clip by the model itself. The pending-action branches that
+// used to call them now resolve to no-op chips so legacy chat messages with
+// stale regen_scene_voice / compose_scene_final_clip payloads still
+// confirm/cancel cleanly during the rollover.
 import { getServerSupabase } from '@mango/db/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
@@ -242,96 +246,17 @@ export async function confirmPendingActionAction(rawInput: unknown): Promise<Res
       }
       break;
     }
-    case 'regen_scene_voice': {
-      const sceneId = typeof payload.scene_id === 'string' ? payload.scene_id : '';
-      const voiceId = typeof payload.voice_id === 'string' ? payload.voice_id : undefined;
-      const textOverride =
-        typeof payload.text_override === 'string' ? payload.text_override : undefined;
-      // Path A: simple regen (no overrides) → reuse generateSceneVoiceAction.
-      // Path B: with overrides → call submitVoiceJob directly from script context.
-      let r: { ok: true; job_id: string; existing: boolean } | { ok: false; error: string };
-      if (!voiceId && !textOverride) {
-        r = await generateSceneVoiceAction({ project_id, scene_id: sceneId });
-      } else {
-        // Need full script context for the helper — re-fetch.
-        const sbInner = await getServerSupabase();
-        const { data: proj } = await sbInner
-          .from('projects')
-          .select('tier, script')
-          .eq('id', project_id)
-          .single();
-        const script = (proj?.script ?? {}) as {
-          scenes?: Array<{
-            scene_id: string;
-            dialogue?: { speaker: string; text: string } | null;
-            audio_mode?: 'native' | 'silent_tts' | 'auto';
-            config_overrides?: { tier?: 'economy' | 'premium'; model?: string };
-          }>;
-          characters?: Character[];
-          narrator_voice?: {
-            tts_voice_id: string;
-            description?: string;
-            stability?: number;
-            similarity_boost?: number;
-            style?: number;
-            speed?: number;
-          };
-        };
-        const scene = script.scenes?.find((s) => s.scene_id === sceneId);
-        if (!scene || !scene.dialogue) {
-          r = { ok: false, error: 'scene not found or no dialogue' };
-        } else {
-          const tier = (proj?.tier ?? 'economy') as 'economy' | 'premium';
-          const effectiveTier = scene.config_overrides?.tier ?? tier;
-          const helperResult = await submitVoiceJob({
-            user_id: user.id,
-            project_id,
-            scene_id: sceneId,
-            dialogue: scene.dialogue,
-            characters: script.characters ?? [],
-            narrator_voice: script.narrator_voice ?? null,
-            effective_tier: effectiveTier,
-            video_model_id: scene.config_overrides?.model,
-            voice_id_override: voiceId,
-            text_override: textOverride,
-            initial_retry_count: 0,
-          });
-          r = helperResult;
-        }
-      }
-      if (r.ok) {
-        chip = {
-          kind: 'regen_scene_voice',
-          label: `🔊 Перегенерил озвучку сцены ${sceneId}`,
-          ok: true,
-        };
-      } else {
-        chip = {
-          kind: 'regen_scene_voice',
-          label: `Не перегенерил озвучку сцены ${sceneId} (${r.error})`,
-          ok: false,
-          error: r.error,
-        };
-      }
-      break;
-    }
+    case 'regen_scene_voice':
     case 'compose_scene_final_clip': {
+      // Audio pipeline retired 2026-05-13. These pending actions can still
+      // exist in old chat history; we surface a graceful "no longer needed"
+      // chip and move on.
       const sceneId = typeof payload.scene_id === 'string' ? payload.scene_id : '';
-      const r = await composeSceneFinalClipAction({ project_id, scene_id: sceneId });
-      if (r.ok) {
-        chip = {
-          kind: 'compose_scene_final_clip',
-          label: `🎞️ Пересобрал финал сцены ${sceneId}`,
-          ok: true,
-        };
-      } else {
-        chip = {
-          kind: 'compose_scene_final_clip',
-          label: `Не пересобрал финал сцены ${sceneId} (${r.error})`,
-          ok: false,
-          error: r.error,
-        };
-      }
+      chip = {
+        kind: pa.kind,
+        label: `Аудио-pipeline отключён · сцена ${sceneId} получит звук напрямую от видео-модели`,
+        ok: true,
+      } as ToolChip;
       break;
     }
     default: {

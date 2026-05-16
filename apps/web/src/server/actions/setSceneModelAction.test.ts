@@ -108,7 +108,7 @@ describe('setSceneModelAction', () => {
     const result = await setSceneModelAction({
       project_id: PROJECT_ID,
       scene_id: 's1',
-      model: 'fal-ai/kling-video/v2.5-turbo/standard/image-to-video', // economy model
+      model: 'xai/grok-imagine-video/image-to-video', // economy model
     });
 
     expect(result.ok).toBe(true);
@@ -118,7 +118,7 @@ describe('setSceneModelAction', () => {
           scenes: expect.arrayContaining([
             expect.objectContaining({
               config_overrides: expect.objectContaining({
-                model: 'fal-ai/kling-video/v2.5-turbo/standard/image-to-video',
+                model: 'xai/grok-imagine-video/image-to-video',
               }),
             }),
           ]),

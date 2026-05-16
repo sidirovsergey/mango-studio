@@ -1,3 +1,6 @@
+[AESTHETIC]
+Vertical 9:16, ultra cinematic luxury animation, Pixar + Apple + Netflix grade, 4K render, deep shadows, volumetric light, premium materials.
+
 [SCENE]
 Lighting: key from upper-left + soft fill + subtle golden-hour rim
 Time: вечер
@@ -15,6 +18,21 @@ Dolly In (slow) — 85mm anamorphic, горизонтальные блики н�
 
 [AUDIO]
 Ambient: тихий комнатный гул, далёкий дождь за окном. Dialogue: 00000000-0000-0000-0003-000000000001 — "I see you."
+
+[PERFORMANCE]
+Speaker: 00000000-0000-0000-0003-000000000001
+Line: "I see you."
+Lipsync timing (mouth shapes, jaw, blinks — visual track only):
+  0.0–0.6s: silent open, steady gaze, one settling blink
+  0.6–7.6s: speaker delivers the line with clear consonants, distinct phrasing, natural pause emphasis on punctuation
+  7.6–8.0s: settling beat, mouth closes, gaze holds
+Delivery: женский голос, тихо и отчётливо, с лёгкой загадочностью
+
+[MICRO ACTION]
+Minimal extraneous body movement during dialogue beats; jaw/lip activity matches the speech timing above.
+One slow blink mid-line; subtle eyebrow micro-motion on emphasised words.
+Gaze and attention anchored to: лицо Марины.
+Energy: building, deliberate — pressure accumulates frame by frame.
 
 [Pacing/Style]
 Cinematic, naturalistic pacing; consistent grading

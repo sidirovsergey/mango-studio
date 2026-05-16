@@ -1,3 +1,6 @@
+[AESTHETIC]
+Vertical 9:16, ultra cinematic luxury animation, Pixar + Apple + Netflix grade, 4K render, deep shadows, volumetric light, premium materials.
+
 [SCENE]
 Lighting: overcast diffuse key + naturalistic fill
 Time: полдень, пасмурно
@@ -12,6 +15,15 @@ Subject: Гром — Чёрный лабрадор-ретривер, молод
 
 [CAMERA]
 Tracking (medium) — 50mm, небольшое motion blur на фоне; shot: Full, Low Angle
+
+[AUDIO]
+No dialogue, no music; ambient room tone only — voice dubbed in post
+
+[MICRO ACTION]
+Subtle facial expression and naturalistic micro-blinks (every 2–3 seconds).
+Body holds intention; no idle fidgeting or random head bobbing.
+Gaze and attention anchored to: Гром в прыжке над забором.
+Energy: peak intensity, contained — read in the eyes, not in big gestures.
 
 [Pacing/Style]
 Cinematic, naturalistic pacing; consistent grading

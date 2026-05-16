@@ -126,26 +126,13 @@ export type {
 
 export * from './queue';
 
-export type { VoiceOption } from './media/voices';
-export { VOICE_POOL, getVoiceById, DEFAULT_NARRATOR_VOICE_ID } from './media/voices';
+// Audio pipeline rip-out (2026-05-13): VOICE_POOL, resolveAudioMode,
+// planNextChainStep and friends deleted alongside ElevenLabs TTS and the
+// silent_tts → mux chain. Every active video model now generates native
+// audio. Old projects still parse — their voice_audio_versions /
+// final_clip / narrator_voice fields stay on the jsonb but are inert.
 
 export * from './media/scene-versions';
-export {
-  resolveAudioMode,
-  resolveVoiceId,
-  resolveVoiceSettings,
-  type SceneForAudio,
-  type VideoModelMetaForAudio,
-  type NarratorVoiceLike,
-  type NarratorVoiceWithSettings,
-} from './media/audio-mode';
-export type { VoiceSettingsDefault } from './media/voices';
-export {
-  AUDIO_CHAIN_COST_HINT_USD,
-  planNextChainStep,
-  type ChainScene,
-  type ChainStep,
-} from './media/audio-chain';
 
 export {
   ShotSizeSchema,

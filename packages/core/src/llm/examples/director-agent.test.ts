@@ -92,11 +92,15 @@ describe('DIRECTOR_AGENT_EXAMPLES', () => {
     expect(ex.tool_calls).toHaveLength(0);
   });
 
-  it('example 7 (set-voice-audio-guard): exactly 1 set_character_voice call', () => {
+  it('example 7 (voice-change-explainer): no tool calls, just an explainer reply', () => {
+    // Codex audit P1.4: set-voice-audio-guard fixture replaced 2026-05-13.
+    // set_character_voice tool was retired with the ElevenLabs pipeline; the
+    // Director now explains the new shape verbally instead of calling a
+    // tool that no longer exists.
     const ex = DIRECTOR_AGENT_EXAMPLES[7] as DirectorAgentExample;
-    expect(ex.label).toBe('set-voice-audio-guard');
-    expect(ex.tool_calls).toHaveLength(1);
-    expect(ex.tool_calls[0]?.name).toBe('set_character_voice');
+    expect(ex.label).toBe('voice-change-explainer');
+    expect(ex.tool_calls).toHaveLength(0);
+    expect(ex.reply.toLowerCase()).toMatch(/голос|видео.{0,5}модел/);
   });
 
   it('stable label order snapshot', () => {
@@ -109,7 +113,7 @@ describe('DIRECTOR_AGENT_EXAMPLES', () => {
       'conversational-no-tool',
       'unarchive-match',
       'unarchive-miss',
-      'set-voice-audio-guard',
+      'voice-change-explainer',
     ]);
   });
 });

@@ -3,19 +3,12 @@
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
 import { regenSceneTextAction } from '@/server/actions/regenSceneTextAction';
-import { setSceneAudioModeAction } from '@/server/actions/setSceneAudioModeAction';
 import { setSceneDurationAction } from '@/server/actions/setSceneDurationAction';
 import { setSceneModelAction } from '@/server/actions/setSceneModelAction';
 import { setSceneTierAction } from '@/server/actions/setSceneTierAction';
 import { toggleSceneContinuityAction } from '@/server/actions/toggleSceneContinuityAction';
 import { uploadSceneAssetAction } from '@/server/actions/uploadSceneAssetAction';
-import {
-  AUDIO_CHAIN_COST_HINT_USD,
-  type Character,
-  getActiveVideoModels,
-  getVideoModelMeta,
-  resolveAudioMode,
-} from '@mango/core';
+import { type Character, getActiveVideoModels, getVideoModelMeta } from '@mango/core';
 import type { Database } from '@mango/db';
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { PromptEditorModal } from './PromptEditorModal';
@@ -37,12 +30,15 @@ interface Props {
 type ActionResult = { ok: boolean; error?: string };
 
 const MODEL_LABEL: Record<string, string> = {
-  'fal-ai/bytedance/seedance/v1/lite/image-to-video': 'Seedance 1 Lite',
-  'fal-ai/kling-video/v2.5-turbo/standard/image-to-video': 'Kling 2.5 Turbo',
-  'fal-ai/ltx-video': 'LTX preview',
+  // Active (native-audio only after 2026-05-13)
+  'xai/grok-imagine-video/image-to-video': 'Grok Imagine Video',
   'bytedance/seedance-2.0/image-to-video': 'Seedance 2.0 Pro',
   'fal-ai/veo3.1/image-to-video': 'Veo 3.1',
-  'fal-ai/kling-video/v2.5-turbo/pro/image-to-video': 'Kling 2.5 Pro',
+  // Legacy — kept only so old scenes still render a friendly name
+  'fal-ai/bytedance/seedance/v1/lite/image-to-video': 'Seedance 1 Lite (legacy)',
+  'fal-ai/kling-video/v2.5-turbo/standard/image-to-video': 'Kling 2.5 Turbo (legacy)',
+  'fal-ai/ltx-video': 'LTX preview (legacy)',
+  'fal-ai/kling-video/v2.5-turbo/pro/image-to-video': 'Kling 2.5 Pro (legacy)',
 };
 
 const COST_HINT_LABEL: Record<'low' | 'medium' | 'high', string> = {
@@ -72,18 +68,48 @@ const JOB_KIND_LABEL: Record<string, string> = {
 
 type ActionId = 'text' | 'frame' | 'video';
 
-export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, activeJob }: Props) {
+export function SceneSidePanel({
+  projectId,
+  scene,
+  index,
+  sceneNum,
+  tier,
+  characters,
+  activeJob,
+}: Props) {
   const num = sceneNum ?? String(index + 1).padStart(2, '0');
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [promptModal, setPromptModal] = useState<'first_frame' | 'video' | null>(null);
   const [activeAction, setActiveAction] = useState<ActionId | null>(null);
+  const { prospectivePrompts } = useStage04();
+
+  // F53 UI gate — mirror the server-side hard precondition in
+  // generateFirstFrameAction so the "Кадр" tile is visibly disabled while the
+  // reference_image chain is in flight. Without this, the user clicks an
+  // enabled-looking button and only then sees the retry-message toast. Paired
+  // with the retroactive trigger in pollMediaJobsAction so the gate eventually
+  // clears without requiring user intervention.
+  const charsNeedingRef = characters
+    .filter((c) => scene.character_ids.includes(c.id))
+    .filter((c) => c.dossier && !c.dossier.reference_image);
+  const refNotReady = charsNeedingRef.length > 0;
+  const refNotReadyTitle = refNotReady
+    ? `Готовлю reference-картинку: ${charsNeedingRef.map((c) => c.name).join(', ')}. Подожди ~20-30с.`
+    : null;
 
   const activeFrame =
     scene.first_frame_versions.find((v) => v.version_id === scene.first_frame_active_version_id) ??
     null;
   const activeVideo =
     scene.video_versions.find((v) => v.version_id === scene.video_active_version_id) ?? null;
+
+  // Pre-built (prospective) prompts come from the Stage04Provider batch cache;
+  // they refresh on every poll-tick alongside the script. When no version is
+  // generated yet, surface this draft so the user can read + edit it inline.
+  const sceneProspective = prospectivePrompts?.[scene.scene_id] ?? null;
+  const frameProspective = sceneProspective?.first_frame?.prompt ?? null;
+  const videoProspective = sceneProspective?.video?.prompt ?? null;
 
   const isGenerating = !!activeJob && ['pending', 'running'].includes(activeJob.status);
   const genKindLabel = activeJob ? (JOB_KIND_LABEL[activeJob.kind] ?? activeJob.kind) : null;
@@ -115,22 +141,13 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
   const videoCostHint = (() => {
     const modelId = scene.config_overrides?.model ?? null;
     const modelMeta = modelId ? getVideoModelMeta(modelId) : null;
-    const baseLabel = (() => {
-      if (modelMeta) return COST_HINT_LABEL[modelMeta.cost_hint];
-      return tier === 'premium' ? '$0.40' : '$0.18';
-    })();
-    // Surface the audio-chain cost up-front for scenes that will go through
-    // the silent_tts → mux pipeline (Phase 1.4.1).
-    const audioMode = resolveAudioMode(
-      { audio_mode: scene.audio_mode, dialogue: scene.dialogue },
-      { has_native_audio: modelMeta?.has_native_audio ?? false },
-    );
-    const hasDialogue = !!scene.dialogue?.text?.trim();
-    if (audioMode === 'silent_tts' && hasDialogue) {
-      return `${baseLabel} + $${AUDIO_CHAIN_COST_HINT_USD.toFixed(2)} озвучка`;
-    }
-    return baseLabel;
+    if (modelMeta) return COST_HINT_LABEL[modelMeta.cost_hint];
+    return tier === 'premium' ? '$0.40' : '$0.50';
   })();
+  // Note (2026-05-13): silent_tts → TTS-mux cost line removed alongside the
+  // audio pipeline rip-out. All active video models now carry native audio,
+  // so there's no separate audio cost to surface. Legacy scenes that still
+  // hold a silent_tts model render with the base label only.
 
   const sceneTitle = (() => {
     const text = scene.description;
@@ -198,7 +215,8 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
       <PromptSection
         kind="frame"
         label="Промпт первого кадра"
-        prompt={activeFrame?.prompt ?? null}
+        prompt={activeFrame?.prompt ?? frameProspective}
+        isProspective={!activeFrame && !!frameProspective}
         version={
           activeFrame ? versionLabel(scene.first_frame_versions, activeFrame.version_id) : null
         }
@@ -209,7 +227,8 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
       <PromptSection
         kind="video"
         label="Промпт видео"
-        prompt={activeVideo?.prompt ?? null}
+        prompt={activeVideo?.prompt ?? videoProspective}
+        isProspective={!activeVideo && !!videoProspective}
         version={activeVideo ? versionLabel(scene.video_versions, activeVideo.version_id) : null}
         onOpen={() => setPromptModal('video')}
         disabled={lockedByGen}
@@ -236,11 +255,12 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
           action={activeFrame ? 'перегенерировать' : 'создать'}
           cost="$0.02"
           busy={activeAction === 'frame'}
-          disabled={pending || lockedByGen}
+          disabled={pending || lockedByGen || refNotReady}
           title={
-            activeFrame
+            refNotReadyTitle ??
+            (activeFrame
               ? 'Сгенерировать новую версию first_frame (9:16) — заменит текущую активную'
-              : 'Сгенерировать первый кадр сцены (9:16) для последующего video-генератора'
+              : 'Сгенерировать первый кадр сцены (9:16) для последующего video-генератора')
           }
           onClick={() =>
             runScopedAction('frame', () =>
@@ -295,12 +315,11 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
           duration={scene.duration_sec}
           disabled={lockedByGen}
         />
-        <AudioModeControl
-          projectId={projectId}
-          sceneId={scene.scene_id}
-          mode={scene.audio_mode ?? 'auto'}
-          disabled={lockedByGen}
-        />
+        {/*
+          AudioModeControl removed 2026-05-13 — all active video models now
+          generate native audio, so the 'auto' resolver always picks 'native'.
+          The field stays on the scene jsonb for back-compat; the toggle's gone.
+        */}
         <ContinuityControl
           projectId={projectId}
           sceneId={scene.scene_id}
@@ -349,12 +368,22 @@ interface PromptSectionProps {
   kind: 'frame' | 'video';
   label: string;
   prompt: string | null;
+  /** True when `prompt` is the prospective draft (no version generated yet). */
+  isProspective?: boolean;
   version: string | null;
   onOpen: () => void;
   disabled: boolean;
 }
 
-function PromptSection({ kind, label, prompt, version, onOpen, disabled }: PromptSectionProps) {
+function PromptSection({
+  kind,
+  label,
+  prompt,
+  isProspective,
+  version,
+  onOpen,
+  disabled,
+}: PromptSectionProps) {
   const Icon = kind === 'frame' ? IconFrame : IconClapper;
   return (
     <section className="note-section">
@@ -364,7 +393,11 @@ function PromptSection({ kind, label, prompt, version, onOpen, disabled }: Promp
           {label}
         </span>
         <span className="note-meta">
-          {version && <span className="version-chip">{version}</span>}
+          {version ? (
+            <span className="version-chip">{version}</span>
+          ) : (
+            isProspective && <span className="prospective-tag">черновик</span>
+          )}
           <button
             type="button"
             className="open-btn"
@@ -378,7 +411,7 @@ function PromptSection({ kind, label, prompt, version, onOpen, disabled }: Promp
         </span>
       </div>
       <p className={`prompt-body${prompt ? '' : ' empty'}`}>
-        {prompt ?? '— ещё не сгенерирован —'}
+        {prompt ?? '— ещё не сгенерирован. Нажми «редактировать» чтобы открыть черновик. —'}
       </p>
     </section>
   );
@@ -599,97 +632,10 @@ function DurationControl({
   );
 }
 
-function AudioModeControl({
-  projectId,
-  sceneId,
-  mode,
-  disabled,
-}: {
-  projectId: string;
-  sceneId: string;
-  mode: 'native' | 'silent_tts' | 'auto';
-  disabled: boolean;
-}) {
-  const [pending, startT] = useTransition();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const opts: { id: 'auto' | 'native' | 'silent_tts'; label: string; title: string }[] = [
-    { id: 'auto', label: 'авто', title: 'Автодетект: кириллица → TTS, иначе native' },
-    { id: 'native', label: 'native', title: 'Принудительно native-audio (Seedance 2.0 / Veo)' },
-    { id: 'silent_tts', label: 'TTS', title: 'Принудительно silent + ElevenLabs TTS' },
-  ];
-  const current = opts.find((o) => o.id === mode) ?? opts[0]!;
-
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('mousedown', onClick);
-    window.addEventListener('keydown', onEsc);
-    return () => {
-      window.removeEventListener('mousedown', onClick);
-      window.removeEventListener('keydown', onEsc);
-    };
-  }, [open]);
-
-  const handleSelect = (id: 'auto' | 'native' | 'silent_tts') => {
-    setOpen(false);
-    if (id === mode) return;
-    startT(async () => {
-      await setSceneAudioModeAction({
-        project_id: projectId,
-        scene_id: sceneId,
-        audio_mode: id,
-      });
-    });
-  };
-
-  return (
-    <div className="control" ref={ref}>
-      <span className="control-label">Аудио</span>
-      <button
-        type="button"
-        className={`control-value${open ? ' open' : ''}`}
-        onClick={() => setOpen((x) => !x)}
-        disabled={disabled || pending}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        {current.label}{' '}
-        <span className="control-caret" aria-hidden>
-          ▾
-        </span>
-      </button>
-      {open && (
-        <div
-          className="control-popover small"
-          role="listbox"
-          aria-label="Аудио режим"
-          tabIndex={-1}
-        >
-          <div className="popover-head">аудио режим</div>
-          {opts.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              role="option"
-              aria-selected={mode === o.id}
-              className={`popover-item${mode === o.id ? ' active' : ''}`}
-              onClick={() => handleSelect(o.id)}
-              title={o.title}
-            >
-              <span className="popover-item-label">{o.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+// AudioModeControl removed 2026-05-13 — all active models carry native audio,
+// so the override is meaningless. Component definition deleted alongside its
+// render site; setSceneAudioModeAction kept on the server in case any old
+// Director-tool prompt still calls it (returns ok+no-op on native mode).
 
 function ContinuityControl({
   projectId,

@@ -1,5 +1,12 @@
 'use server';
 
+// Codex audit P1.2: maxDuration was previously exported from this server-action
+// file, which Next.js silently ignores — Route Segment Config only applies to
+// page / layout / route handler files. Moved to apps/web/src/app/projects/[id]/page.tsx
+// where it actually takes effect. Server actions invoked from that page
+// inherit its 120s budget.
+// Ref: https://nextjs.org/docs/15/app/api-reference/file-conventions/route-segment-config#maxduration
+
 import { getCurrentUserId } from '@/lib/auth/get-user';
 import { logLLMCall } from '@/server/lib/log-llm-call';
 import {
@@ -77,6 +84,15 @@ export async function generateScriptAction(
       scenes: result.output.scenes,
       characters: mergedCharacters,
       master_clip: null,
+      // Codex audit P1.1 + P2: persist visual_theme + tier. Grok authors
+      // both, downstream video prompt builder depends on both:
+      // - visual_theme drives [AESTHETIC] / [Pacing/Style] / Avoid blocks
+      // - tier is the visual_theme owner; generateSceneVideoAction reads
+      //   script.tier ?? effectiveTier when assembling the video prompt,
+      //   and buildProspectivePromptAction same. Dropping tier silently
+      //   fell back to economy and changed the rendered AESTHETIC line.
+      visual_theme: result.output.visual_theme ?? null,
+      tier: result.output.tier ?? null,
     };
     await persistScript(project_id, newScript);
     await logLLMCall({
@@ -132,6 +148,15 @@ export async function regenScriptAction(
       scenes: result.output.scenes,
       characters: mergedCharacters,
       master_clip: null,
+      // Codex audit P1.1 + P2: persist visual_theme + tier. Grok authors
+      // both, downstream video prompt builder depends on both:
+      // - visual_theme drives [AESTHETIC] / [Pacing/Style] / Avoid blocks
+      // - tier is the visual_theme owner; generateSceneVideoAction reads
+      //   script.tier ?? effectiveTier when assembling the video prompt,
+      //   and buildProspectivePromptAction same. Dropping tier silently
+      //   fell back to economy and changed the rendered AESTHETIC line.
+      visual_theme: result.output.visual_theme ?? null,
+      tier: result.output.tier ?? null,
     };
     await persistScript(project_id, newScript);
     await logLLMCall({
@@ -210,6 +235,15 @@ export async function refineScriptAction(
       scenes: result.output.scenes,
       characters: mergedCharacters,
       master_clip: null,
+      // Codex audit P1.1 + P2: persist visual_theme + tier. Grok authors
+      // both, downstream video prompt builder depends on both:
+      // - visual_theme drives [AESTHETIC] / [Pacing/Style] / Avoid blocks
+      // - tier is the visual_theme owner; generateSceneVideoAction reads
+      //   script.tier ?? effectiveTier when assembling the video prompt,
+      //   and buildProspectivePromptAction same. Dropping tier silently
+      //   fell back to economy and changed the rendered AESTHETIC line.
+      visual_theme: result.output.visual_theme ?? null,
+      tier: result.output.tier ?? null,
     };
     await persistScript(project_id, newScript);
     await logLLMCall({

@@ -187,6 +187,94 @@ describe('pollMediaJobsAction', () => {
     );
   });
 
+  it('finalizeCompleted stores last_frame extracted_from_version_id from video job metadata', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      id: 'u1',
+    });
+
+    const script = {
+      scenes: [
+        {
+          scene_id: 's1',
+          first_frame_active_version_id: 'first-frame-ver-1',
+          video_active_version_id: 'video-ver-active',
+          last_frame: null,
+        },
+      ],
+      characters: [],
+    };
+
+    const projectQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: { user_id: 'u1', script },
+        error: null,
+      }),
+    };
+    const finalizeProjectRead = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: { script }, error: null }),
+    };
+    const projectsUpdate = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    };
+    const mediaJobsUpdate = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    };
+    let projectsCall = 0;
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn((table: string) => {
+        if (table === 'projects') {
+          projectsCall++;
+          if (projectsCall === 1) return projectQuery;
+          if (projectsCall === 2) return finalizeProjectRead;
+          return projectsUpdate;
+        }
+        return mediaJobsUpdate;
+      }),
+      storage: { from: () => ({ remove: vi.fn() }) },
+    });
+
+    let captured: Parameters<typeof runPollTick>[1] | undefined;
+    (runPollTick as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      async (_ctx, deps) => {
+        captured = deps;
+      },
+    );
+
+    const result = await pollMediaJobsAction({ project_id: 'p1' });
+    expect(result.ok).toBe(true);
+    expect(captured).toBeDefined();
+
+    await captured!.finalizeCompleted({
+      job: {
+        id: 'job-last-frame',
+        user_id: 'u1',
+        project_id: 'p1',
+        scene_id: 's1',
+        character_id: null,
+        kind: 'last_frame_extract',
+        model: 'fal-ai/ffmpeg-api/extract-frame',
+        fal_request_id: 'req-last-frame',
+        status: 'pending',
+        request_input: { video_version_id: 'video-ver-source' },
+      },
+      result_storage: { kind: 'fal_passthrough', url: 'https://cdn.fal.ai/last.png' },
+      cost_usd: 0.001,
+      latency_ms: 1000,
+    });
+
+    const updatePayload = projectsUpdate.update.mock.calls[0]?.[0];
+    expect(updatePayload?.script?.scenes[0]?.last_frame).toEqual({
+      storage: { kind: 'fal_passthrough', url: 'https://cdn.fal.ai/last.png' },
+      extracted_from_version_id: 'video-ver-source',
+    });
+  });
+
   it('returns forbidden when project belongs to another user', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       id: 'u1',

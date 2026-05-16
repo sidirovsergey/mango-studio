@@ -2,7 +2,12 @@
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { recordPendingJob } from '@/server/lib/scene-helpers';
+import { reserveMediaJob } from '@/server/lib/rate-limit';
+import {
+  finalizeMediaJobReservation,
+  recordPendingJob,
+  rollbackMediaJobReservation,
+} from '@/server/lib/scene-helpers';
 import {
   type ArcRole,
   type AudioDirection,
@@ -18,8 +23,13 @@ import {
   getActiveVersion,
   getDefaultVideoModel,
   getVideoModelMeta,
-  resolveAudioMode,
 } from '@mango/core';
+
+// Audio mode is hardcoded to 'native' post-2026-05-13 rip-out. Every active
+// video model carries native audio; the silent_tts → TTS → mux chain is gone.
+// Legacy scenes with audio_mode='silent_tts' on the jsonb still serialize fine
+// but the dispatcher no longer honours them — we always send native.
+const RESOLVED_AUDIO_MODE = 'native' as const;
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
 
@@ -121,18 +131,12 @@ export async function generateSceneVideoAction(
     input.model_override ?? scene.config_overrides?.model ?? getDefaultVideoModel(effectiveTier);
   const duration_sec = clampDurationToModel(model, scene.duration_sec);
 
-  // Resolve effective audio mode (drives whether silent_tts pipeline will follow).
-  // F73 fix: pass the RESOLVED audioMode to the dispatcher — not the raw scene.audio_mode.
-  // Builders treat 'auto' the same as 'native', so passing raw 'auto' bypasses the Cyrillic→silent_tts
-  // coercion that resolveAudioMode applies upstream.
+  // Audio mode is always 'native' after the 2026-05-13 audio-pipeline rip-out.
+  // resolveAudioMode + silent_tts gating + ElevenLabs TTS chain are gone;
+  // every active model bakes audio into the video clip directly.
   const modelMeta = getVideoModelMeta(model);
-  const audioMode = resolveAudioMode(
-    {
-      audio_mode: scene.audio_mode ?? 'auto',
-      dialogue: scene.dialogue,
-    },
-    { has_native_audio: modelMeta?.has_native_audio ?? false },
-  );
+  const audioMode = RESOLVED_AUDIO_MODE;
+  void modelMeta; // kept for cost-hint logging if a caller adds it back later
 
   // Project characters matching this scene's character_ids to slim CharacterInScene shape.
   // Stale refs (deleted characters) are silently dropped with a warning — matches house style
@@ -195,17 +199,61 @@ export async function generateSceneVideoAction(
   const provider = getMediaProvider();
   const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
 
-  const handle = await provider.submitSceneVideo(
-    {
-      prompt,
-      model,
-      first_frame_ref: image_refs[0]!,
-      duration_sec,
-      aspect_ratio,
-    },
-    ctx,
-  );
+  // Grok Imagine Video accepts an explicit resolution; map by effective tier
+  // (economy → 480p for cost, premium → 720p for quality). Ignored by other
+  // engines via the FalMediaProvider branch.
+  const isGrok = model.startsWith('xai/grok-imagine-video');
+  const grokResolution: '480p' | '720p' = effectiveTier === 'premium' ? '720p' : '480p';
 
+  // Atomic quota + reservation.
+  const reservation = await reserveMediaJob({
+    user_id: user.id,
+    project_id: input.project_id,
+    kind: 'video',
+    scene_id: input.scene_id,
+  });
+  if (!reservation.ok) return { ok: false, error: reservation.error };
+  if (reservation.mode === 'reserved' && reservation.dedup) {
+    return { ok: true, job_id: reservation.job_id, existing: true, audio_mode: audioMode };
+  }
+
+  let handle: Awaited<ReturnType<typeof provider.submitSceneVideo>>;
+  try {
+    handle = await provider.submitSceneVideo(
+      {
+        prompt,
+        model,
+        first_frame_ref: image_refs[0]!,
+        duration_sec,
+        aspect_ratio,
+        ...(isGrok ? { resolution: grokResolution } : {}),
+      },
+      ctx,
+    );
+  } catch (e) {
+    if (reservation.mode === 'reserved') {
+      await rollbackMediaJobReservation(reservation.job_id);
+    }
+    throw e;
+  }
+
+  const enrichedRequestInput = {
+    ...(handle.request_input ?? {}),
+    audio_mode: audioMode,
+    first_frame_version_id: activeFrame.version_id,
+  };
+
+  if (reservation.mode === 'reserved') {
+    await finalizeMediaJobReservation({
+      job_id: reservation.job_id,
+      model: handle.model_used,
+      fal_request_id: handle.fal_request_id,
+      request_input: enrichedRequestInput,
+    });
+    return { ok: true, job_id: reservation.job_id, existing: false, audio_mode: audioMode };
+  }
+
+  // Bypass mode: metering disabled or RPC degraded.
   const { job_id, existing } = await recordPendingJob({
     user_id: user.id,
     project_id: input.project_id,
@@ -213,12 +261,7 @@ export async function generateSceneVideoAction(
     kind: 'video',
     model: handle.model_used,
     fal_request_id: handle.fal_request_id,
-    request_input: {
-      ...(handle.request_input ?? {}),
-      audio_mode: audioMode,
-      first_frame_version_id: activeFrame.version_id,
-    },
+    request_input: enrichedRequestInput,
   });
-
   return { ok: true, job_id, existing, audio_mode: audioMode };
 }

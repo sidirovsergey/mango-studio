@@ -1,12 +1,16 @@
 'use client';
 
 import { generateCharacterDossierAction } from '@/server/actions/generateCharacterDossierAction';
-import { setCharacterVoiceAction } from '@/server/actions/setCharacterVoiceAction';
 import { updateCharacterFieldAction } from '@/server/actions/updateCharacterFieldAction';
-import { type Character, VOICE_POOL, buildDossierPrompt } from '@mango/core';
+import { type Character, buildDossierPrompt } from '@mango/core';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { ReferenceImagesPanel } from './ReferenceImagesPanel';
+
+// VoicePicker + setCharacterVoiceAction + VOICE_POOL removed 2026-05-13.
+// Active video models bake character voices into the clip directly; no
+// separate ElevenLabs picker. Old projects keep their voice_id on disk
+// but the modal no longer surfaces a way to change it.
 
 interface Props {
   projectId: string;
@@ -52,9 +56,7 @@ export function CharacterModalClient({
   const [promptSynced, setPromptSynced] = useState(false);
   const [regenSuggested, setRegenSuggested] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
-  const [ttsProvider, setTtsProvider] = useState<'grok' | 'elevenlabs'>(
-    character.voice.tts_provider ?? 'elevenlabs',
-  );
+  // ttsProvider state removed 2026-05-13 with the audio rip-out.
 
   const close = () => {
     const next = new URLSearchParams(params.toString());
@@ -201,36 +203,12 @@ export function CharacterModalClient({
         {genError && <div className="char-modal-error">⚠ {genError}</div>}
       </section>
 
-      <section className="char-modal-section">
-        <div className="char-modal-section-title">Голос</div>
-        <VoicePicker projectId={projectId} character={character} />
-        <div className="tts-provider-toggle">
-          <label>
-            <input
-              type="radio"
-              name="tts"
-              checked={ttsProvider === 'grok'}
-              onChange={() => {
-                setTtsProvider('grok');
-                saveField({ voice: { tts_provider: 'grok' } });
-              }}
-            />
-            Grok
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="tts"
-              checked={ttsProvider === 'elevenlabs'}
-              onChange={() => {
-                setTtsProvider('elevenlabs');
-                saveField({ voice: { tts_provider: 'elevenlabs' } });
-              }}
-            />
-            ElevenLabs
-          </label>
-        </div>
-      </section>
+      {/*
+        "Голос" section removed 2026-05-13: native-audio video models
+        (Grok Imagine Video, Seedance 2.0 Pro, Veo 3.1) handle character
+        voicing implicitly from the dialogue text + the character's
+        description. The separate TTS pipeline + voice picker is gone.
+      */}
 
       <section className="char-modal-section">
         <ReferenceImagesPanel
@@ -244,101 +222,4 @@ export function CharacterModalClient({
   );
 }
 
-// ---------------- VoicePicker ----------------
-function VoicePicker({ projectId, character }: { projectId: string; character: Character }) {
-  const router = useRouter();
-  const [pending, startT] = useTransition();
-  const [showAdv, setShowAdv] = useState(false);
-  const [advId, setAdvId] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSelect = (voice: { id: string; label: string }) => {
-    setError(null);
-    startT(async () => {
-      const r = await setCharacterVoiceAction({
-        project_id: projectId,
-        character_id: character.id,
-        tts_voice_id: voice.id,
-      });
-      if (!r.ok) {
-        if (r.error === 'voice_locked') {
-          setError(r.details ?? 'Voice is locked after audio has been rendered.');
-        } else {
-          setError(r.error);
-        }
-        return;
-      }
-      router.refresh();
-    });
-  };
-
-  const handleAdvanced = () => {
-    if (!advId.match(/^[A-Za-z0-9]{20}$/)) {
-      setError('voice_id must be 20 alphanumeric chars');
-      return;
-    }
-    setError(null);
-    startT(async () => {
-      const r = await setCharacterVoiceAction({
-        project_id: projectId,
-        character_id: character.id,
-        tts_voice_id: advId,
-      });
-      if (!r.ok) {
-        if (r.error === 'voice_locked') {
-          setError(r.details ?? 'Voice is locked after audio has been rendered.');
-        } else {
-          setError(r.error);
-        }
-        return;
-      }
-      setShowAdv(false);
-      setAdvId('');
-      router.refresh();
-    });
-  };
-
-  return (
-    <div className="voice-picker">
-      <span className="voice-label">🗣️ Голос:</span>
-      <select
-        className="voice-select"
-        value={character.voice_id ?? ''}
-        onChange={(e) => {
-          const v = VOICE_POOL.find((x) => x.id === e.target.value);
-          if (v) handleSelect({ id: v.id, label: v.label });
-        }}
-        disabled={pending}
-      >
-        <option value="">— не задан —</option>
-        {VOICE_POOL.map((v) => (
-          <option key={v.id} value={v.id}>
-            {v.label} ({v.gender}, {v.tone})
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        className="icon-btn"
-        onClick={() => setShowAdv((x) => !x)}
-        title="Custom voice_id"
-      >
-        ✎ adv
-      </button>
-      {showAdv && (
-        <div className="adv-popover">
-          <input
-            type="text"
-            placeholder="ElevenLabs voice_id (20 chars)"
-            value={advId}
-            onChange={(e) => setAdvId(e.target.value)}
-          />
-          <button type="button" className="btn primary" onClick={handleAdvanced} disabled={pending}>
-            применить
-          </button>
-        </div>
-      )}
-      {error && <span className="voice-error">⚠ {error}</span>}
-    </div>
-  );
-}
+// VoicePicker component deleted 2026-05-13 — see top-of-file comment.

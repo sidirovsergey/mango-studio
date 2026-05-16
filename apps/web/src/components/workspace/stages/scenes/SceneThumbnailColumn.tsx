@@ -6,8 +6,6 @@ import { setActiveVersionAction } from '@/server/actions/setActiveVersionAction'
 import type { SceneAssetVersion, StoredAsset } from '@mango/core';
 import type { Database } from '@mango/db';
 import { useState, useTransition } from 'react';
-import { AudioPipelineError } from './AudioPipelineError';
-import { AudioPipelineSpinner } from './AudioPipelineSpinner';
 import type { SceneView } from './Stage04Provider';
 
 type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
@@ -180,15 +178,14 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
   return (
     <div className="thumb-col">
       <div className="thumb">
-        {failedAudioJob ? (
-          <AudioPipelineError
-            projectId={projectId}
-            sceneId={scene.scene_id}
-            kind={failedAudioJob.kind as 'voice' | 'final_clip'}
-          />
-        ) : isActiveJob && isAudioJob ? (
-          <AudioPipelineSpinner kind={activeJob.kind as 'voice' | 'final_clip'} />
-        ) : isActiveJob ? (
+        {/*
+          AudioPipelineError + AudioPipelineSpinner deleted 2026-05-13 with
+          the ElevenLabs TTS pipeline. Audio is baked into the video clip by
+          the model — voice/final_clip jobs no longer exist for new scenes.
+          Legacy in-flight audio jobs (rare during rollover) fall through to
+          the regular thumb-loading branch.
+        */}
+        {isActiveJob ? (
           <div className="thumb-loading">
             <button
               type="button"

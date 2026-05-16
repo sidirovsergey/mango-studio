@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import type { SceneAssetVersion } from '../media/scene-types';
-import { VOICE_POOL } from '../media/voices';
 import { formatProjectStateSummary } from './director-state-summary';
 import type { DirectorStateSummaryInput } from './director-state-summary';
 import type { Scene } from './schemas';
@@ -193,45 +192,22 @@ describe('formatProjectStateSummary', () => {
     expect(descPart.length).toBeLessThan(65);
   });
 
-  // 6. Voice label lookup — known tts_voice_id renders label
-  it('voice label lookup — known voice ID renders correct label', () => {
-    const knownVoice = VOICE_POOL[0]!; // Janet
+  // 6/7/8. Voice label lookup — post-2026-05-13 the ElevenLabs pool is gone
+  // and every character voice is now rendered by the video model natively.
+  // Director state summary just reports presence/absence: "native" if a
+  // tts_voice_id is set on the legacy field, "unset" otherwise.
+  it('voice label — any tts_voice_id (legacy or fresh) renders "native"', () => {
     const input: DirectorStateSummaryInput = {
       script: {
         scenes: [],
-        characters: [
-          mkChar({
-            id: 'c1',
-            name: 'Кот',
-            voice: { tts_voice_id: knownVoice.id },
-          }),
-        ],
+        characters: [mkChar({ id: 'c1', name: 'Кот', voice: { tts_voice_id: 'some-legacy-id' } })],
       },
     };
     const result = formatProjectStateSummary(input);
-    expect(result).toContain(`voice=${knownVoice.label}`);
+    expect(result).toContain('voice=native');
   });
 
-  // 7. Voice label fallback — unknown voice ID → "custom"
-  it('voice label fallback — unknown tts_voice_id renders "custom"', () => {
-    const input: DirectorStateSummaryInput = {
-      script: {
-        scenes: [],
-        characters: [
-          mkChar({
-            id: 'c1',
-            name: 'Кот',
-            voice: { tts_voice_id: 'unknown-voice-id-xyz' },
-          }),
-        ],
-      },
-    };
-    const result = formatProjectStateSummary(input);
-    expect(result).toContain('voice=custom');
-  });
-
-  // 8. Voice label unset — no voice block → "unset"
-  it('voice label unset — character with no voice tts_voice_id renders "unset"', () => {
+  it('voice label — character without voice block renders "unset"', () => {
     const input: DirectorStateSummaryInput = {
       script: {
         scenes: [],
@@ -262,10 +238,15 @@ describe('formatProjectStateSummary', () => {
       },
     };
     const result = formatProjectStateSummary(input);
-    expect(result).toContain('ff✓ vid✓ aud✓ fc✓');
+    // Codex audit P2: aud / fc flags retired alongside the audio chain. The
+    // Director should no longer see "audio missing" signals contradicting
+    // rule 10's "no voice tools" instruction.
+    expect(result).toContain('ff✓ vid✓');
+    expect(result).not.toContain('aud');
+    expect(result).not.toContain('fc');
   });
 
-  it('media flags — no versions → all ✗', () => {
+  it('media flags — no versions → all ✗ (only ff + vid axes now)', () => {
     const input: DirectorStateSummaryInput = {
       script: {
         scenes: [mkScene({ scene_id: 's1' })],
@@ -273,7 +254,9 @@ describe('formatProjectStateSummary', () => {
       },
     };
     const result = formatProjectStateSummary(input);
-    expect(result).toContain('ff✗ vid✗ aud✗ fc✗');
+    expect(result).toContain('ff✗ vid✗');
+    expect(result).not.toContain('aud');
+    expect(result).not.toContain('fc');
   });
 
   // 10. arc_role padding — multiple scenes align visually

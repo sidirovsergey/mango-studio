@@ -275,3 +275,135 @@ export function buildAvoidLine(input: VideoPromptInput): string {
       : DEFAULT_AVOID;
   return `Avoid: ${avoidList.join(', ')}`;
 }
+
+// ---------------------------------------------------------------------------
+// Premium prompt enrichment (post-audit 2026-05-13)
+//
+// Engine-agnostic helpers for the "luxury animation header / per-word dialogue
+// timing / micro-acting" register that pro animators use. Consumed by both
+// Seedance 2.0 and Veo 3.1.
+// ---------------------------------------------------------------------------
+
+/**
+ * Opening aesthetic header — a single dense line that anchors the model to
+ * the production register (Pixar/Apple/Netflix-grade vs sketchy preview).
+ *
+ * Pulled from visual_theme + tier. Falls back to a sane premium-default when
+ * visual_theme is absent so the header still steers the engine.
+ */
+export function buildAestheticHeader(input: VideoPromptInput): string {
+  const tier = input.tier ?? 'economy';
+  const vt = input.visual_theme;
+
+  const tierLine =
+    tier === 'premium'
+      ? 'ultra cinematic luxury animation, Pixar + Apple + Netflix grade, 4K render, deep shadows, volumetric light, premium materials'
+      : 'cinematic stylized animation, studio-grade polish, clean composition';
+
+  const parts: string[] = ['Vertical 9:16', tierLine];
+
+  if (vt?.mood) parts.push(`${vt.mood} mood`);
+  if (vt?.film_look) parts.push(vt.film_look);
+  if (vt?.lighting) parts.push(vt.lighting);
+  if (vt?.lens) parts.push(vt.lens);
+
+  return `[AESTHETIC]\n${parts.join(', ')}.`;
+}
+
+/**
+ * Sub-second performance / lipsync timing block for scenes WITH dialogue.
+ *
+ * Why a separate block from [AUDIO]:
+ *   - [AUDIO] is the engine's audio direction (muted for silent_tts mode).
+ *   - [PERFORMANCE] is VISUAL — mouth shape, jaw, blinks, body energy.
+ *     It applies regardless of audio_mode so the rendered video has correct
+ *     lipsync even when the dialogue audio is dubbed in post (Russian → TTS).
+ *
+ * Returns an empty string when the scene has no dialogue — caller decides
+ * whether to skip the block entirely.
+ *
+ * Timing scheme: ~0.6s silent lead-in, dialogue spans the middle, ~0.4s settle.
+ */
+export function buildPerformanceBlock(input: VideoPromptInput): string {
+  const { dialogue } = input.scene;
+  if (!dialogue) return '';
+
+  const dur = input.scene.duration_sec;
+  const lead = 0.6;
+  const tail = 0.4;
+  const speakStart = Math.min(lead, dur * 0.1);
+  const speakEnd = Math.max(speakStart + 0.5, dur - tail);
+  const fmt = (n: number): string => n.toFixed(1);
+
+  const lines: string[] = [];
+  lines.push(`Speaker: ${dialogue.speaker}`);
+  lines.push(`Line: "${dialogue.text}"`);
+  lines.push('Lipsync timing (mouth shapes, jaw, blinks — visual track only):');
+  if (dur <= 1.5) {
+    lines.push(`  0.0–${fmt(dur)}s: speaker delivers the line, mouth shapes clear and distinct`);
+  } else {
+    lines.push(`  0.0–${fmt(speakStart)}s: silent open, steady gaze, one settling blink`);
+    lines.push(
+      `  ${fmt(speakStart)}–${fmt(speakEnd)}s: speaker delivers the line with clear consonants, distinct phrasing, natural pause emphasis on punctuation`,
+    );
+    lines.push(`  ${fmt(speakEnd)}–${fmt(dur)}s: settling beat, mouth closes, gaze holds`);
+  }
+
+  // Delivery direction from authoring (voice_notes), if present.
+  const voiceNotes = input.scene.audio_direction?.voice_notes;
+  if (voiceNotes && voiceNotes.trim().length > 0) {
+    lines.push(`Delivery: ${voiceNotes}`);
+  }
+
+  // Speech-rule guard for Cyrillic dialogue: the audio is dubbed in post, but
+  // the visual lipsync must still read as a clearly-spoken line.
+  if (containsCyrillic(dialogue.text)) {
+    lines.push(
+      'Speech rule: every word pronounced clearly — no swallowing, no mumbling, no rushed delivery. Articulation reads naturally even when the audio is added in post.',
+    );
+  }
+
+  return `[PERFORMANCE]\n${lines.join('\n')}`;
+}
+
+/**
+ * Micro-action block — subtle facial / body acting direction.
+ *
+ * Pulls from arc_role + composition.subject_focus + dialogue presence.
+ * Falls back to a tasteful default so the engine renders neither
+ * mannequin-stillness nor over-animated fidgeting.
+ */
+export function buildMicroActionBlock(input: VideoPromptInput): string {
+  const { scene } = input;
+  const hasDialogue = scene.dialogue !== null;
+  const focus = scene.composition?.subject_focus;
+  const arc = scene.arc_role;
+
+  const lines: string[] = [];
+
+  if (hasDialogue) {
+    lines.push(
+      'Minimal extraneous body movement during dialogue beats; jaw/lip activity matches the speech timing above.',
+    );
+    lines.push('One slow blink mid-line; subtle eyebrow micro-motion on emphasised words.');
+  } else {
+    lines.push('Subtle facial expression and naturalistic micro-blinks (every 2–3 seconds).');
+    lines.push('Body holds intention; no idle fidgeting or random head bobbing.');
+  }
+
+  if (focus) {
+    lines.push(`Gaze and attention anchored to: ${focus}.`);
+  }
+
+  if (arc === 'hook') {
+    lines.push('Energy: curious, slightly heightened — invites the viewer in.');
+  } else if (arc === 'climax') {
+    lines.push('Energy: peak intensity, contained — read in the eyes, not in big gestures.');
+  } else if (arc === 'payoff' || arc === 'cta') {
+    lines.push('Energy: settled, exhalation — earned calm or quiet satisfaction.');
+  } else if (arc === 'rising') {
+    lines.push('Energy: building, deliberate — pressure accumulates frame by frame.');
+  }
+
+  return `[MICRO ACTION]\n${lines.join('\n')}`;
+}

@@ -9,7 +9,6 @@
  * media status to make correct tool-routing decisions.
  */
 
-import { getVoiceById } from '../media/voices';
 import type { Scene } from './schemas';
 import type { Character } from './types';
 
@@ -43,47 +42,25 @@ function padRight(text: string, width: number): string {
 }
 
 function resolveVoiceLabel(char: Character): string {
-  const voiceId = char.voice?.tts_voice_id;
-  if (!voiceId) return 'unset';
-  const found = getVoiceById(voiceId);
-  return found ? found.label : 'custom';
+  // ElevenLabs voice pool retired 2026-05-13 along with the TTS pipeline.
+  // Active video models generate native audio; voice picker is gone. We
+  // surface a stable label so any historic Director-prompt fixtures keep
+  // their shape during the rolling deploy.
+  return char.voice?.tts_voice_id ? 'native' : 'unset';
 }
 
-function isFinalClipStale(scene: Scene): boolean {
-  if (!scene.final_clip) return false;
-  // final_clip is a derived asset whose composed_from references the
-  // active video/voice versions at compose time. If either has moved on
-  // (rollback / regen) the mux is stale and Director should suggest
-  // compose_scene_final_clip.
-  const cf = (
-    scene as unknown as {
-      final_clip?: {
-        composed_from?: { video_version_id?: string; voice_audio_version_id?: string | null };
-      };
-    }
-  ).final_clip?.composed_from;
-  if (!cf) return false;
-  if (scene.video_active_version_id && cf.video_version_id !== scene.video_active_version_id) {
-    return true;
-  }
-  if (
-    scene.voice_audio_active_version_id &&
-    cf.voice_audio_version_id !== scene.voice_audio_active_version_id
-  ) {
-    return true;
-  }
-  return false;
-}
+// Codex audit P2: isFinalClipStale + the aud/fc flags + stale-suffix were
+// retired 2026-05-13. The Director system prompt's rule 10 explicitly forbids
+// regen_scene_voice / compose_scene_final_clip; flagging "aud✗ fc✗" in
+// <project_state> contradicted that rule and reintroduced the tool-success-
+// hallucination pressure Phase 1.2.6 worked hard to kill. New scenes have
+// audio baked into the video clip — there's nothing for Director to react to
+// at that axis.
 
 function sceneMediaFlags(scene: Scene): string {
   const ff = scene.first_frame_versions && scene.first_frame_versions.length > 0 ? '✓' : '✗';
   const vid = scene.video_versions && scene.video_versions.length > 0 ? '✓' : '✗';
-  const aud = scene.voice_audio_versions && scene.voice_audio_versions.length > 0 ? '✓' : '✗';
-  const fc = scene.final_clip != null ? '✓' : '✗';
-  // Phase 1.4.1: when fc=✓ but composed_from drifts from active versions,
-  // suffix `(stale)` so Director can proactively suggest compose_scene_final_clip.
-  const stale = isFinalClipStale(scene) ? ' (stale)' : '';
-  return `ff${ff} vid${vid} aud${aud} fc${fc}${stale}`;
+  return `ff${ff} vid${vid}`;
 }
 
 function formatCharacterActiveRow(char: Character): string {

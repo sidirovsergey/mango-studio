@@ -292,12 +292,12 @@ describe('buildFirstFramePrompt', () => {
     expect(urls).not.toContain(dossierfal.url);
   });
 
-  // 18. dossier.storage fallback when reference_image absent, console.warn fires
-  it('falls back to dossier.storage when reference_image absent and warns', () => {
+  // 18. F53: dossier.storage MUST NOT be pushed when reference_image absent; warn fires
+  it('skips character ref (no fallback to dossier.storage) when reference_image absent', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const out = buildFirstFramePrompt(makeInput({ characters_in_scene: [dolphinNoRefImage] }));
     const urls = out.image_refs.map((r) => ('url' in r ? r.url : ''));
-    expect(urls).toContain(dossierfal.url);
+    expect(urls).not.toContain(dossierfal.url);
     expect(warnSpy).toHaveBeenCalledOnce();
     expect(warnSpy.mock.calls[0]?.[0]).toContain('c1');
     warnSpy.mockRestore();

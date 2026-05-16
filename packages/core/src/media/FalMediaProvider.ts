@@ -49,6 +49,9 @@ const MODEL_COST_FALLBACK_USD: Record<string, number> = {
   'fal-ai/bytedance/seedance-2.0/image-to-video': 0.4,
   'fal-ai/veo3.1/image-to-video': 0.5,
   'fal-ai/kling-video/v2.5-turbo/pro/image-to-video': 0.35,
+  // Grok Imagine Video — 480p $0.05/s + $0.002 image input; 720p $0.07/s + $0.002.
+  // 10s × 480p ≈ $0.50, 10s × 720p ≈ $0.70. Mid-range cost-wise.
+  'xai/grok-imagine-video/image-to-video': 0.5,
   'fal-ai/ffmpeg-api/extract-frame': 0.001,
   'fal-ai/ffmpeg-api/merge-videos': 0.002,
   'fal-ai/ffmpeg-api/merge-audio-video': 0.002,
@@ -150,9 +153,33 @@ export class FalMediaProvider implements MediaProvider {
     input: GenerateCharacterReferenceImageInput,
     _ctx: AssetContext,
   ): Promise<JobHandle> {
-    return this.submit(input.model, {
+    // Image-to-image when refs provided — same routing as submitFirstFrame so
+    // the reference_image is visually anchored to the dossier instead of
+    // being an independent text-to-image roll.
+    let model = input.model;
+    let editPayload: Record<string, unknown> = {};
+    if (input.image_refs && input.image_refs.length > 0) {
+      const editModel = getEditModel(input.model);
+      if (!editModel) {
+        throw new MediaProviderError(
+          'invalid_input',
+          `Model ${input.model} doesn't support image-to-image for reference_image`,
+        );
+      }
+      if (!this.opts.resolveImageUrl) {
+        throw new MediaProviderError(
+          'invalid_input',
+          'resolveImageUrl required for image-to-image reference_image',
+        );
+      }
+      model = editModel;
+      const urls = await this.resolveRefs(input.image_refs);
+      editPayload = { image_urls: urls, image_url: urls[0] };
+    }
+    return this.submit(model, {
       prompt: input.prompt,
-      aspect_ratio: formatAspectFor(input.model, '1:1'),
+      ...editPayload,
+      aspect_ratio: formatAspectFor(model, '1:1'),
     });
   }
 
@@ -183,11 +210,22 @@ export class FalMediaProvider implements MediaProvider {
       throw new MediaProviderError('invalid_input', 'resolveImageUrl required for video');
     }
     const ref_url = await this.opts.resolveImageUrl(input.first_frame_ref);
+
+    // Grok Imagine Video takes an explicit `resolution` enum (480p / 720p);
+    // omit for engines that don't recognise the field. Default 480p when
+    // caller doesn't specify — keeps economy cost predictable.
+    const isGrok = input.model.startsWith('xai/grok-imagine-video');
+    const extra: Record<string, unknown> = {};
+    if (isGrok) {
+      extra.resolution = input.resolution ?? '480p';
+    }
+
     return this.submit(input.model, {
       prompt: input.prompt,
       image_url: ref_url,
       duration: input.duration_sec,
       aspect_ratio: input.aspect_ratio,
+      ...extra,
     });
   }
 

@@ -68,6 +68,22 @@ export interface ScriptGenOutput {
   >;
   narrator_voice?: NarratorVoice;
   master_clip: MasterClip | null;
+  /**
+   * Visual theme authored by the LLM at script-gen time. Drives the
+   * downstream video-prompt [AESTHETIC] / [Pacing/Style] / Avoid blocks.
+   * Codex audit P1.1 fix: previously dropped on persistence, now flows
+   * through generateScriptAction → projects.script jsonb.
+   */
+  visual_theme?: VisualTheme | null;
+  /**
+   * Tier authored by the LLM at script-gen time. Owns the visual_theme
+   * for the whole script (vs scene.config_overrides.tier which can locally
+   * override media-gen tier on a per-scene basis). Codex audit P2 fix:
+   * previously dropped, so buildProspectivePromptAction and
+   * generateSceneVideoAction always fell back to project.tier and
+   * effectively rendered visual_theme as if economy.
+   */
+  tier?: 'economy' | 'premium' | null;
 }
 
 export interface RefineSceneInput {
@@ -118,6 +134,11 @@ export interface PersistedScript {
   master_clip: MasterClip | null;
   /** Visual theme authored at script-gen time. Present after initial generation. */
   visual_theme?: VisualTheme | null;
+  /**
+   * Script-level tier (owns visual_theme). Distinct from scene.config_overrides.tier
+   * which can locally override media-gen tier. Persisted after Codex audit P2 fix.
+   */
+  tier?: 'economy' | 'premium' | null;
 }
 
 export interface ScriptGenResult {

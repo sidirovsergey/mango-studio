@@ -3,11 +3,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/auth/get-user', () => ({ getCurrentUser: vi.fn() }));
 vi.mock('@/server/lib/media-provider-factory', () => ({ getMediaProvider: vi.fn() }));
 vi.mock('@mango/db/server', () => ({ getServerSupabase: vi.fn() }));
-vi.mock('@/server/lib/scene-helpers', () => ({ recordPendingJob: vi.fn() }));
+vi.mock('@/server/lib/scene-helpers', () => ({
+  recordPendingJob: vi.fn(),
+  finalizeMediaJobReservation: vi.fn().mockResolvedValue(undefined),
+  rollbackMediaJobReservation: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('@/server/lib/rate-limit', () => ({
+  reserveMediaJob: vi.fn().mockResolvedValue({
+    ok: true,
+    mode: 'reserved' as const,
+    job_id: 'reserved-id',
+    used: 1,
+    dedup: false,
+  }),
+}));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { recordPendingJob } from '@/server/lib/scene-helpers';
+import { reserveMediaJob } from '@/server/lib/rate-limit';
+import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
 import { getServerSupabase } from '@mango/db/server';
 import { generateMasterClipAction } from './generateMasterClipAction';
 
@@ -95,7 +109,7 @@ describe('generateMasterClipAction', () => {
         ],
       },
     });
-    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       submitMasterConcat,
     });
 
@@ -107,9 +121,12 @@ describe('generateMasterClipAction', () => {
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => projectQuery),
     });
-    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
       job_id: 'job-concat-1',
-      existing: false,
+      used: 1,
+      dedup: false,
     });
 
     const result = await generateMasterClipAction({ project_id: PROJECT_ID });
@@ -124,9 +141,9 @@ describe('generateMasterClipAction', () => {
       }),
       expect.objectContaining({ user_id: 'u1' }),
     );
-    expect(recordPendingJob).toHaveBeenCalledWith(
+    expect(finalizeMediaJobReservation).toHaveBeenCalledWith(
       expect.objectContaining({
-        kind: 'master_clip',
+        job_id: 'job-concat-1',
         request_input: expect.objectContaining({
           composed: [
             { scene_id: 's1', video_version_id: 'v3', voice_audio_version_id: 'va2' },
@@ -137,8 +154,10 @@ describe('generateMasterClipAction', () => {
       }),
     );
 
-    const call = (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0];
-    expect(call.scene_id).toBeUndefined();
-    expect(call.character_id).toBeUndefined();
+    // master_clip reservation must carry no scene_id or character_id (it's project-scoped).
+    const reserveCall = (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+    expect(reserveCall.scene_id).toBeUndefined();
+    expect(reserveCall.character_id).toBeUndefined();
+    expect(reserveCall.kind).toBe('master_clip');
   });
 });

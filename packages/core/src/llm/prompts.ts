@@ -1,5 +1,4 @@
 import type { VisualTheme } from '../media/cinematography-schemas';
-import { VOICE_POOL } from '../media/voices';
 import { formatProjectStateSummary } from './director-state-summary';
 import { DIRECTOR_AGENT_EXAMPLES } from './examples/director-agent';
 import { REFINE_EXAMPLES } from './examples/refine-scene';
@@ -8,9 +7,9 @@ import type { ChatMessage, RefineSceneInput, ScriptGenInput } from './provider';
 import type { Scene } from './schemas';
 import type { Character } from './types';
 
-const VOICE_POOL_LINES = VOICE_POOL.map(
-  (v) => `  - "${v.id}" — ${v.label} (${v.gender}, ${v.tone})`,
-).join('\n');
+// Voice pool removed 2026-05-13 alongside the ElevenLabs TTS pipeline.
+// Active video models now generate native audio inline; no narrator_voice
+// selection in the script.
 
 const FORMAT_LABEL: Record<ScriptGenInput['format'], string> = {
   '9:16': 'вертикальное (TikTok/Reels/Shorts)',
@@ -57,8 +56,8 @@ export function buildScriptPrompt(
   const tier = ctx.tier ?? 'economy';
   const tierConstraints =
     tier === 'economy'
-      ? 'scene durations must be 5 or 10 s only'
-      : 'scene durations 4–12 s (integer), flexible';
+      ? 'scene durations must be 5 or 10 s only — STRONGLY prefer 10s. Use 5s only as a final tail-beat or hook-cut, never as the default unit.'
+      : 'scene durations 4–12 s (integer); STRONGLY prefer 10s as the default. Drop to 6–9s only when a beat is rhythmically required (hook spike, reaction cut, joke punch). Avoid sequences of <8s scenes.';
 
   const styleHuman = STYLE_LABEL[input.style] ?? input.style;
 
@@ -98,20 +97,24 @@ ${ctx.existingCharacters.map((c) => `- ${c.id}: ${c.name} (${c.description})`).j
 </engine_constraints>
 
 <cadence_table>
-| Duration | Scene count target |
-|---|---|
-| 15s | 3 |
-| 20s | 4 |
-| 30s | 6 |
-| 40s | 8 |
-| 60s | 10-12 |
-| 90s | 14-18 |
+Target ~10s per scene by default. Shorter beats (5–8s) are reserved for rhythmic punctuation, not the default unit. Each scene is a self-contained cinematic moment with internal beats, not a fragment of a longer action.
+
+| Duration | Scene count target | Default scene length |
+|---|---|---|
+| 15s | 2          | 10s + 5s tail              |
+| 20s | 2          | 2×10s                      |
+| 30s | 3          | 3×10s                      |
+| 40s | 4          | 4×10s                      |
+| 60s | 6          | 6×10s                      |
+| 90s | 9          | 9×10s (premium); 5-7s acceptable only if narrative needs it |
 </cadence_table>
 
 <arc_patterns>
-- ≤15s: Hook → Build → Payoff
+- ≤15s: Hook → Payoff (each scene is a full beat — do not fragment a single action across scenes)
 - 20-40s: Hook → Setup → Rising → Payoff
 - 60-90s: Hook → Setup → Rising → Climax → Payoff → CTA
+
+ANTI-FRAGMENTATION RULE: A scene must be a meaningful cinematic moment — character intent + camera idea + outcome. If you find yourself splitting one continuous action ("character walks to door" → "character opens door" → "character steps through") into separate scenes, COLLAPSE them into one 10s scene with internal sub-beats described in description_ru/description_en.
 </arc_patterns>
 
 <output_schema>
@@ -120,7 +123,6 @@ Return ONLY valid JSON without markdown fences or explanations, strictly matchin
   "title": "...",
   "tier": "economy" | "premium",
   "visual_theme": { "palette": [hex×3-6], "lighting": "...", "lens": "...", "motion": "...", "mood": "..." },
-  "narrator_voice": { ... },    // see <voice_pool> section for narrator_voice field details
   "scenes": [{
     "scene_id": "s1",
     "description": "...",
@@ -156,35 +158,13 @@ Field rules:
 - description_ru — Russian, vivid, cinematic prose.
 - description_en — English translation of description_ru for downstream image/video models.
 - first_frame_source — always 'auto_continuity'.
-- audio_mode — always 'auto' at generation time (resolver picks native vs silent_tts by dialogue language and model). Use 'native' only for confirmed English dialogue in premium tier.
+- audio_mode — always 'auto' at generation time. Active video models all carry native audio, so 'auto' resolves to 'native' downstream; the field is preserved for back-compat only.
 - *_versions fields and *_active_version_id — ALWAYS empty arrays / null at generation time.
 - last_frame, final_clip, master_clip_versions, master_clip_active_version_id — ALWAYS null / [] at generation time.
 - tier_at_gen — set to the current tier: "${tier}".
-- narrator_voice — see &lt;voice_pool&gt; section for narrator_voice field specification.
-- characters[].action:'add' — only fields: name, description, appearance (optional), personality (optional). Do NOT add voice fields here — character voices are assigned later via the Director set_character_voice tool.
+- characters[].action:'add' — only fields: name, description, appearance (optional), personality (optional). Do NOT add voice fields.
+- DO NOT emit a top-level "narrator_voice" object. The ElevenLabs TTS pipeline was retired 2026-05-13; native audio comes from the video model directly.
 </output_schema>
-
-<voice_pool>
-narrator_voice schema: { "tts_voice_id": "<id from pool below>", "persona": "<7-axis string — see narrator_voice_authoring below>", "stability": 0-1, "similarity_boost": 0-1, "style": 0-1, "speed": 0-1 }
-narrator_voice.tts_voice_id must be one of the ElevenLabs ids listed below (pick the one that best fits the mood and genre):
-${VOICE_POOL_LINES}
-Note: characters[].action:'add' does NOT carry a voice field — character voices are assigned later via the Director tool.
-</voice_pool>
-
-<narrator_voice_authoring>
-The narrator_voice block must include a \`persona\` field — a single sentence describing the voice along 7 axes, separated by em-dashes (—):
-1. Physiology (gender + body resonance, e.g. "Soft, mid-range female voice")
-2. Accent (regional/national, e.g. "General American", "Mid-Atlantic", "Russian")
-3. Timbre (vocal texture, e.g. "slightly breathy timbre", "warm raspy quality")
-4. Tempo (pace + pause pattern, e.g. "medium tempo with thoughtful pauses")
-5. Pitch (pitch range + tonal centre, e.g. "mid-tenor pitch with warm range")
-6. Baseline (default emotional tone, e.g. "calm and curious baseline")
-7. Speech patterns (characteristic mannerisms, e.g. "drags out vowels on key words")
-
-Example: "Soft, mid-range female voice — General American — slightly breathy timbre — medium tempo with thoughtful pauses — mid-tenor pitch with warm range — calm and curious baseline — drags out vowels on key words"
-
-The persona drives both human voice-casting and TTS settings tuning. Be specific and concrete.
-</narrator_voice_authoring>
 
 <examples>
   <example duration="15" arc="hook-build-payoff">
@@ -344,7 +324,7 @@ Mango — AI-режиссёр коротких мультиков. Decides which
 - Длительность сцены: 1-30 сек. Видеомодели clamp'ят к своим duration_options.
 - Видео-генерация: ~$0.05-0.60 за сцену по tier (economy/premium).
 - Reference image: single-pose 1:1, anchored to character.dossier.reference_image.
-- Russian dialogue → silent_tts + ElevenLabs post-mix. Native audio is English-only.
+- Audio: все активные видео-модели (Grok Imagine Video, Seedance 2.0 Pro, Veo 3.1) генерируют звук нативно вместе с видео, включая русский диалог с lip-sync. Отдельной TTS-стадии нет.
 - Стили: 3d_pixar, 2d_drawn, clay_art.
 - Форматы: 9:16, 16:9, 1:1. Длительности: 15/20/30/40/60/90.
 </engine_constraints>
@@ -357,15 +337,15 @@ Mango — AI-режиссёр коротких мультиков. Decides which
 5. Cost-aware: видео-tools показывают cost_hint в своей карточке. Не дублируй цены в чате.
 6. After tool execution: система показывает tool-chip. Не повторяй результат текстом.
 7. Unknown character: если имя не в <characters_active> и не в <characters_archived> — текст «не нашёл», не вызывай tool.
-8. Voice locked: set_character_voice вернёт error 'voice_locked' если есть rendered audio. Surface error verbatim.
-9. Conversational reply: «у меня нет идей» / «как лучше?» → tool=∅, текст с открытыми вариантами.
-10. Multi-step intent: если запрос требует 2+ tools, спроси приоритет; не chain'и автоматом.
+8. Conversational reply: «у меня нет идей» / «как лучше?» → tool=∅, текст с открытыми вариантами.
+9. Multi-step intent: если запрос требует 2+ tools, спроси приоритет; не chain'и автоматом.
+10. No voice tools: set_character_voice / regen_scene_voice / compose_scene_final_clip удалены. На «поменять голос» — текст «голос идёт из видео-модели; меняй через refine_character или regen_scene_video». НЕ зови несуществующие tools.
 </behavioral_rules>
 
 <tools_reference>
 SCRIPT: refine_script, regen_script, refine_beat, add_scene, delete_scene, update_project_meta
 SCENE MEDIA: regen_scene_video, refine_scene_description, set_scene_duration, set_scene_model, generate_first_frame, generate_master_clip, rollback_scene_version
-CHARACTER: add_character, generate_character, refine_character, archive_character, unarchive_character, delete_character, set_character_voice
+CHARACTER: add_character, generate_character, refine_character, archive_character, unarchive_character, delete_character
 Все signatures — в tool inputSchemas. Не угадывай аргументы.
 </tools_reference>
 
