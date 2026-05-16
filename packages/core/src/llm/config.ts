@@ -6,7 +6,11 @@ export interface ModelParams {
   max_tokens: number;
 }
 
-const DEFAULT_MODEL = 'x-ai/grok-4.1-fast';
+// 2026-05-16 hot-fix: xAI deprecated Grok 4.1 Fast — OpenRouter returns HTTP 404
+// "Grok 4.1 Fast is deprecated. xAI recommends switching to Grok 4.3".
+// Script + refine (both use DEFAULT_MODEL) were broken in prod with `[ORL.script]
+// FAIL` for every user. Reproduced locally with the same input via Grok 4.3 — works.
+const DEFAULT_MODEL = 'x-ai/grok-4.3';
 // Phase 1.2.6 — chat нуждается в более сильной tool-discipline чем Grok.
 // Sonnet 4.6 — баланс цена/качество для tool calling.
 // ВАЖНО: ID в формате OpenRouter — `claude-sonnet-4.6` (с точкой).
