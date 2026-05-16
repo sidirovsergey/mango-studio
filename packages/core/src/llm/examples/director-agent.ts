@@ -169,29 +169,24 @@ export const DIRECTOR_AGENT_EXAMPLES: ReadonlyArray<DirectorAgentExample> = [
   },
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 8. set-voice-audio-guard
-  // "замени голос Кота на серьёзный" → set_character_voice (happy path)
-  // The tool itself enforces the audio-lock guard server-side; the Director
-  // calls it and surfaces the result faithfully.
+  // 8. voice-change-explainer
+  // "замени голос Кота на серьёзный" → no tool call. Voice picker retired
+  // 2026-05-13 with the audio rip-out; character voice now comes from the
+  // video model based on the character description + dialogue text. The
+  // Director explains the new shape and points at refine_character or
+  // regen_scene_video as the levers that actually still exist.
   // ─────────────────────────────────────────────────────────────────────────
   {
-    label: 'set-voice-audio-guard',
+    label: 'voice-change-explainer',
     user_message: 'замени голос Кота на серьёзный',
     thinking:
-      'Пользователь хочет сменить голос персонажа "Кот". ' +
-      'В пуле голосов "серьёзный мужской" — это Daniel (id: onwK4e9ZLuTAKqWW03F9, tone: серьёзный). ' +
-      'Вызываю set_character_voice. ВАЖНО: если у персонажа уже есть отрендеренное аудио в любой сцене, ' +
-      'сервер вернёт voice_locked error — это guard нельзя обойти на стороне директора, ' +
-      'нужно передать ошибку пользователю дословно.',
-    tool_calls: [
-      {
-        name: 'set_character_voice',
-        args: {
-          character_id: 'c1',
-          tts_voice_id: 'onwK4e9ZLuTAKqWW03F9',
-        },
-      },
-    ],
-    reply: 'Голос Кота заменён на Daniel — серьёзный мужской диктор.',
+      'Пользователь просит сменить голос персонажа. Отдельного TTS-pipeline больше нет — ' +
+      'все активные видео-модели генерируют звук вместе с видео из описания персонажа + ' +
+      'реплики. Чтобы изменить тон голоса, надо менять описание персонажа (refine_character) ' +
+      'или перегенерировать сцену (regen_scene_video) с подсказкой про intonation. ' +
+      'set_character_voice больше нет — не вызываю tool, объясняю текстом.',
+    tool_calls: [],
+    reply:
+      'Голос идёт прямо из видео-модели — отдельного «выбора голоса» больше нет. Если хочешь сделать Кота серьёзнее, поменяй его описание (например, добавь «низкий хриплый голос, медленная речь») и перегенерируй сцены. Сделать?',
   },
 ] as const;

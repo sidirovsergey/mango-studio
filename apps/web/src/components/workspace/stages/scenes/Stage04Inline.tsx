@@ -8,7 +8,8 @@ import type { Database } from '@mango/db';
 import { useEffect, useState, useTransition } from 'react';
 import { CostMeter } from './CostMeter';
 import { CostWarningToast } from './CostWarningToast';
-import { FinalizeConfirmDialog } from './FinalizeConfirmDialog';
+// FinalizeConfirmDialog import dropped 2026-05-13 — the dialog only existed to
+// gate on missing voice / final_clip, which no longer happens.
 import { SceneCard } from './SceneCard';
 import { useStage04 } from './Stage04Provider';
 
@@ -34,7 +35,6 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
   const { script, jobs } = useStage04();
   const [masterError, setMasterError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [showFinalizeDialog, setShowFinalizeDialog] = useState(false);
   usePollJobs(projectId);
 
   // Auto-clear error after 6s so it doesn't linger
@@ -83,10 +83,8 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
   // final-clip readiness decides whether to fire directly or open the
   // confirm dialog (since silent fallback is now an explicit choice).
   const isSceneVideoReady = (s: (typeof scenes)[number]) => s.video_active_version_id !== null;
-  const isSceneFinalReady = (s: (typeof scenes)[number]) => s.final_clip !== null;
   const readySceneCount = scenes.filter(isSceneVideoReady).length;
   const allVideosReady = scenes.length > 0 && readySceneCount === scenes.length;
-  const allFinalsReady = scenes.length > 0 && scenes.every(isSceneFinalReady);
   const allScenesReady = allVideosReady; // legacy alias for button-label code below
   const masterInFlight = jobs.some(
     (j) => j.kind === 'master_clip' && ['pending', 'running'].includes(j.status),
@@ -103,12 +101,11 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
       return;
     }
     if (!allVideosReady) return;
-    if (!allFinalsReady) {
-      // Some scenes still lack final_clip (voice/mux in flight or failed).
-      // Hand control to the confirm dialog: wait for chain or silent fallback.
-      setShowFinalizeDialog(true);
-      return;
-    }
+    // Codex audit P1.3: the "audio not ready" confirm dialog used to fire
+    // whenever any scene was missing final_clip. After the audio rip-out
+    // new scenes never produce final_clip — native audio is baked into the
+    // video clip directly — so the dialog would block every finalize on a
+    // false alarm. Fire master concat unconditionally when video is ready.
     startTransition(async () => {
       const r = await generateMasterClipAction({ project_id: projectId });
       if (r.ok) {
@@ -222,18 +219,9 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
 
       <CostWarningToast projectId={projectId} jobs={jobs} />
 
-      {showFinalizeDialog && (
-        <FinalizeConfirmDialog
-          projectId={projectId}
-          scenes={scenes}
-          jobs={jobs}
-          onClose={() => setShowFinalizeDialog(false)}
-          onMasterStarted={() => {
-            setShowFinalizeDialog(false);
-            scrollToFinal();
-          }}
-        />
-      )}
+      {/* FinalizeConfirmDialog removed 2026-05-13 with audio rip-out:
+          its only purpose was to handle the "voice / final_clip not ready"
+          branch, which can't fire anymore. */}
     </section>
   );
 }

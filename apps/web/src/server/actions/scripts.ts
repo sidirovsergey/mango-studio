@@ -1,11 +1,11 @@
 'use server';
 
-// Script-gen actions hit Grok 4.1 Fast which can take 30-90s for a full
-// 60s/6-scene premium script with the post-2026-05-13 enriched output
-// schema (composition, camera, lighting, audio_direction, etc. per scene).
-// Vercel's default function timeout is 60s on Pro; bump to 120s so the
-// happy-path doesn't get 504'd mid-stream.
-export const maxDuration = 120;
+// Codex audit P1.2: maxDuration was previously exported from this server-action
+// file, which Next.js silently ignores — Route Segment Config only applies to
+// page / layout / route handler files. Moved to apps/web/src/app/projects/[id]/page.tsx
+// where it actually takes effect. Server actions invoked from that page
+// inherit its 120s budget.
+// Ref: https://nextjs.org/docs/15/app/api-reference/file-conventions/route-segment-config#maxduration
 
 import { getCurrentUserId } from '@/lib/auth/get-user';
 import { logLLMCall } from '@/server/lib/log-llm-call';
@@ -84,6 +84,11 @@ export async function generateScriptAction(
       scenes: result.output.scenes,
       characters: mergedCharacters,
       master_clip: null,
+      // Codex audit P1.1: persist visual_theme. Grok authors it, downstream
+      // video prompt builder ([AESTHETIC] / [Pacing/Style] / Avoid blocks)
+      // depends on it. Dropping it on persistence made those blocks fall
+      // back to generic defaults and weakened the visual-consistency promise.
+      visual_theme: result.output.visual_theme ?? null,
     };
     await persistScript(project_id, newScript);
     await logLLMCall({
@@ -139,6 +144,11 @@ export async function regenScriptAction(
       scenes: result.output.scenes,
       characters: mergedCharacters,
       master_clip: null,
+      // Codex audit P1.1: persist visual_theme. Grok authors it, downstream
+      // video prompt builder ([AESTHETIC] / [Pacing/Style] / Avoid blocks)
+      // depends on it. Dropping it on persistence made those blocks fall
+      // back to generic defaults and weakened the visual-consistency promise.
+      visual_theme: result.output.visual_theme ?? null,
     };
     await persistScript(project_id, newScript);
     await logLLMCall({
@@ -217,6 +227,11 @@ export async function refineScriptAction(
       scenes: result.output.scenes,
       characters: mergedCharacters,
       master_clip: null,
+      // Codex audit P1.1: persist visual_theme. Grok authors it, downstream
+      // video prompt builder ([AESTHETIC] / [Pacing/Style] / Avoid blocks)
+      // depends on it. Dropping it on persistence made those blocks fall
+      // back to generic defaults and weakened the visual-consistency promise.
+      visual_theme: result.output.visual_theme ?? null,
     };
     await persistScript(project_id, newScript);
     await logLLMCall({

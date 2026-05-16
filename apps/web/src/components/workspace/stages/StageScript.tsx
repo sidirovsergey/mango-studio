@@ -113,9 +113,9 @@ export function StageScript({ project, script }: Props) {
   };
 
   // Client-side escape hatch for the script-gen actions. Server-side timeout
-  // is 120s (see scripts.ts `maxDuration`); we race the promise against a
-  // slightly longer 150s deadline so if Vercel actually returns 504 the user
-  // sees a real error instead of an indefinite spinner.
+  // is 120s (see app/projects/[id]/page.tsx `maxDuration`); we race the promise
+  // against a slightly longer 150s deadline so if Vercel actually returns 504
+  // the user sees a real error instead of an indefinite spinner.
   const SCRIPT_GEN_TIMEOUT_MS = 150_000;
   function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
     return new Promise<T>((resolve, reject) => {

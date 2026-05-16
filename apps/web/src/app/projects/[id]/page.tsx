@@ -8,6 +8,18 @@ import type { PersistedScript, Tier } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 import { notFound } from 'next/navigation';
 
+// Codex audit P1.2: maxDuration must be exported from a route file (page /
+// layout / route handler), NOT from a server-action module. Server actions
+// invoked from this page inherit the page's budget. Script generation runs
+// Grok 4.1 Fast which can take 30-90s for a 60s/6-scene premium script with
+// the post-2026-05-13 enriched output schema; Vercel default is 10s hobby /
+// 60s pro, so we raise to 120s here so the happy path doesn't get 504'd
+// mid-stream. The duplicate `export const maxDuration` on scripts.ts is
+// now a no-op (Next.js silently ignores it on non-route modules) but
+// removed for clarity in the same commit.
+// Ref: https://nextjs.org/docs/15/app/api-reference/file-conventions/route-segment-config#maxduration
+export const maxDuration = 120;
+
 interface Props {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ char?: string; tab?: string }>;

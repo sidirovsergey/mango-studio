@@ -68,6 +68,13 @@ export interface ScriptGenOutput {
   >;
   narrator_voice?: NarratorVoice;
   master_clip: MasterClip | null;
+  /**
+   * Visual theme authored by the LLM at script-gen time. Drives the
+   * downstream video-prompt [AESTHETIC] / [Pacing/Style] / Avoid blocks.
+   * Codex audit P1.1 fix: previously dropped on persistence, now flows
+   * through generateScriptAction → projects.script jsonb.
+   */
+  visual_theme?: VisualTheme | null;
 }
 
 export interface RefineSceneInput {

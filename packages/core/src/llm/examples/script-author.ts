@@ -25,15 +25,7 @@ export const SCRIPT_EXAMPLES = {
         film_look: 'warm grain 16mm',
         avoid: ['harsh shadows', 'cool blue tones', 'fast cuts'],
       },
-      narrator_voice: {
-        tts_voice_id: 'EXAVITQu4vr4xnSDxMaL',
-        persona:
-          'Bright, mid-range female voice — General American — clear neutral timbre — quick tempo with crisp consonants — soprano range with bright top notes — energetic and upbeat baseline — slight vocal fry on declarative endings',
-        stability: 0.65,
-        similarity_boost: 0.75,
-        style: 0.1,
-        speed: 0.9,
-      },
+      // narrator_voice intentionally absent — TTS pipeline retired 2026-05-13.
       characters: [
         {
           action: 'add',
@@ -166,15 +158,7 @@ export const SCRIPT_EXAMPLES = {
         film_look: 'anamorphic lens flares, deep blacks, teal-violet grade',
         avoid: ['warm yellows as dominants', 'locked-off static shots', 'flat lighting'],
       },
-      narrator_voice: {
-        tts_voice_id: 'pNInz6obpgDQGcFmaJgB',
-        persona:
-          'Soft, mid-range female voice — General American — slightly breathy timbre — medium tempo with thoughtful pauses — mid-tenor pitch with warm range — calm and curious baseline — drags out vowels on key words',
-        stability: 0.7,
-        similarity_boost: 0.8,
-        style: 0.15,
-        speed: 0.85,
-      },
+      // narrator_voice intentionally absent — TTS pipeline retired 2026-05-13.
       characters: [
         {
           action: 'add',
