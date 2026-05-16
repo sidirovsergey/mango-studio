@@ -28,6 +28,22 @@ import { z } from 'zod';
 
 const ProjectIdSchema = z.object({ project_id: z.string().uuid() });
 
+export type ScriptActionError = { code: string; message: string };
+export type ScriptClientResult =
+  | { ok: true; script: PersistedScript }
+  | { ok: false; error: ScriptActionError };
+export type RefineBeatClientResult =
+  | { ok: true; updated_description: string }
+  | { ok: false; error: ScriptActionError };
+
+function serializeScriptActionError(err: unknown): ScriptActionError {
+  const llmErr = classifyLLMError(err);
+  return {
+    code: typeof llmErr.code === 'string' ? llmErr.code : 'unknown',
+    message: llmErr.message || 'Script generation failed',
+  };
+}
+
 async function loadProjectForGeneration(projectId: string) {
   const supabase = await getServerSupabase();
   const { data, error } = await supabase
@@ -118,6 +134,16 @@ export async function generateScriptAction(
   }
 }
 
+export async function generateScriptClientAction(
+  input: z.infer<typeof ProjectIdSchema>,
+): Promise<ScriptClientResult> {
+  try {
+    return { ok: true, script: await generateScriptAction(input) };
+  } catch (err) {
+    return { ok: false, error: serializeScriptActionError(err) };
+  }
+}
+
 export async function regenScriptAction(
   input: z.infer<typeof ProjectIdSchema>,
 ): Promise<PersistedScript> {
@@ -179,6 +205,16 @@ export async function regenScriptAction(
       model: getModelParams('script').model,
     });
     throw llmErr;
+  }
+}
+
+export async function regenScriptClientAction(
+  input: z.infer<typeof ProjectIdSchema>,
+): Promise<ScriptClientResult> {
+  try {
+    return { ok: true, script: await regenScriptAction(input) };
+  } catch (err) {
+    return { ok: false, error: serializeScriptActionError(err) };
   }
 }
 
@@ -266,6 +302,16 @@ export async function refineScriptAction(
       model: getModelParams('script').model,
     });
     throw llmErr;
+  }
+}
+
+export async function refineScriptClientAction(
+  input: z.infer<typeof RefineScriptSchema>,
+): Promise<ScriptClientResult> {
+  try {
+    return { ok: true, script: await refineScriptAction(input) };
+  } catch (err) {
+    return { ok: false, error: serializeScriptActionError(err) };
   }
 }
 
@@ -498,5 +544,15 @@ export async function refineBeatAction(
       model: getModelParams('refine').model,
     });
     throw llmErr;
+  }
+}
+
+export async function refineBeatClientAction(
+  input: z.infer<typeof RefineBeatSchema>,
+): Promise<RefineBeatClientResult> {
+  try {
+    return { ok: true, updated_description: (await refineBeatAction(input)).updated_description };
+  } catch (err) {
+    return { ok: false, error: serializeScriptActionError(err) };
   }
 }

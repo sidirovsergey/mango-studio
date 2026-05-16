@@ -2,10 +2,11 @@
 
 import { ThinkingShimmer } from '@/components/effects/ThinkingShimmer';
 import {
-  generateScriptAction,
-  refineBeatAction,
-  refineScriptAction,
-  regenScriptAction,
+  type ScriptActionError,
+  generateScriptClientAction,
+  refineBeatClientAction,
+  refineScriptClientAction,
+  regenScriptClientAction,
 } from '@/server/actions/scripts';
 import type { LLMProviderError, PersistedScript } from '@mango/core';
 import type { Database } from '@mango/db/types';
@@ -112,6 +113,10 @@ export function StageScript({ project, script }: Props) {
     setError(ERROR_MESSAGES.unknown!);
   };
 
+  const handleActionError = (actionError: ScriptActionError) => {
+    setError(ERROR_MESSAGES[actionError.code] ?? actionError.message ?? ERROR_MESSAGES.unknown!);
+  };
+
   // Client-side escape hatch for the script-gen actions. Server-side timeout
   // is 120s (see app/projects/[id]/page.tsx `maxDuration`); we race the promise
   // against a slightly longer 150s deadline so if Vercel actually returns 504
@@ -144,10 +149,14 @@ export function StageScript({ project, script }: Props) {
     startTransition(async () => {
       try {
         const result = await withTimeout(
-          generateScriptAction({ project_id: project.id }),
+          generateScriptClientAction({ project_id: project.id }),
           'Генерация сценария',
         );
-        setCurrentScript(result);
+        if (!result.ok) {
+          handleActionError(result.error);
+          return;
+        }
+        setCurrentScript(result.script);
       } catch (err) {
         handleError(err);
       }
@@ -159,10 +168,14 @@ export function StageScript({ project, script }: Props) {
     startTransition(async () => {
       try {
         const result = await withTimeout(
-          regenScriptAction({ project_id: project.id }),
+          regenScriptClientAction({ project_id: project.id }),
           'Регенерация сценария',
         );
-        setCurrentScript(result);
+        if (!result.ok) {
+          handleActionError(result.error);
+          return;
+        }
+        setCurrentScript(result.script);
       } catch (err) {
         handleError(err);
       }
@@ -177,10 +190,14 @@ export function StageScript({ project, script }: Props) {
     startTransition(async () => {
       try {
         const result = await withTimeout(
-          refineScriptAction({ project_id: project.id, instruction }),
+          refineScriptClientAction({ project_id: project.id, instruction }),
           'Правка сценария',
         );
-        setCurrentScript(result);
+        if (!result.ok) {
+          handleActionError(result.error);
+          return;
+        }
+        setCurrentScript(result.script);
         setRefineFormOpen(false);
         setRefineInstruction('');
       } catch (err) {
@@ -197,11 +214,15 @@ export function StageScript({ project, script }: Props) {
     const instruction = activeBeatInstruction.trim();
     startTransition(async () => {
       try {
-        const result = await refineBeatAction({
+        const result = await refineBeatClientAction({
           project_id: project.id,
           scene_id: sceneId,
           instruction,
         });
+        if (!result.ok) {
+          handleActionError(result.error);
+          return;
+        }
         if (currentScript) {
           setCurrentScript({
             ...currentScript,
