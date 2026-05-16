@@ -174,8 +174,6 @@ export function StageScript({ project, script }: Props) {
     if (refineInstruction.trim().length === 0) return;
     setError(null);
     const instruction = refineInstruction.trim();
-    setRefineFormOpen(false);
-    setRefineInstruction('');
     startTransition(async () => {
       try {
         const result = await withTimeout(
@@ -183,6 +181,8 @@ export function StageScript({ project, script }: Props) {
           'Правка сценария',
         );
         setCurrentScript(result);
+        setRefineFormOpen(false);
+        setRefineInstruction('');
       } catch (err) {
         handleError(err);
       }
@@ -195,8 +195,6 @@ export function StageScript({ project, script }: Props) {
     setError(null);
     const sceneId = activeBeatId;
     const instruction = activeBeatInstruction.trim();
-    setActiveBeatId(null);
-    setActiveBeatInstruction('');
     startTransition(async () => {
       try {
         const result = await refineBeatAction({
@@ -212,6 +210,8 @@ export function StageScript({ project, script }: Props) {
             ),
           });
         }
+        setActiveBeatId(null);
+        setActiveBeatInstruction('');
       } catch (err) {
         handleError(err);
       }
@@ -286,7 +286,10 @@ export function StageScript({ project, script }: Props) {
           className="icon-btn"
           id="scriptRefine"
           title="Уточнить промптом"
-          onClick={() => setRefineFormOpen((v) => !v)}
+          onClick={() => {
+            setError(null);
+            setRefineFormOpen((v) => !v);
+          }}
           disabled={isPending}
         >
           <svg className="i" viewBox="0 0 24 24" aria-hidden="true">
@@ -318,7 +321,10 @@ export function StageScript({ project, script }: Props) {
                   type="button"
                   className={`beat${isPulsing ? ' hl-pulse' : ''}`}
                   data-beat={idx + 1}
-                  onClick={() => setActiveBeatId(scene.scene_id)}
+                  onClick={() => {
+                    setError(null);
+                    setActiveBeatId(scene.scene_id);
+                  }}
                   style={{
                     animation: 'fadeInUp 0.4s ease-out both',
                     animationDelay: `${idx * 0.08}s`,

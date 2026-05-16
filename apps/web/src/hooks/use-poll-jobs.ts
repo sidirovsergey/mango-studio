@@ -39,8 +39,10 @@ export function usePollJobs(projectId: string) {
       tickInProgress.current = true;
       try {
         const pollResult = await pollMediaJobsAction({ project_id: projectId });
+        if (cancelled) return;
         if (pollResult.ok) {
           const fresh = await fetchProjectScriptAction({ project_id: projectId });
+          if (cancelled) return;
           if (fresh.ok && fresh.script) {
             setScript(fresh.script as Parameters<typeof setScript>[0]);
             // Prompts depend on the just-refreshed script — rebuild now so the
@@ -85,6 +87,7 @@ export function usePollJobs(projectId: string) {
         void (async () => {
           try {
             const fresh = await fetchProjectScriptAction({ project_id: projectId });
+            if (cancelled) return;
             if (fresh.ok && fresh.script) {
               setScript(fresh.script as Parameters<typeof setScript>[0]);
               await refreshProspective();
@@ -93,7 +96,7 @@ export function usePollJobs(projectId: string) {
             // network errors: removeJob still runs in the finally below,
             // and the periodic tick will reconcile.
           } finally {
-            removeJob(job.id);
+            if (!cancelled) removeJob(job.id);
           }
         })();
       } else {
