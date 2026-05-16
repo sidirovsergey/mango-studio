@@ -27,7 +27,7 @@ vi.mock('@mango/core', async () => {
 
 import { getCurrentUserId } from '@/lib/auth/get-user';
 import { getServerSupabase } from '@mango/db/server';
-import { refineScriptAction } from './scripts';
+import { generateScriptClientAction, refineScriptAction } from './scripts';
 
 const mockGetCurrentUserId = vi.mocked(getCurrentUserId);
 const mockGetServerSupabase = vi.mocked(getServerSupabase);
@@ -193,5 +193,21 @@ describe('script-gen actions persist visual_theme + tier (Codex audit P2)', () =
     };
     expect(updateArg.script.visual_theme).toEqual(SAMPLE_VISUAL_THEME);
     expect(updateArg.script.tier).toBe('economy');
+  });
+});
+
+describe('script-gen client actions', () => {
+  it('returns ok:false instead of throwing a masked Server Components error', async () => {
+    const project = makeProjectWithTheme(null);
+    mockGetServerSupabase.mockResolvedValue(makeSupabaseMock(project) as never);
+    mockGenerateScript.mockRejectedValueOnce(new Error('provider exploded'));
+
+    const result = await generateScriptClientAction({ project_id: PROJECT_ID });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('unknown');
+      expect(result.error.message).toContain('provider exploded');
+    }
   });
 });
