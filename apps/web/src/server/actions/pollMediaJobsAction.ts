@@ -78,6 +78,15 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
   if (project.user_id !== user.id) return { ok: false, error: 'forbidden' };
   const projectTier = (project.tier ?? 'economy') as 'economy' | 'premium';
 
+  // F53 retroactive recovery: characters created before the Phase 1.4 migration
+  // landed in Supabase (or any prior path that didn't trigger the dossier→ref
+  // chain) have dossier.storage but no dossier.reference_image. Pair with the
+  // SceneSidePanel UI gate: while the gate disables the "Кадр" tile, this poll
+  // tick dispatches the missing reference_image jobs so the gate eventually
+  // clears without requiring user intervention. Safe because
+  // generateReferenceImageAction is idempotent (active-job dedupe + already_exists).
+  triggerMissingReferenceImageJobs(input.project_id, project.script);
+
   const provider = getMediaProvider();
   const storage = getStorageProvider();
 
@@ -533,6 +542,39 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
   );
 
   return { ok: true };
+}
+
+/**
+ * F53 retroactive recovery — fire-and-forget dispatch of character_reference_image
+ * jobs for characters with a dossier but no reference_image. Idempotent via the
+ * pre-submit active-job query in generateReferenceImageAction; safe to call on
+ * every poll tick. Errors are swallowed (logged) — recovery loops on next poll.
+ */
+function triggerMissingReferenceImageJobs(projectId: string, scriptJson: unknown): void {
+  const characters = (scriptJson as { characters?: Character[] } | null)?.characters ?? [];
+  for (const character of characters) {
+    if (!character.dossier || character.dossier.reference_image) continue;
+    void generateReferenceImageAction({
+      project_id: projectId,
+      character_id: character.id,
+    })
+      .then((r) => {
+        if (!r.ok) {
+          console.warn('[pollMediaJobs] retroactive reference_image dispatch failed', {
+            project_id: projectId,
+            character_id: character.id,
+            error: r.error,
+          });
+        }
+      })
+      .catch((e: unknown) => {
+        console.warn('[pollMediaJobs] retroactive reference_image dispatch threw', {
+          project_id: projectId,
+          character_id: character.id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      });
+  }
 }
 
 // keep referenced imports stable for type narrowing

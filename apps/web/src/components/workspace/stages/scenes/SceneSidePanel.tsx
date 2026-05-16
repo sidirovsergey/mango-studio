@@ -68,13 +68,35 @@ const JOB_KIND_LABEL: Record<string, string> = {
 
 type ActionId = 'text' | 'frame' | 'video';
 
-export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, activeJob }: Props) {
+export function SceneSidePanel({
+  projectId,
+  scene,
+  index,
+  sceneNum,
+  tier,
+  characters,
+  activeJob,
+}: Props) {
   const num = sceneNum ?? String(index + 1).padStart(2, '0');
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [promptModal, setPromptModal] = useState<'first_frame' | 'video' | null>(null);
   const [activeAction, setActiveAction] = useState<ActionId | null>(null);
   const { prospectivePrompts } = useStage04();
+
+  // F53 UI gate — mirror the server-side hard precondition in
+  // generateFirstFrameAction so the "Кадр" tile is visibly disabled while the
+  // reference_image chain is in flight. Without this, the user clicks an
+  // enabled-looking button and only then sees the retry-message toast. Paired
+  // with the retroactive trigger in pollMediaJobsAction so the gate eventually
+  // clears without requiring user intervention.
+  const charsNeedingRef = characters
+    .filter((c) => scene.character_ids.includes(c.id))
+    .filter((c) => c.dossier && !c.dossier.reference_image);
+  const refNotReady = charsNeedingRef.length > 0;
+  const refNotReadyTitle = refNotReady
+    ? `Готовлю reference-картинку: ${charsNeedingRef.map((c) => c.name).join(', ')}. Подожди ~20-30с.`
+    : null;
 
   const activeFrame =
     scene.first_frame_versions.find((v) => v.version_id === scene.first_frame_active_version_id) ??
@@ -233,11 +255,12 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
           action={activeFrame ? 'перегенерировать' : 'создать'}
           cost="$0.02"
           busy={activeAction === 'frame'}
-          disabled={pending || lockedByGen}
+          disabled={pending || lockedByGen || refNotReady}
           title={
-            activeFrame
+            refNotReadyTitle ??
+            (activeFrame
               ? 'Сгенерировать новую версию first_frame (9:16) — заменит текущую активную'
-              : 'Сгенерировать первый кадр сцены (9:16) для последующего video-генератора'
+              : 'Сгенерировать первый кадр сцены (9:16) для последующего video-генератора')
           }
           onClick={() =>
             runScopedAction('frame', () =>

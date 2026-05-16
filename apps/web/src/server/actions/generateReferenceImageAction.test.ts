@@ -43,9 +43,15 @@ const makeProject = (overrides: Record<string, unknown> = {}, charOverrides = {}
 });
 
 function makeSupabase(project: unknown) {
+  // The `from('projects').select().eq().eq().single()` chain returns the project.
+  // The `from('media_jobs').select().eq().eq().eq().in().limit().maybeSingle()` chain
+  // is the pre-submit idempotency query and returns null (no active job).
   const builder = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     single: vi.fn().mockResolvedValue({ data: project, error: null }),
     update: vi.fn().mockReturnThis(),
   };

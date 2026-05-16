@@ -2,6 +2,7 @@
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
+import { checkMediaJobQuota } from '@/server/lib/rate-limit';
 import { recordPendingJob } from '@/server/lib/scene-helpers';
 import { type StoredAsset, getVideoModelMeta } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
@@ -58,6 +59,9 @@ export async function generateMasterClipAction(
   } catch {
     return { ok: false, error: 'unauthorized' };
   }
+
+  const quota = await checkMediaJobQuota(user.id);
+  if (!quota.ok) return { ok: false, error: quota.error };
 
   const sb = await getServerSupabase();
   const { data: project, error } = await sb

@@ -3,6 +3,7 @@
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { friendlyMediaError } from '@/server/lib/media-error-message';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
+import { checkMediaJobQuota } from '@/server/lib/rate-limit';
 import { recordPendingJob } from '@/server/lib/scene-helpers';
 import {
   type Character,
@@ -29,6 +30,10 @@ export async function generateCharacterDossierAction(
 ): Promise<{ ok: true; job_id: string } | { ok: false; error: string; error_code?: string }> {
   const input = InputSchema.parse(rawInput);
   const user = await getCurrentUser();
+
+  const quota = await checkMediaJobQuota(user.id);
+  if (!quota.ok) return { ok: false, error: quota.error };
+
   const sb = await getServerSupabase();
 
   const { data: project, error: readErr } = await sb

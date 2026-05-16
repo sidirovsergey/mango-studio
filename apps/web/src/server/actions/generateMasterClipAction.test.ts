@@ -4,6 +4,9 @@ vi.mock('@/lib/auth/get-user', () => ({ getCurrentUser: vi.fn() }));
 vi.mock('@/server/lib/media-provider-factory', () => ({ getMediaProvider: vi.fn() }));
 vi.mock('@mango/db/server', () => ({ getServerSupabase: vi.fn() }));
 vi.mock('@/server/lib/scene-helpers', () => ({ recordPendingJob: vi.fn() }));
+vi.mock('@/server/lib/rate-limit', () => ({
+  checkMediaJobQuota: vi.fn().mockResolvedValue({ ok: true, used: 0, limit: 50 }),
+}));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';

@@ -2,6 +2,7 @@
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
+import { checkMediaJobQuota } from '@/server/lib/rate-limit';
 import { recordPendingJob } from '@/server/lib/scene-helpers';
 import {
   type ArcRole,
@@ -90,6 +91,9 @@ export async function generateSceneVideoAction(
   } catch {
     return { ok: false, error: 'unauthorized' };
   }
+
+  const quota = await checkMediaJobQuota(user.id);
+  if (!quota.ok) return { ok: false, error: quota.error };
 
   const sb = await getServerSupabase();
 

@@ -88,6 +88,28 @@ export async function generateReferenceImageAction(rawInput: unknown): Promise<
     };
   }
 
+  // Pre-submit idempotency: if a character_reference_image job is already in-flight
+  // for this (project, character), return the existing request_id without firing
+  // another fal submission. Without this, the inline trigger in
+  // generateFirstFrameAction + the chain in pollMediaJobsAction can race and
+  // burn duplicate fal requests for the same character.
+  const { data: existingJob } = await sb
+    .from('media_jobs')
+    .select('fal_request_id')
+    .eq('project_id', input.project_id)
+    .eq('character_id', input.character_id)
+    .eq('kind', 'character_reference_image')
+    .in('status', ['pending', 'running'])
+    .limit(1)
+    .maybeSingle();
+  if (existingJob?.fal_request_id) {
+    return {
+      ok: true,
+      status: 'pending',
+      job: { kind: 'character_reference_image', request_id: existingJob.fal_request_id },
+    };
+  }
+
   const model = getDefaultModel(tier);
 
   const style = (character.config_overrides?.style ?? project.style ?? '3d_pixar') as
