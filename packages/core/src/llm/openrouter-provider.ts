@@ -64,13 +64,44 @@ function summarizeZodIssues(
 function logLLMError(stage: string, model: string, err: unknown): void {
   const e = err as ErrLike;
   const errorsArr = Array.isArray(e?.errors) ? (e.errors as ErrLike[]) : undefined;
+  const cause = e?.cause as ErrLike | undefined;
+  const causeOfCause = cause?.cause as ErrLike | undefined;
+
+  // Original combined log line — kept so historical log queries still match.
   console.error(`[ORL.${stage}] FAIL model=${model}`, {
     top: summarizeErr(e),
-    cause: summarizeErr(e?.cause as ErrLike),
-    causeOfCause: summarizeErr((e?.cause as ErrLike)?.cause as ErrLike),
+    cause: summarizeErr(cause),
+    causeOfCause: summarizeErr(causeOfCause),
     attempts: errorsArr?.map(summarizeErr),
     zodIssues: summarizeZodIssues(err) ?? summarizeZodIssues(e?.cause),
   });
+
+  // Diagnostic-friendly per-field lines. Vercel's log table preview truncates
+  // the multi-line object on the combined line above to ~30 chars, so we also
+  // emit each critical field as its own flat-string line. Each gets its own
+  // row in the Vercel preview, no JSON truncation hides the actual cause.
+  const fmt = (label: string, field: ErrLike | undefined): void => {
+    if (!field) return;
+    const name = field.name ?? '?';
+    const msg = typeof field.message === 'string' ? field.message.slice(0, 300) : '?';
+    const status = field.statusCode ?? field.status ?? '';
+    const url = field.url ?? '';
+    console.error(`[ORL.${stage}.${label}] name=${name} status=${status} url=${url} msg=${msg}`);
+  };
+  fmt('top', e);
+  fmt('cause', cause);
+  fmt('cause2', causeOfCause);
+
+  // ResponseBody — if the upstream returned an error body (OpenRouter / xAI / etc.)
+  // it usually carries the actionable detail (provider error, model unavailable,
+  // out of credits, etc.). Truncated to 500 chars to stay readable in logs.
+  const body =
+    typeof e.responseBody === 'string'
+      ? e.responseBody.slice(0, 500)
+      : typeof cause?.responseBody === 'string'
+        ? cause.responseBody.slice(0, 500)
+        : undefined;
+  if (body) console.error(`[ORL.${stage}.body] ${body}`);
 }
 
 // DeepInfra-routed traffic for deepseek/deepseek-chat hits a shared free-tier
