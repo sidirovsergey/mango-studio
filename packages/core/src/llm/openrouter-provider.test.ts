@@ -82,7 +82,7 @@ describe('OpenRouterLLMProvider', () => {
     expect(result.usage.prompt_tokens).toBe(250);
     expect(result.usage.completion_tokens).toBe(320);
     expect(result.usage.cost_usd).toBe(0.000123);
-    expect(result.usage.model).toBe('x-ai/grok-4.1-fast');
+    expect(result.usage.model).toBe('x-ai/grok-4.3');
     expect(result.usage.latency_ms).toBeGreaterThanOrEqual(0);
     expect(mockGenerateText).toHaveBeenCalledOnce();
   });
