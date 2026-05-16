@@ -88,6 +88,26 @@ export async function generateReferenceImageAction(rawInput: unknown): Promise<
     };
   }
 
+  const { data: existingActiveJob } = await sb
+    .from('media_jobs')
+    .select('fal_request_id')
+    .eq('project_id', input.project_id)
+    .eq('character_id', input.character_id)
+    .eq('kind', 'character_reference_image')
+    .in('status', ['pending', 'running'])
+    .limit(1)
+    .maybeSingle();
+  if (existingActiveJob?.fal_request_id) {
+    return {
+      ok: true,
+      status: 'pending',
+      job: {
+        kind: 'character_reference_image',
+        request_id: existingActiveJob.fal_request_id,
+      },
+    };
+  }
+
   const model = getDefaultModel(tier);
 
   const style = (character.config_overrides?.style ?? project.style ?? '3d_pixar') as

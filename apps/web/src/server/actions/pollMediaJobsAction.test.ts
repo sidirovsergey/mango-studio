@@ -62,6 +62,7 @@ describe('pollMediaJobsAction', () => {
 
     const result = await pollMediaJobsAction({ project_id: 'p1' });
     expect(result.ok).toBe(true);
+    expect(generateReferenceImageAction).not.toHaveBeenCalled();
     expect(runPollTick).toHaveBeenCalledWith(
       expect.objectContaining({ project_id: 'p1', user_id: 'u1' }),
       expect.objectContaining({
@@ -73,6 +74,60 @@ describe('pollMediaJobsAction', () => {
         provider: expect.anything(),
       }),
     );
+  });
+
+  it('retroactively dispatches reference_image generation for legacy dossiers missing reference_image', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      id: 'u1',
+    });
+    const projectQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          user_id: 'u1',
+          script: {
+            scenes: [],
+            characters: [
+              {
+                id: 'char-legacy',
+                name: 'Legacy',
+                dossier: {
+                  storage: { kind: 'fal_passthrough', url: 'https://cdn.fal.ai/dossier.png' },
+                  model: 'fal-ai/nano-banana-pro',
+                  format: '16:9',
+                  quality: '1080p',
+                  generated_at: '2026-01-01T00:00:00Z',
+                },
+                reference_images: [],
+              },
+            ],
+            title: 't',
+            master_clip: null,
+          },
+        },
+        error: null,
+      }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => projectQuery),
+    });
+    (generateReferenceImageAction as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      status: 'pending',
+      job: { kind: 'character_reference_image', request_id: 'req-ref' },
+    });
+    (runPollTick as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+
+    const result = await pollMediaJobsAction({ project_id: 'p1' });
+    await Promise.resolve();
+
+    expect(result.ok).toBe(true);
+    expect(generateReferenceImageAction).toHaveBeenCalledWith({
+      project_id: 'p1',
+      character_id: 'char-legacy',
+    });
+    expect(runPollTick).toHaveBeenCalled();
   });
 
   it('finalizeCompleted appends a first_frame version + emits MirrorHint', async () => {

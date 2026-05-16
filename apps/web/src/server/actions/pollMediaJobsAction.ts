@@ -77,6 +77,8 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
   if (project.user_id !== user.id) return { ok: false, error: 'forbidden' };
   const projectTier = (project.tier ?? 'economy') as 'economy' | 'premium';
 
+  triggerMissingReferenceImageJobs(input.project_id, project.script);
+
   const provider = getMediaProvider();
   const storage = getStorageProvider();
 
@@ -631,6 +633,33 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
   );
 
   return { ok: true };
+}
+
+function triggerMissingReferenceImageJobs(projectId: string, scriptJson: unknown): void {
+  const characters = (scriptJson as { characters?: Character[] } | null)?.characters ?? [];
+  for (const character of characters) {
+    if (!character.dossier || character.dossier.reference_image) continue;
+    void generateReferenceImageAction({
+      project_id: projectId,
+      character_id: character.id,
+    })
+      .then((r) => {
+        if (!r.ok) {
+          console.warn('[pollMediaJobs] legacy reference image dispatch failed', {
+            project_id: projectId,
+            character_id: character.id,
+            error: r.error,
+          });
+        }
+      })
+      .catch((e: unknown) => {
+        console.warn('[pollMediaJobs] legacy reference image dispatch threw', {
+          project_id: projectId,
+          character_id: character.id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      });
+  }
 }
 
 // keep referenced imports stable for type narrowing
