@@ -7,19 +7,16 @@ interface Props {
   projectId: string;
   character: Character;
   generating?: boolean;
+  generationError?: string | null;
 }
 
-export function CharacterCard({ projectId, character, generating }: Props) {
+export function CharacterCard({ projectId, character, generating, generationError }: Props) {
   const className = `char-card${generating ? ' generating' : ''}`;
   return (
     <div className={className} data-character-id={character.id}>
       <Link href={`?char=${character.id}`} scroll={false} className="char-card-clickable">
         <div className="char-avatar">
           {character.dossier?.avatar ? (
-            // Phase 1.2.6 fix-6: key={generated_at} форсирует unmount/remount
-            // при regen — без этого <img src> обновляется через React reconciliation,
-            // но браузер показывает старую закешированную картинку до навигации
-            // (open/close модалки) которая делает full SSR.
             <DossierImage
               key={character.dossier.generated_at}
               storage={character.dossier.avatar}
@@ -34,9 +31,20 @@ export function CharacterCard({ projectId, character, generating }: Props) {
         <div className="char-info">
           <div className="char-name">{character.name}</div>
           <div className="char-desc">{character.description || 'без описания'}</div>
+          {generating && <div className="char-job-status">Генерируется досье...</div>}
+          {!generating && generationError && (
+            <div className="char-job-status error" title={generationError}>
+              Не удалось сгенерировать досье
+            </div>
+          )}
         </div>
       </Link>
-      <CharacterCardActions projectId={projectId} character={character} />
+      <CharacterCardActions
+        projectId={projectId}
+        character={character}
+        generating={generating}
+        generationError={generationError}
+      />
     </div>
   );
 }
