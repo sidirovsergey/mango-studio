@@ -2,7 +2,12 @@
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { checkMediaJobQuota } from '@/server/lib/rate-limit';
+import { reserveMediaJob } from '@/server/lib/rate-limit';
+import {
+  type MediaJobKind,
+  finalizeMediaJobReservation,
+  rollbackMediaJobReservation,
+} from '@/server/lib/scene-helpers';
 import type { AssetContext, MediaProvider } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 
@@ -27,9 +32,6 @@ export async function retryMediaJobAction(input: { job_id: string }): Promise<
     return { ok: false, error: 'unauthorized' };
   }
 
-  const quota = await checkMediaJobQuota(user.id);
-  if (!quota.ok) return { ok: false, error: quota.error };
-
   const sb = await getServerSupabase();
 
   const { data: old, error } = await sb
@@ -47,6 +49,23 @@ export async function retryMediaJobAction(input: { job_id: string }): Promise<
   const submitMethod = KIND_TO_SUBMIT[old.kind];
   if (!submitMethod) return { ok: false, error: `unsupported kind: ${old.kind}` };
 
+  // Atomic quota + reservation. Mark the old job superseded BEFORE reserving
+  // so the unique partial index (status in pending/running) doesn't reject the
+  // reservation row for the same (project, scene/character, kind) target.
+  await sb.from('media_jobs').update({ status: 'superseded' }).eq('id', old.id);
+
+  const reservation = await reserveMediaJob({
+    user_id: user.id,
+    project_id: old.project_id,
+    kind: old.kind as MediaJobKind,
+    scene_id: old.scene_id ?? undefined,
+    character_id: old.character_id ?? undefined,
+  });
+  if (!reservation.ok) return { ok: false, error: reservation.error };
+  if (reservation.dedup) {
+    return { ok: true, new_job_id: reservation.job_id };
+  }
+
   const ctx: AssetContext = {
     user_id: user.id,
     project_id: old.project_id,
@@ -60,25 +79,21 @@ export async function retryMediaJobAction(input: { job_id: string }): Promise<
     model_used: string;
     request_input: Record<string, unknown>;
   }>;
-  const handle = await submitFn.call(provider, old.request_input, ctx);
 
-  await sb.from('media_jobs').update({ status: 'superseded' }).eq('id', old.id);
+  let handle: Awaited<ReturnType<typeof submitFn>>;
+  try {
+    handle = await submitFn.call(provider, old.request_input, ctx);
+  } catch (e) {
+    await rollbackMediaJobReservation(reservation.job_id);
+    throw e;
+  }
 
-  const { data: newRow, error: insErr } = await sb
-    .from('media_jobs')
-    .insert({
-      user_id: user.id,
-      project_id: old.project_id,
-      scene_id: old.scene_id,
-      character_id: old.character_id,
-      kind: old.kind,
-      model: handle.model_used,
-      fal_request_id: handle.fal_request_id,
-      status: 'pending',
-      request_input: handle.request_input as never,
-    })
-    .select('id')
-    .single();
-  if (insErr || !newRow) return { ok: false, error: insErr?.message ?? 'insert failed' };
-  return { ok: true, new_job_id: newRow.id };
+  await finalizeMediaJobReservation({
+    job_id: reservation.job_id,
+    model: handle.model_used,
+    fal_request_id: handle.fal_request_id,
+    request_input: handle.request_input,
+  });
+
+  return { ok: true, new_job_id: reservation.job_id };
 }

@@ -2,8 +2,11 @@
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { checkMediaJobQuota } from '@/server/lib/rate-limit';
-import { recordPendingJob } from '@/server/lib/scene-helpers';
+import { reserveMediaJob } from '@/server/lib/rate-limit';
+import {
+  finalizeMediaJobReservation,
+  rollbackMediaJobReservation,
+} from '@/server/lib/scene-helpers';
 import { type StoredAsset, getVideoModelMeta } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
@@ -59,9 +62,6 @@ export async function generateMasterClipAction(
   } catch {
     return { ok: false, error: 'unauthorized' };
   }
-
-  const quota = await checkMediaJobQuota(user.id);
-  if (!quota.ok) return { ok: false, error: quota.error };
 
   const sb = await getServerSupabase();
   const { data: project, error } = await sb
@@ -143,12 +143,28 @@ export async function generateMasterClipAction(
   const provider = getMediaProvider();
   const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
 
-  const handle = await provider.submitMasterConcat({ clip_urls }, ctx);
-
-  const { job_id, existing } = await recordPendingJob({
+  // Atomic quota + reservation. master_clip uses the (project_id, kind) partial
+  // unique index — dedup hits when a master concat is already running.
+  const reservation = await reserveMediaJob({
     user_id: user.id,
     project_id: input.project_id,
     kind: 'master_clip',
+  });
+  if (!reservation.ok) return { ok: false, error: reservation.error };
+  if (reservation.dedup) {
+    return { ok: true, job_id: reservation.job_id, existing: true };
+  }
+
+  let handle: Awaited<ReturnType<typeof provider.submitMasterConcat>>;
+  try {
+    handle = await provider.submitMasterConcat({ clip_urls }, ctx);
+  } catch (e) {
+    await rollbackMediaJobReservation(reservation.job_id);
+    throw e;
+  }
+
+  await finalizeMediaJobReservation({
+    job_id: reservation.job_id,
     model: handle.model_used,
     fal_request_id: handle.fal_request_id,
     request_input: {
@@ -158,5 +174,5 @@ export async function generateMasterClipAction(
     },
   });
 
-  return { ok: true, job_id, existing };
+  return { ok: true, job_id: reservation.job_id, existing: false };
 }

@@ -85,7 +85,11 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
   // tick dispatches the missing reference_image jobs so the gate eventually
   // clears without requiring user intervention. Safe because
   // generateReferenceImageAction is idempotent (active-job dedupe + already_exists).
-  triggerMissingReferenceImageJobs(input.project_id, project.script);
+  //
+  // Awaited (not fire-and-forget) so the serverless function doesn't exit
+  // before the chained submit completes — a poll tick is cheap enough to
+  // hold one extra promise.
+  await triggerMissingReferenceImageJobs(input.project_id, project.script);
 
   const provider = getMediaProvider();
   const storage = getStorageProvider();
@@ -545,36 +549,47 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
 }
 
 /**
- * F53 retroactive recovery — fire-and-forget dispatch of character_reference_image
- * jobs for characters with a dossier but no reference_image. Idempotent via the
- * pre-submit active-job query in generateReferenceImageAction; safe to call on
- * every poll tick. Errors are swallowed (logged) — recovery loops on next poll.
+ * F53 retroactive recovery — dispatch character_reference_image jobs for
+ * characters with a dossier but no reference_image. Idempotent via the
+ * pre-submit active-job query in generateReferenceImageAction.
+ *
+ * Awaited via Promise.allSettled so the caller's serverless function holds the
+ * promises until they resolve (fire-and-forget can be cut off mid-flight when
+ * the request handler returns first). Errors are logged, never rethrown —
+ * recovery loops on the next poll tick regardless.
  */
-function triggerMissingReferenceImageJobs(projectId: string, scriptJson: unknown): void {
+async function triggerMissingReferenceImageJobs(
+  projectId: string,
+  scriptJson: unknown,
+): Promise<void> {
   const characters = (scriptJson as { characters?: Character[] } | null)?.characters ?? [];
-  for (const character of characters) {
-    if (!character.dossier || character.dossier.reference_image) continue;
-    void generateReferenceImageAction({
-      project_id: projectId,
-      character_id: character.id,
-    })
-      .then((r) => {
-        if (!r.ok) {
-          console.warn('[pollMediaJobs] retroactive reference_image dispatch failed', {
-            project_id: projectId,
-            character_id: character.id,
-            error: r.error,
-          });
-        }
-      })
-      .catch((e: unknown) => {
-        console.warn('[pollMediaJobs] retroactive reference_image dispatch threw', {
-          project_id: projectId,
-          character_id: character.id,
-          error: e instanceof Error ? e.message : String(e),
-        });
+  const targets = characters.filter((c) => c.dossier && !c.dossier.reference_image);
+  if (targets.length === 0) return;
+
+  const results = await Promise.allSettled(
+    targets.map((c) =>
+      generateReferenceImageAction({
+        project_id: projectId,
+        character_id: c.id,
+      }),
+    ),
+  );
+  results.forEach((r, i) => {
+    const c = targets[i]!;
+    if (r.status === 'rejected') {
+      console.warn('[pollMediaJobs] retroactive reference_image dispatch threw', {
+        project_id: projectId,
+        character_id: c.id,
+        error: r.reason instanceof Error ? r.reason.message : String(r.reason),
       });
-  }
+    } else if (!r.value.ok) {
+      console.warn('[pollMediaJobs] retroactive reference_image dispatch failed', {
+        project_id: projectId,
+        character_id: c.id,
+        error: r.value.error,
+      });
+    }
+  });
 }
 
 // keep referenced imports stable for type narrowing

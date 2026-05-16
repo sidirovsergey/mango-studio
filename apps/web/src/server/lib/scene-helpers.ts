@@ -26,6 +26,11 @@ export type MediaJobKind =
  * Inserts a media_jobs row in 'pending' state. Idempotent: when a unique-violation
  * occurs (an active job for the same (project_id, scene_id|character_id, kind)
  * tuple already exists), returns the existing job_id with `existing: true`.
+ *
+ * Used by internal chains (last_frame_extract dispatched from pollMediaJobs)
+ * and helpers (reference_image chain) where the atomic-reservation flow doesn't
+ * fit. User-facing actions that incur fal cost should use the
+ * reserveMediaJob → finalizeMediaJobReservation pattern instead.
  */
 export async function recordPendingJob(params: {
   user_id: string;
@@ -78,6 +83,57 @@ export async function recordPendingJob(params: {
   }
 
   return { job_id: data.id, existing: false };
+}
+
+/**
+ * Flip a `status='reserved'` placeholder row (created by `reserve_media_job`
+ * RPC) into a fully-recorded `status='pending'` job. Called after provider.submit
+ * succeeds; the row's model + fal_request_id + request_input are patched in.
+ */
+export async function finalizeMediaJobReservation(params: {
+  job_id: string;
+  model: string;
+  fal_request_id: string;
+  request_input: Record<string, unknown>;
+  retry_count?: number;
+  delayed_until?: string | null;
+}): Promise<void> {
+  const sb = await getServerSupabase();
+  const update: Record<string, unknown> = {
+    status: 'pending',
+    model: params.model,
+    fal_request_id: params.fal_request_id,
+    request_input: params.request_input,
+    updated_at: new Date().toISOString(),
+  };
+  if (params.retry_count !== undefined) update.retry_count = params.retry_count;
+  if (params.delayed_until !== undefined) update.delayed_until = params.delayed_until;
+
+  const { error } = await sb
+    .from('media_jobs')
+    .update(update as never)
+    .eq('id', params.job_id)
+    .eq('status', 'reserved');
+  if (error) throw new Error(`finalizeMediaJobReservation failed: ${error.message}`);
+}
+
+/**
+ * Drop a `status='reserved'` row when provider.submit fails. Frees the user's
+ * quota slot so a failed fal call doesn't burn against their daily count.
+ * Best-effort: errors are logged but not thrown — the underlying submit
+ * failure is what the caller cares about. Stale orphans (e.g., process crash
+ * mid-rollback) are reaped by `cleanup_stale_media_reservations` RPC.
+ */
+export async function rollbackMediaJobReservation(job_id: string): Promise<void> {
+  if (!job_id) return;
+  const sb = await getServerSupabase();
+  const { error } = await sb.from('media_jobs').delete().eq('id', job_id).eq('status', 'reserved');
+  if (error) {
+    console.warn('[rollbackMediaJobReservation] cleanup failed', {
+      job_id,
+      error: error.message,
+    });
+  }
 }
 
 interface AssetApplication {

@@ -2,8 +2,11 @@
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { checkMediaJobQuota } from '@/server/lib/rate-limit';
-import { recordPendingJob } from '@/server/lib/scene-helpers';
+import { reserveMediaJob } from '@/server/lib/rate-limit';
+import {
+  finalizeMediaJobReservation,
+  rollbackMediaJobReservation,
+} from '@/server/lib/scene-helpers';
 import {
   type CameraMovement,
   type Character,
@@ -73,9 +76,6 @@ export async function generateFirstFrameAction(
   } catch {
     return { ok: false, error: 'unauthorized' };
   }
-
-  const quota = await checkMediaJobQuota(user.id);
-  if (!quota.ok) return { ok: false, error: quota.error };
 
   const sb = await getServerSupabase();
 
@@ -169,25 +169,42 @@ export async function generateFirstFrameAction(
 
   const model = input.model_override ?? getDefaultModel(tier);
 
+  // Atomic quota + reservation. Per-user advisory lock serializes concurrent
+  // reservations so bursts can't slip past the daily cap by parallelism factor.
+  const reservation = await reserveMediaJob({
+    user_id: user.id,
+    project_id: input.project_id,
+    kind: 'first_frame',
+    scene_id: input.scene_id,
+  });
+  if (!reservation.ok) return { ok: false, error: reservation.error };
+  // dedup=true means an active job for the same target already exists; skip fal.
+  if (reservation.dedup) {
+    return { ok: true, job_id: reservation.job_id, existing: true };
+  }
+
   const provider = getMediaProvider();
   const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
 
-  const handle = await provider.submitFirstFrame(
-    { prompt, model, aspect_ratio: '9:16', image_refs },
-    ctx,
-  );
+  let handle: Awaited<ReturnType<typeof provider.submitFirstFrame>>;
+  try {
+    handle = await provider.submitFirstFrame(
+      { prompt, model, aspect_ratio: '9:16', image_refs },
+      ctx,
+    );
+  } catch (e) {
+    await rollbackMediaJobReservation(reservation.job_id);
+    throw e;
+  }
 
-  const { job_id, existing } = await recordPendingJob({
-    user_id: user.id,
-    project_id: input.project_id,
-    scene_id: input.scene_id,
-    kind: 'first_frame',
+  await finalizeMediaJobReservation({
+    job_id: reservation.job_id,
     model: handle.model_used,
     fal_request_id: handle.fal_request_id,
     request_input: handle.request_input,
   });
 
-  return { ok: true, job_id, existing };
+  return { ok: true, job_id: reservation.job_id, existing: false };
 }
 
 const BulkInputSchema = z.object({

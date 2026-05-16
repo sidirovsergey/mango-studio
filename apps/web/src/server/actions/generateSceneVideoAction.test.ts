@@ -3,14 +3,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/auth/get-user', () => ({ getCurrentUser: vi.fn() }));
 vi.mock('@/server/lib/media-provider-factory', () => ({ getMediaProvider: vi.fn() }));
 vi.mock('@mango/db/server', () => ({ getServerSupabase: vi.fn() }));
-vi.mock('@/server/lib/scene-helpers', () => ({ recordPendingJob: vi.fn() }));
+vi.mock('@/server/lib/scene-helpers', () => ({
+  recordPendingJob: vi.fn(),
+  finalizeMediaJobReservation: vi.fn().mockResolvedValue(undefined),
+  rollbackMediaJobReservation: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock('@/server/lib/rate-limit', () => ({
-  checkMediaJobQuota: vi.fn().mockResolvedValue({ ok: true, used: 0, limit: 50 }),
+  reserveMediaJob: vi
+    .fn()
+    .mockResolvedValue({ ok: true, job_id: 'reserved-id', used: 1, dedup: false }),
 }));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { recordPendingJob } from '@/server/lib/scene-helpers';
+import { reserveMediaJob } from '@/server/lib/rate-limit';
+import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
 import { getServerSupabase } from '@mango/db/server';
 import { generateSceneVideoAction } from './generateSceneVideoAction';
 
@@ -119,7 +126,7 @@ describe('generateSceneVideoAction', () => {
       model_used: 'bytedance/seedance-2.0/image-to-video',
       request_input: { prompt: 'Scene 1', duration_sec: 7 },
     });
-    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       submitSceneVideo,
     });
 
@@ -132,9 +139,11 @@ describe('generateSceneVideoAction', () => {
       from: vi.fn(() => builder),
     });
 
-    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
       job_id: 'job-video-1',
-      existing: false,
+      used: 1,
+      dedup: false,
     });
 
     const result = await generateSceneVideoAction({
@@ -148,7 +157,7 @@ describe('generateSceneVideoAction', () => {
       }),
       expect.objectContaining({ user_id: 'u1' }),
     );
-    expect(recordPendingJob).toHaveBeenCalledWith(
+    expect(finalizeMediaJobReservation).toHaveBeenCalledWith(
       expect.objectContaining({
         request_input: expect.objectContaining({
           first_frame_version_id: 'ff-v2',
@@ -169,7 +178,7 @@ describe('generateSceneVideoAction', () => {
       dialogue: { speaker: 'narrator', text: 'Привет, друзья!' },
     });
 
-    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       submitSceneVideo: vi.fn().mockResolvedValue({
         fal_request_id: 'req-1',
         model_used: 'bytedance/seedance-2.0/image-to-video',
@@ -184,9 +193,11 @@ describe('generateSceneVideoAction', () => {
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => builder),
     });
-    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
       job_id: 'j1',
-      existing: false,
+      used: 1,
+      dedup: false,
     });
 
     const result = await generateSceneVideoAction({
@@ -206,7 +217,7 @@ describe('generateSceneVideoAction', () => {
       model_used: 'bytedance/seedance-2.0/image-to-video',
       request_input: { duration_sec: 7 },
     });
-    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       submitSceneVideo,
     });
     const builder = {
@@ -217,9 +228,11 @@ describe('generateSceneVideoAction', () => {
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => builder),
     });
-    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
       job_id: 'j-ov',
-      existing: false,
+      used: 1,
+      dedup: false,
     });
 
     const result = await generateSceneVideoAction({
@@ -242,7 +255,7 @@ describe('generateSceneVideoAction', () => {
       dialogue: { speaker: 'narrator', text: 'Hello world' },
     });
 
-    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       submitSceneVideo: vi.fn().mockResolvedValue({
         fal_request_id: 'req-1',
         model_used: 'fal-ai/veo3.1/image-to-video',
@@ -257,9 +270,11 @@ describe('generateSceneVideoAction', () => {
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => builder),
     });
-    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
       job_id: 'j1',
-      existing: false,
+      used: 1,
+      dedup: false,
     });
 
     // Pick a model that has_native_audio = true via override
@@ -292,7 +307,7 @@ async function runAndCapturePrompt(
     model_used: model,
     request_input: { duration_sec: project.script.scenes[0]!.duration_sec },
   });
-  (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+  (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
     submitSceneVideo,
   });
 
@@ -304,9 +319,11 @@ async function runAndCapturePrompt(
   (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
     from: vi.fn(() => builder),
   });
-  (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+  (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    ok: true,
     job_id: 'j-snap',
-    existing: false,
+    used: 1,
+    dedup: false,
   });
 
   const result = await generateSceneVideoAction({

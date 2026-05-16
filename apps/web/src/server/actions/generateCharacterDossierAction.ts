@@ -3,8 +3,11 @@
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { friendlyMediaError } from '@/server/lib/media-error-message';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { checkMediaJobQuota } from '@/server/lib/rate-limit';
-import { recordPendingJob } from '@/server/lib/scene-helpers';
+import { reserveMediaJob } from '@/server/lib/rate-limit';
+import {
+  finalizeMediaJobReservation,
+  rollbackMediaJobReservation,
+} from '@/server/lib/scene-helpers';
 import {
   type Character,
   MediaProviderError,
@@ -30,9 +33,6 @@ export async function generateCharacterDossierAction(
 ): Promise<{ ok: true; job_id: string } | { ok: false; error: string; error_code?: string }> {
   const input = InputSchema.parse(rawInput);
   const user = await getCurrentUser();
-
-  const quota = await checkMediaJobQuota(user.id);
-  if (!quota.ok) return { ok: false, error: quota.error };
 
   const sb = await getServerSupabase();
 
@@ -90,52 +90,91 @@ export async function generateCharacterDossierAction(
       style,
     );
 
-    // Two parallel jobs: 16:9 model-sheet (main dossier) + 1:1 portrait (avatar
-    // for character card thumbnail). Distinct kinds → both fit under the unique
-    // partial index media_jobs_character_active.
-    const [mainHandle, avatarHandle] = await Promise.all([
-      provider.submitCharacterDossier(
-        {
-          prompt,
-          model,
-          format: '16:9',
-          quality,
-          image_refs: character.reference_images.map((r) => r.storage),
-        },
-        ctx,
-      ),
-      provider.submitCharacterDossier(
-        {
-          prompt: avatarPrompt,
-          model,
-          format: '1:1',
-          quality,
-          image_refs: [],
-        },
-        ctx,
-      ),
-    ]);
-
-    const [mainJob, avatarJob] = await Promise.all([
-      recordPendingJob({
+    // Two parallel jobs: 16:9 model-sheet (main dossier) + 1:1 portrait (avatar).
+    // Reserve both slots BEFORE provider.submit so a quota-exhausted user can't
+    // burn fal credits on a partial pair. Both reservations are atomic under
+    // the same per-user advisory lock — count + insert serialize.
+    const [dossierRes, avatarRes] = await Promise.all([
+      reserveMediaJob({
         user_id: user.id,
         project_id: input.project_id,
-        character_id: character.id,
         kind: 'character_dossier',
-        model: mainHandle.model_used,
-        fal_request_id: mainHandle.fal_request_id,
-        request_input: mainHandle.request_input,
+        character_id: character.id,
       }),
-      recordPendingJob({
+      reserveMediaJob({
         user_id: user.id,
         project_id: input.project_id,
-        character_id: character.id,
         kind: 'character_avatar',
-        model: avatarHandle.model_used,
-        fal_request_id: avatarHandle.fal_request_id,
-        request_input: avatarHandle.request_input,
+        character_id: character.id,
       }),
     ]);
+    if (!dossierRes.ok) {
+      if (avatarRes.ok && !avatarRes.dedup) await rollbackMediaJobReservation(avatarRes.job_id);
+      return { ok: false, error: dossierRes.error };
+    }
+    if (!avatarRes.ok) {
+      if (!dossierRes.dedup) await rollbackMediaJobReservation(dossierRes.job_id);
+      return { ok: false, error: avatarRes.error };
+    }
+    // If BOTH dedup'd, an active dossier+avatar pair already runs — return the
+    // main job_id as "existing". If one dedup'd and the other didn't, we still
+    // need to submit the non-dedup'd one, so we proceed (this is a recovery
+    // path, e.g. avatar job was cancelled while dossier still running).
+    if (dossierRes.dedup && avatarRes.dedup) {
+      return { ok: true, job_id: dossierRes.job_id };
+    }
+
+    let mainHandle: Awaited<ReturnType<typeof provider.submitCharacterDossier>>;
+    let avatarHandle: Awaited<ReturnType<typeof provider.submitCharacterDossier>>;
+    try {
+      [mainHandle, avatarHandle] = await Promise.all([
+        provider.submitCharacterDossier(
+          {
+            prompt,
+            model,
+            format: '16:9',
+            quality,
+            image_refs: character.reference_images.map((r) => r.storage),
+          },
+          ctx,
+        ),
+        provider.submitCharacterDossier(
+          {
+            prompt: avatarPrompt,
+            model,
+            format: '1:1',
+            quality,
+            image_refs: [],
+          },
+          ctx,
+        ),
+      ]);
+    } catch (e) {
+      if (!dossierRes.dedup) await rollbackMediaJobReservation(dossierRes.job_id);
+      if (!avatarRes.dedup) await rollbackMediaJobReservation(avatarRes.job_id);
+      throw e;
+    }
+
+    await Promise.all([
+      dossierRes.dedup
+        ? Promise.resolve()
+        : finalizeMediaJobReservation({
+            job_id: dossierRes.job_id,
+            model: mainHandle.model_used,
+            fal_request_id: mainHandle.fal_request_id,
+            request_input: mainHandle.request_input,
+          }),
+      avatarRes.dedup
+        ? Promise.resolve()
+        : finalizeMediaJobReservation({
+            job_id: avatarRes.job_id,
+            model: avatarHandle.model_used,
+            fal_request_id: avatarHandle.fal_request_id,
+            request_input: avatarHandle.request_input,
+          }),
+    ]);
+    const mainJob = { job_id: dossierRes.job_id };
+    const avatarJob = { job_id: avatarRes.job_id };
 
     // Save full_prompt to character now; dossier+avatar storage land in poll-orchestrator.
     const updated: Character = { ...character, full_prompt: prompt };

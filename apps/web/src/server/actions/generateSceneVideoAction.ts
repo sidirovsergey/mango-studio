@@ -2,8 +2,11 @@
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
-import { checkMediaJobQuota } from '@/server/lib/rate-limit';
-import { recordPendingJob } from '@/server/lib/scene-helpers';
+import { reserveMediaJob } from '@/server/lib/rate-limit';
+import {
+  finalizeMediaJobReservation,
+  rollbackMediaJobReservation,
+} from '@/server/lib/scene-helpers';
 import {
   type ArcRole,
   type AudioDirection,
@@ -91,9 +94,6 @@ export async function generateSceneVideoAction(
   } catch {
     return { ok: false, error: 'unauthorized' };
   }
-
-  const quota = await checkMediaJobQuota(user.id);
-  if (!quota.ok) return { ok: false, error: quota.error };
 
   const sb = await getServerSupabase();
 
@@ -204,23 +204,38 @@ export async function generateSceneVideoAction(
   const isGrok = model.startsWith('xai/grok-imagine-video');
   const grokResolution: '480p' | '720p' = effectiveTier === 'premium' ? '720p' : '480p';
 
-  const handle = await provider.submitSceneVideo(
-    {
-      prompt,
-      model,
-      first_frame_ref: image_refs[0]!,
-      duration_sec,
-      aspect_ratio,
-      ...(isGrok ? { resolution: grokResolution } : {}),
-    },
-    ctx,
-  );
-
-  const { job_id, existing } = await recordPendingJob({
+  // Atomic quota + reservation.
+  const reservation = await reserveMediaJob({
     user_id: user.id,
     project_id: input.project_id,
-    scene_id: input.scene_id,
     kind: 'video',
+    scene_id: input.scene_id,
+  });
+  if (!reservation.ok) return { ok: false, error: reservation.error };
+  if (reservation.dedup) {
+    return { ok: true, job_id: reservation.job_id, existing: true, audio_mode: audioMode };
+  }
+
+  let handle: Awaited<ReturnType<typeof provider.submitSceneVideo>>;
+  try {
+    handle = await provider.submitSceneVideo(
+      {
+        prompt,
+        model,
+        first_frame_ref: image_refs[0]!,
+        duration_sec,
+        aspect_ratio,
+        ...(isGrok ? { resolution: grokResolution } : {}),
+      },
+      ctx,
+    );
+  } catch (e) {
+    await rollbackMediaJobReservation(reservation.job_id);
+    throw e;
+  }
+
+  await finalizeMediaJobReservation({
+    job_id: reservation.job_id,
     model: handle.model_used,
     fal_request_id: handle.fal_request_id,
     request_input: {
@@ -230,5 +245,5 @@ export async function generateSceneVideoAction(
     },
   });
 
-  return { ok: true, job_id, existing, audio_mode: audioMode };
+  return { ok: true, job_id: reservation.job_id, existing: false, audio_mode: audioMode };
 }
