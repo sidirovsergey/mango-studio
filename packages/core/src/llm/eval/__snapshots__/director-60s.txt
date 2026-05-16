@@ -100,14 +100,14 @@ Reply: Голос идёт прямо из видео-модели — отде�
 </characters_active>
 
 <scenes_summary>
-  script-60s-01 | 8s | hook     | ff✗ vid✗ aud✗ fc✗ | "Wet cobblestones mirror neon signs. Artyom raises …"
-  script-60s-02 | 7s | setup    | ff✗ vid✗ aud✗ fc✗ | "Artyom stops at a rusted warehouse door. Under the…"
-  script-60s-03 | 8s | rising   | ff✗ vid✗ aud✗ fc✗ | "A silhouette in a dark hood steps away from the wa…"
-  script-60s-04 | 7s | rising   | ff✗ vid✗ aud✗ fc✗ | "Vika holds out a flash drive — inches from Artyom'…"
-  script-60s-05 | 8s | rising   | ff✗ vid✗ aud✗ fc✗ | "Artyom emerges from the alley to face an old offic…"
-  script-60s-06 | 7s | climax   | ff✗ vid✗ aud✗ fc✗ | "Artyom throws open the office door. Light on. Desk…"
-  script-60s-07 | 8s | payoff   | ff✗ vid✗ aud✗ fc✗ | "Artyom slowly picks up an envelope from the floor.…"
-  script-60s-08 | 7s | cta      | ff✗ vid✗ aud✗ fc✗ | "Artyom steps out of the entrance, raises his colla…"
+  script-60s-01 | 8s | hook     | ff✗ vid✗ | "Wet cobblestones mirror neon signs. Artyom raises …"
+  script-60s-02 | 7s | setup    | ff✗ vid✗ | "Artyom stops at a rusted warehouse door. Under the…"
+  script-60s-03 | 8s | rising   | ff✗ vid✗ | "A silhouette in a dark hood steps away from the wa…"
+  script-60s-04 | 7s | rising   | ff✗ vid✗ | "Vika holds out a flash drive — inches from Artyom'…"
+  script-60s-05 | 8s | rising   | ff✗ vid✗ | "Artyom emerges from the alley to face an old offic…"
+  script-60s-06 | 7s | climax   | ff✗ vid✗ | "Artyom throws open the office door. Light on. Desk…"
+  script-60s-07 | 8s | payoff   | ff✗ vid✗ | "Artyom slowly picks up an envelope from the floor.…"
+  script-60s-08 | 7s | cta      | ff✗ vid✗ | "Artyom steps out of the entrance, raises his colla…"
 </scenes_summary>
 
 Project: idea="Нуар-детектив Артём ищет последнего свидетеля" duration=60s format=9:16 style=3d_pixar.

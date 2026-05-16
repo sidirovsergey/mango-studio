@@ -238,10 +238,15 @@ describe('formatProjectStateSummary', () => {
       },
     };
     const result = formatProjectStateSummary(input);
-    expect(result).toContain('ff✓ vid✓ aud✓ fc✓');
+    // Codex audit P2: aud / fc flags retired alongside the audio chain. The
+    // Director should no longer see "audio missing" signals contradicting
+    // rule 10's "no voice tools" instruction.
+    expect(result).toContain('ff✓ vid✓');
+    expect(result).not.toContain('aud');
+    expect(result).not.toContain('fc');
   });
 
-  it('media flags — no versions → all ✗', () => {
+  it('media flags — no versions → all ✗ (only ff + vid axes now)', () => {
     const input: DirectorStateSummaryInput = {
       script: {
         scenes: [mkScene({ scene_id: 's1' })],
@@ -249,7 +254,9 @@ describe('formatProjectStateSummary', () => {
       },
     };
     const result = formatProjectStateSummary(input);
-    expect(result).toContain('ff✗ vid✗ aud✗ fc✗');
+    expect(result).toContain('ff✗ vid✗');
+    expect(result).not.toContain('aud');
+    expect(result).not.toContain('fc');
   });
 
   // 10. arc_role padding — multiple scenes align visually

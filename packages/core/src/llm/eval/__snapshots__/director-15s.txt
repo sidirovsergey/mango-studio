@@ -100,9 +100,9 @@ Reply: Голос идёт прямо из видео-модели — отде�
 </characters_active>
 
 <scenes_summary>
-  script-15s-01 | 5s | hook     | ff✗ vid✗ aud✗ fc✗ | "A golden morning beam falls on the sleeping ginger…"
-  script-15s-02 | 5s | rising   | ff✗ vid✗ aud✗ fc✗ | "Apelsin pads to the kitchen. The bowl is empty. He…"
-  script-15s-03 | 5s | payoff   | ff✗ vid✗ aud✗ fc✗ | "Convinced the bowl is a lost cause, Apelsin return…"
+  script-15s-01 | 5s | hook     | ff✗ vid✗ | "A golden morning beam falls on the sleeping ginger…"
+  script-15s-02 | 5s | rising   | ff✗ vid✗ | "Apelsin pads to the kitchen. The bowl is empty. He…"
+  script-15s-03 | 5s | payoff   | ff✗ vid✗ | "Convinced the bowl is a lost cause, Apelsin return…"
 </scenes_summary>
 
 Project: idea="Утро рыжего кота Апельсина" duration=15s format=9:16 style=3d_pixar.

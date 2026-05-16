@@ -84,11 +84,15 @@ export async function generateScriptAction(
       scenes: result.output.scenes,
       characters: mergedCharacters,
       master_clip: null,
-      // Codex audit P1.1: persist visual_theme. Grok authors it, downstream
-      // video prompt builder ([AESTHETIC] / [Pacing/Style] / Avoid blocks)
-      // depends on it. Dropping it on persistence made those blocks fall
-      // back to generic defaults and weakened the visual-consistency promise.
+      // Codex audit P1.1 + P2: persist visual_theme + tier. Grok authors
+      // both, downstream video prompt builder depends on both:
+      // - visual_theme drives [AESTHETIC] / [Pacing/Style] / Avoid blocks
+      // - tier is the visual_theme owner; generateSceneVideoAction reads
+      //   script.tier ?? effectiveTier when assembling the video prompt,
+      //   and buildProspectivePromptAction same. Dropping tier silently
+      //   fell back to economy and changed the rendered AESTHETIC line.
       visual_theme: result.output.visual_theme ?? null,
+      tier: result.output.tier ?? null,
     };
     await persistScript(project_id, newScript);
     await logLLMCall({
@@ -144,11 +148,15 @@ export async function regenScriptAction(
       scenes: result.output.scenes,
       characters: mergedCharacters,
       master_clip: null,
-      // Codex audit P1.1: persist visual_theme. Grok authors it, downstream
-      // video prompt builder ([AESTHETIC] / [Pacing/Style] / Avoid blocks)
-      // depends on it. Dropping it on persistence made those blocks fall
-      // back to generic defaults and weakened the visual-consistency promise.
+      // Codex audit P1.1 + P2: persist visual_theme + tier. Grok authors
+      // both, downstream video prompt builder depends on both:
+      // - visual_theme drives [AESTHETIC] / [Pacing/Style] / Avoid blocks
+      // - tier is the visual_theme owner; generateSceneVideoAction reads
+      //   script.tier ?? effectiveTier when assembling the video prompt,
+      //   and buildProspectivePromptAction same. Dropping tier silently
+      //   fell back to economy and changed the rendered AESTHETIC line.
       visual_theme: result.output.visual_theme ?? null,
+      tier: result.output.tier ?? null,
     };
     await persistScript(project_id, newScript);
     await logLLMCall({
@@ -227,11 +235,15 @@ export async function refineScriptAction(
       scenes: result.output.scenes,
       characters: mergedCharacters,
       master_clip: null,
-      // Codex audit P1.1: persist visual_theme. Grok authors it, downstream
-      // video prompt builder ([AESTHETIC] / [Pacing/Style] / Avoid blocks)
-      // depends on it. Dropping it on persistence made those blocks fall
-      // back to generic defaults and weakened the visual-consistency promise.
+      // Codex audit P1.1 + P2: persist visual_theme + tier. Grok authors
+      // both, downstream video prompt builder depends on both:
+      // - visual_theme drives [AESTHETIC] / [Pacing/Style] / Avoid blocks
+      // - tier is the visual_theme owner; generateSceneVideoAction reads
+      //   script.tier ?? effectiveTier when assembling the video prompt,
+      //   and buildProspectivePromptAction same. Dropping tier silently
+      //   fell back to economy and changed the rendered AESTHETIC line.
       visual_theme: result.output.visual_theme ?? null,
+      tier: result.output.tier ?? null,
     };
     await persistScript(project_id, newScript);
     await logLLMCall({
