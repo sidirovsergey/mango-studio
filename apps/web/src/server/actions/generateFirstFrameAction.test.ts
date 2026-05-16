@@ -36,6 +36,7 @@ const makeProject = (sceneOverrides: Record<string, unknown>[] = []) => ({
         voice: {},
         dossier: {
           storage: { kind: 'fal_passthrough', url: 'https://cdn.fal.ai/dossier.jpg' },
+          reference_image: { kind: 'fal_passthrough', url: 'https://cdn.fal.ai/alice-ref.jpg' },
           model: 'm',
           format: '16:9',
           quality: '1080p',
@@ -167,6 +168,51 @@ describe('generateFirstFrameAction', () => {
     }
   });
 
+  it('rejects when a character dossier exists but reference_image is not ready', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+
+    const project = makeProject();
+    const character = project.script.characters[0]! as {
+      dossier: {
+        storage: { kind: string; url: string };
+        reference_image?: { kind: string; url: string };
+        model: string;
+        format: string;
+        quality: string;
+        generated_at: string;
+      };
+    };
+    character.dossier = {
+      storage: { kind: 'fal_passthrough', url: 'https://cdn.fal.ai/dossier.jpg' },
+      model: 'm',
+      format: '16:9',
+      quality: '1080p',
+      generated_at: '2026-01-01',
+    };
+
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: project, error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    });
+
+    const result = await generateFirstFrameAction({
+      project_id: PROJECT_ID,
+      scene_id: 's1',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error:
+        'Референс персонажа ещё не готов: Alice. Дождись завершения генерации досье/ref-image и повтори кадр.',
+    });
+    expect(getMediaProvider).not.toHaveBeenCalled();
+    expect(recordPendingJob).not.toHaveBeenCalled();
+  });
+
   it('uses prompt_override when provided (skips builder output)', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
 
@@ -201,7 +247,71 @@ describe('generateFirstFrameAction', () => {
 
     expect(result.ok).toBe(true);
     expect(submitFirstFrame).toHaveBeenCalledWith(
-      expect.objectContaining({ prompt: 'CUSTOM PROMPT TEXT — override path' }),
+      expect.objectContaining({
+        prompt: 'CUSTOM PROMPT TEXT — override path',
+        image_refs: [],
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it('allows prompt_override when reference_image is missing and skips character refs', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+
+    const project = makeProject();
+    const character = project.script.characters[0]! as {
+      dossier: {
+        storage: { kind: string; url: string };
+        reference_image?: { kind: string; url: string };
+        model: string;
+        format: string;
+        quality: string;
+        generated_at: string;
+      };
+    };
+    character.dossier = {
+      storage: { kind: 'fal_passthrough', url: 'https://cdn.fal.ai/dossier.jpg' },
+      model: 'm',
+      format: '16:9',
+      quality: '1080p',
+      generated_at: '2026-01-01',
+    };
+
+    const submitFirstFrame = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-override-missing-ref',
+      model_used: 'fal-ai/nano-banana-pro',
+      request_input: {},
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      submitFirstFrame,
+    });
+
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: project, error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    });
+
+    (recordPendingJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      job_id: 'job-override-missing-ref',
+      existing: false,
+    });
+
+    const result = await generateFirstFrameAction({
+      project_id: PROJECT_ID,
+      scene_id: 's1',
+      prompt_override: 'CUSTOM NO CHARACTER REF',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(submitFirstFrame).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: 'CUSTOM NO CHARACTER REF',
+        image_refs: [],
+      }),
       expect.any(Object),
     );
   });

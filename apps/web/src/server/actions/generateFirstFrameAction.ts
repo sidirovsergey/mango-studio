@@ -106,6 +106,17 @@ export async function generateFirstFrameAction(
   const characters_in_scene = (script.characters ?? []).filter((c) =>
     scene.character_ids.includes(c.id),
   );
+  const useCustomPrompt = input.prompt_override !== undefined;
+  const missingReferenceCharacters = characters_in_scene.filter(
+    (c) => c.dossier && !c.dossier.reference_image,
+  );
+  if (!useCustomPrompt && missingReferenceCharacters.length > 0) {
+    const names = missingReferenceCharacters.map((c) => c.name).join(', ');
+    return {
+      ok: false,
+      error: `Референс персонажа ещё не готов: ${names}. Дождись завершения генерации досье/ref-image и повтори кадр.`,
+    };
+  }
 
   // Determine first_frame_source: bulk overrides to manual_text2img
   const first_frame_source =
@@ -121,7 +132,10 @@ export async function generateFirstFrameAction(
       camera_movement: (scene.camera_movement as CameraMovement | undefined) ?? undefined,
       lighting: (scene.lighting as Lighting | undefined) ?? undefined,
     },
-    characters_in_scene,
+    // Custom prompt mode is an explicit operator override: do not attach
+    // character reference images implicitly, because the user may be authoring
+    // a frame without those characters or with different external references.
+    characters_in_scene: useCustomPrompt ? [] : characters_in_scene,
     prev_last_frame,
     project_style,
     visual_theme: script.visual_theme ?? undefined,

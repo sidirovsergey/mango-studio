@@ -42,16 +42,24 @@ const makeProject = (overrides: Record<string, unknown> = {}, charOverrides = {}
   ...overrides,
 });
 
-function makeSupabase(project: unknown) {
-  const builder = {
+function makeSupabase(project: unknown, activeJob: { fal_request_id: string } | null = null) {
+  const projectBuilder = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({ data: project, error: null }),
     update: vi.fn().mockReturnThis(),
   };
+  const activeJobBuilder = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: activeJob, error: null }),
+  };
   return {
-    from: vi.fn(() => builder),
-    _builder: builder,
+    from: vi.fn((table: string) => (table === 'media_jobs' ? activeJobBuilder : projectBuilder)),
+    _builder: projectBuilder,
+    _activeJobBuilder: activeJobBuilder,
   };
 }
 
@@ -165,6 +173,33 @@ describe('generateReferenceImageAction — idempotency', () => {
     } else {
       expect.fail('expected already_exists');
     }
+    expect(submitCharacterReferenceImage).not.toHaveBeenCalled();
+    expect(recordPendingJob).not.toHaveBeenCalled();
+  });
+
+  it('returns pending existing active job without submitting a duplicate fal request', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+
+    const sb = makeSupabase(makeProject({ tier: 'economy' }, { dossier: makeDossier() }), {
+      fal_request_id: 'req-already-active',
+    });
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sb);
+
+    const submitCharacterReferenceImage = vi.fn();
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      submitCharacterReferenceImage,
+    });
+
+    const result = await generateReferenceImageAction({
+      project_id: PROJECT_ID,
+      character_id: CHARACTER_ID,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      status: 'pending',
+      job: { kind: 'character_reference_image', request_id: 'req-already-active' },
+    });
     expect(submitCharacterReferenceImage).not.toHaveBeenCalled();
     expect(recordPendingJob).not.toHaveBeenCalled();
   });

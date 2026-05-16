@@ -66,7 +66,15 @@ const JOB_KIND_LABEL: Record<string, string> = {
 
 type ActionId = 'text' | 'frame' | 'video';
 
-export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, activeJob }: Props) {
+export function SceneSidePanel({
+  projectId,
+  scene,
+  index,
+  sceneNum,
+  tier,
+  characters,
+  activeJob,
+}: Props) {
   const num = sceneNum ?? String(index + 1).padStart(2, '0');
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +90,18 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
   const isGenerating = !!activeJob && ['pending', 'running'].includes(activeJob.status);
   const genKindLabel = activeJob ? (JOB_KIND_LABEL[activeJob.kind] ?? activeJob.kind) : null;
   const lockedByGen = isGenerating;
+
+  // F53 UX gate: mirrors generateFirstFrameAction's server-side guard.
+  // A character whose dossier exists but reference_image is still being generated
+  // (chained job after character_dossier completes) cannot be used as first-frame ref
+  // — multi-panel dossier.storage must never be passed to first-frame generation.
+  const charsNeedingRef = characters
+    .filter((c) => scene.character_ids.includes(c.id))
+    .filter((c) => c.dossier && !c.dossier.reference_image);
+  const refNotReady = charsNeedingRef.length > 0;
+  const refNotReadyTitle = refNotReady
+    ? `Готовлю ref-изображение: ${charsNeedingRef.map((c) => c.name).join(', ')}. Подожди ~15с.`
+    : null;
 
   useEffect(() => {
     if (!error) return;
@@ -219,11 +239,12 @@ export function SceneSidePanel({ projectId, scene, index, sceneNum, tier, active
           action={activeFrame ? 'перегенерировать' : 'создать'}
           cost="$0.02"
           busy={activeAction === 'frame'}
-          disabled={pending || lockedByGen}
+          disabled={pending || lockedByGen || refNotReady}
           title={
-            activeFrame
+            refNotReadyTitle ??
+            (activeFrame
               ? 'Сгенерировать новую версию first_frame (9:16) — заменит текущую активную'
-              : 'Сгенерировать первый кадр сцены (9:16) для последующего video-генератора'
+              : 'Сгенерировать первый кадр сцены (9:16) для последующего video-генератора')
           }
           onClick={() =>
             runScopedAction('frame', () =>

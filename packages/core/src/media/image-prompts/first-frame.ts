@@ -95,13 +95,13 @@ export function buildFirstFramePrompt(input: FirstFramePromptInput): {
     if (refs.length >= REF_LIMIT) break;
     if (char.dossier?.reference_image) {
       refs.push(char.dossier.reference_image);
-    } else if (char.dossier?.storage) {
-      // F53 transitional fallback — single-pose reference_image not yet generated.
-      // Log warning once per character so real-world data gaps surface.
+    } else if (char.dossier) {
+      // F53: never pass the multi-panel model sheet to first-frame generation.
+      // The server action blocks this state before submit; the builder stays
+      // defensive for tests/manual callers.
       console.warn(
-        `[buildFirstFramePrompt] character ${char.id} has no reference_image — falling back to multi-panel dossier.storage (F53 anti-pattern). Generate a reference image to fix.`,
+        `[buildFirstFramePrompt] character ${char.id} has no reference_image — skipping character ref. Generate a reference image before first-frame generation.`,
       );
-      refs.push(char.dossier.storage);
     }
     // no dossier at all → no ref pushed for this character
   }
