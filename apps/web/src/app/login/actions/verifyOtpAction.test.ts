@@ -55,6 +55,30 @@ describe('verifyOtpAction', () => {
     });
   });
 
+  it('accepts an 8-digit token (Supabase OTP length is configurable)', async () => {
+    mockGetUser.mockResolvedValueOnce({ data: { user: { id: 'u1', is_anonymous: true } } });
+    mockVerifyOtp.mockResolvedValueOnce({ data: { user: { id: 'u1' } }, error: null });
+
+    const result = await verifyOtpAction({ email: 'test@example.com', token: '12345678' });
+
+    expect(result.ok).toBe(true);
+    expect(mockVerifyOtp).toHaveBeenCalledWith({
+      email: 'test@example.com',
+      token: '12345678',
+      type: 'email_change',
+    });
+  });
+
+  it('rejects tokens shorter than 4 digits with invalid_input before hitting Supabase', async () => {
+    const result = await verifyOtpAction({ email: 'test@example.com', token: '123' });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('invalid_input');
+    }
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+  });
+
   it('passes through Supabase otp_expired error', async () => {
     mockGetUser.mockResolvedValueOnce({ data: { user: null } });
     mockVerifyOtp.mockResolvedValueOnce({

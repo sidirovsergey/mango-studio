@@ -1,247 +1,659 @@
-/* Login / account pages */
+/* =====================================================================
+ * Phase 1.6 + 1.6.1 — auth UI surfaces
+ * Tokens used: --paper, --cream, --ink-100..900, --mango-50..700,
+ *              --leaf-100..400, --r-card, --r-input, --shadow-glass,
+ *              --font-serif (Fraunces), --font-sans (Inter), --font-display (Manrope)
+ * ===================================================================== */
 
-.login-page {
-  max-width: 380px;
-  margin: 80px auto;
-  padding: var(--space-7);
-  background: var(--paper);
-  border-radius: var(--r-card);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 1) inset,
-    0 8px 18px -10px rgba(26, 18, 7, 0.12);
+/* --- /login page shell + atmosphere -------------------------------- */
+
+.login-shell {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  background: var(--cream);
+  overflow: hidden;
 }
 
-.login-page h1 {
-  font-size: 22px;
-  font-family: var(--font-display);
+.login-aurora {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.login-aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px) saturate(115%);
+  opacity: 0.55;
+  will-change: transform;
+}
+
+.login-aurora-blob-a {
+  width: 480px;
+  height: 480px;
+  left: -120px;
+  top: -160px;
+  background: radial-gradient(circle, rgba(255, 165, 70, 0.55), rgba(255, 165, 70, 0) 70%);
+  animation: loginDrift1 18s ease-in-out infinite alternate;
+}
+
+.login-aurora-blob-b {
+  width: 540px;
+  height: 540px;
+  right: -160px;
+  bottom: -200px;
+  background: radial-gradient(circle, rgba(80, 200, 130, 0.32), rgba(80, 200, 130, 0) 70%);
+  animation: loginDrift2 22s ease-in-out infinite alternate;
+}
+
+@keyframes loginDrift1 {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(40px, 60px, 0);
+  }
+}
+
+@keyframes loginDrift2 {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50px, -30px, 0);
+  }
+}
+
+.login-page {
+  position: relative;
+  z-index: 1;
+  max-width: 420px;
+  width: 100%;
+  padding: 40px 36px 36px;
+  background: var(--paper);
+  border-radius: var(--r-card);
+  border: 1px solid rgba(26, 18, 7, 0.06);
+  box-shadow: var(--shadow-glass);
+  animation: loginCardIn 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes loginCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- /login page typography hierarchy ----------------------------- */
+
+.login-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  font-family: var(--font-display, var(--font-sans));
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.login-eyebrow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mango-500);
+  box-shadow: 0 0 0 4px rgba(245, 118, 0, 0.18);
+}
+
+.login-headline {
+  margin: 0 0 10px;
+  font-family: var(--font-serif);
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 600;
   color: var(--ink-900);
-  margin: 0 0 var(--space-2);
+  letter-spacing: -0.01em;
+}
+
+.login-headline em {
+  font-style: italic;
+  color: var(--mango-600);
+  font-weight: 500;
 }
 
 .login-subtitle {
   font-size: 14px;
   color: var(--ink-500);
-  margin: 0 0 var(--space-6);
+  margin: 0 0 28px;
+  line-height: 1.5;
 }
+
+/* --- LoginForm fields + buttons ----------------------------------- */
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: 14px;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.login-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-700);
 }
 
 .login-form input {
-  font-size: 16px;
   font-family: var(--font-sans);
-  padding: 10px 12px;
+  font-size: 16px;
+  padding: 12px 14px;
   border-radius: var(--r-input);
   border: 1px solid var(--ink-200);
   background: var(--paper);
   color: var(--ink-900);
   outline: none;
-  transition: border-color 160ms ease;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.login-form input::placeholder {
+  color: var(--ink-300);
+}
+
+.login-form input:hover {
+  border-color: var(--ink-300);
 }
 
 .login-form input:focus {
-  border-color: var(--mango-400);
+  border-color: var(--mango-500);
+  box-shadow: 0 0 0 4px rgba(245, 118, 0, 0.12);
+  background: var(--cream);
+}
+
+.login-otp-input {
+  font-family: var(--font-mono, monospace);
+  font-size: 22px;
+  letter-spacing: 0.4em;
+  text-align: center;
+  padding: 16px 14px;
+}
+
+.login-sent-to {
+  font-size: 13px;
+  color: var(--ink-500);
+  background: var(--cream);
+  border: 1px dashed var(--ink-200);
+  border-radius: var(--r-input);
+  padding: 10px 14px;
+  text-align: center;
+}
+
+.login-sent-to strong {
+  color: var(--ink-900);
+  font-weight: 600;
 }
 
 .login-form button[type='submit'] {
-  padding: 10px 12px;
+  position: relative;
+  padding: 13px 18px;
+  font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 600;
-  font-family: var(--font-sans);
   border-radius: var(--r-input);
   border: 0;
   background: var(--mango-500);
   color: var(--paper);
   cursor: pointer;
-  transition: background 160ms ease;
+  transition:
+    background 160ms ease,
+    transform 160ms ease,
+    box-shadow 200ms ease;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 6px 16px -8px rgba(245, 118, 0, 0.55);
 }
 
 .login-form button[type='submit']:hover:not(:disabled) {
   background: var(--mango-600);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.3) inset,
+    0 10px 22px -10px rgba(216, 95, 0, 0.6);
+}
+
+.login-form button[type='submit']:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .login-form button[type='submit']:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.login-secondary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.login-link {
+  background: none;
+  border: 0;
+  padding: 4px 0;
+  color: var(--ink-500);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.login-link:hover:not(:disabled) {
+  color: var(--mango-600);
+}
+
+.login-link:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.login-form .login-back {
-  background: none;
-  border: 0;
-  color: var(--ink-500);
-  font-size: 13px;
-  font-family: var(--font-sans);
-  cursor: pointer;
-  padding: 4px 0;
-  text-align: left;
-  transition: color 120ms ease;
-}
-
-.login-form .login-back:hover {
-  color: var(--ink-700);
-}
-
 .login-error {
-  color: #c0392b;
   font-size: 13px;
+  color: #b03a2e;
+  background: rgba(176, 58, 46, 0.08);
+  border: 1px solid rgba(176, 58, 46, 0.18);
+  border-radius: var(--r-input);
+  padding: 10px 12px;
+  line-height: 1.45;
 }
 
-/* AccountMenu widget in TopBar */
+/* =====================================================================
+ * AccountMenu in TopBar — ghost CTA + email button + dropdown
+ * Anonymous CTA tuned DOWN so it doesn't fight the primary
+ * "Опубликовать" button next to it (Codex 1.6.1 audit feedback).
+ * ===================================================================== */
+
 .account-cta {
   display: inline-flex;
   align-items: center;
-  padding: 6px 12px;
-  border-radius: var(--r-input);
-  background: var(--mango-500);
-  color: white;
+  gap: 7px;
+  padding: 7px 13px 7px 11px;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--ink-200);
+  color: var(--ink-700);
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
   text-decoration: none;
-  transition: background 0.15s;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 120ms ease;
 }
+
 .account-cta:hover {
-  background: var(--mango-600);
+  background: var(--cream);
+  border-color: var(--mango-300);
+  color: var(--ink-900);
+  transform: translateY(-1px);
 }
+
+.account-cta-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mango-500);
+  box-shadow: 0 0 0 3px rgba(245, 118, 0, 0.18);
+}
+
 .account-menu {
   position: relative;
 }
+
 .account-trigger {
-  padding: 6px 12px;
-  border-radius: var(--r-input);
-  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 5px;
+  border-radius: 999px;
+  background: var(--paper);
   border: 1px solid var(--ink-200);
   color: var(--ink-700);
+  font-family: var(--font-sans);
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  max-width: 200px;
+  max-width: 220px;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.account-trigger:hover {
+  background: var(--cream);
+  border-color: var(--mango-300);
+}
+
+.account-trigger[aria-expanded='true'] {
+  background: var(--cream);
+  border-color: var(--mango-400);
+}
+
+.account-trigger-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mango-500);
+  color: var(--paper);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  flex: 0 0 auto;
+}
+
+.account-trigger-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.account-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--paper);
+  border: 1px solid var(--ink-200);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px -12px rgba(26, 18, 7, 0.22);
+  min-width: 220px;
+  z-index: 50;
+  padding: 6px;
+  animation: dropdownIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.account-dropdown-email {
+  padding: 8px 10px 10px;
+  font-size: 12px;
+  color: var(--ink-500);
+  border-bottom: 1px solid var(--ink-100);
+  margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.account-trigger:hover {
-  background: var(--ink-100, rgba(0, 0, 0, 0.04));
-}
-.account-dropdown {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
-  background: var(--paper);
-  border: 1px solid var(--ink-200);
-  border-radius: var(--r-card);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  min-width: 140px;
-  z-index: 50;
-}
+
 .account-dropdown form button {
   width: 100%;
   text-align: left;
-  padding: 8px 14px;
+  padding: 9px 10px;
   background: transparent;
   border: 0;
+  border-radius: 10px;
+  font-family: var(--font-sans);
   font-size: 13px;
   color: var(--ink-700);
   cursor: pointer;
-  border-radius: var(--r-card);
-}
-.account-dropdown form button:hover {
-  background: var(--ink-100, rgba(0, 0, 0, 0.04));
+  transition: background 120ms ease;
 }
 
-/* ClaimWorkBanner — shown above Workspace for anonymous users with ≥1 project */
+.account-dropdown form button:hover {
+  background: var(--ink-100);
+  color: var(--ink-900);
+}
+
+/* =====================================================================
+ * ClaimWorkBanner — inline notice above Workspace
+ * Warm-paper inset, eyebrow + count chip, secondary CTA with arrow.
+ * Looks like it belongs in the warm-cream system, not parachuted in.
+ * ===================================================================== */
+
 .claim-banner {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  background: var(--mango-50, rgba(255, 138, 0, 0.08));
-  border: 1px solid var(--mango-200, rgba(255, 138, 0, 0.2));
+  gap: 18px;
+  padding: 12px 16px 12px 18px;
+  background: var(--paper);
+  border: 1px solid var(--ink-100);
   border-radius: var(--r-card);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 1) inset;
   margin: 0 auto 12px;
   max-width: 1280px;
+  position: relative;
+  overflow: hidden;
+}
+
+.claim-banner::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--mango-400), var(--mango-600));
+  border-radius: 3px 0 0 3px;
+}
+
+.claim-banner-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.claim-banner-eyebrow {
+  font-family: var(--font-display, var(--font-sans));
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mango-600);
+}
+
+.claim-banner-body {
+  font-family: var(--font-sans);
   font-size: 13px;
   color: var(--ink-700);
+  line-height: 1.4;
 }
-.claim-banner .claim-cta {
-  margin-left: auto;
-  color: var(--mango-600);
+
+.claim-banner-count {
+  font-weight: 600;
+  color: var(--ink-900);
+}
+
+.claim-banner-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--cream);
+  border: 1px solid var(--ink-200);
+  color: var(--ink-900);
+  font-family: var(--font-sans);
+  font-size: 13px;
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 120ms ease;
 }
-.claim-banner .claim-cta:hover {
-  text-decoration: underline;
+
+.claim-banner-cta:hover {
+  background: var(--mango-50);
+  border-color: var(--mango-300);
+  transform: translateY(-1px);
+}
+
+.claim-banner-cta:hover .claim-banner-arrow {
+  transform: translateX(2px);
+}
+
+.claim-banner-arrow {
+  transition: transform 160ms ease;
 }
 
 @media (max-width: 640px) {
   .claim-banner {
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
+    gap: 10px;
   }
-  .claim-banner .claim-cta {
-    margin-left: 0;
+  .claim-banner-cta {
+    align-self: stretch;
+    justify-content: center;
   }
 }
 
-/* TierGateModal */
+/* =====================================================================
+ * TierGateModal — restyled to fit the warm-paper aesthetic
+ * (carried forward from Phase 1.6 with the new design language)
+ * ===================================================================== */
+
 .tg-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(26, 18, 7, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 20px;
   z-index: 100;
+  animation: tgBackdropIn 200ms ease both;
 }
+
+@keyframes tgBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .tg-modal {
   background: var(--paper);
+  border: 1px solid rgba(26, 18, 7, 0.06);
   border-radius: var(--r-card);
-  padding: 28px 32px;
+  padding: 32px 32px 24px;
   max-width: 420px;
-  width: calc(100% - 32px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  width: 100%;
+  box-shadow: var(--shadow-glass);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  animation: tgModalIn 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+@keyframes tgModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .tg-modal h3 {
-  font-size: 18px;
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 600;
   margin: 0;
   color: var(--ink-900);
+  letter-spacing: -0.01em;
 }
+
 .tg-modal p {
+  font-family: var(--font-sans);
   font-size: 14px;
   color: var(--ink-700);
-  margin: 0 0 8px;
-  line-height: 1.5;
+  margin: 0 0 6px;
+  line-height: 1.55;
 }
+
 .tg-cta {
-  display: inline-block;
-  padding: 10px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
   background: var(--mango-500);
-  color: white;
+  color: var(--paper);
   border-radius: var(--r-input);
+  font-family: var(--font-sans);
   font-weight: 600;
-  text-align: center;
-  text-decoration: none;
   font-size: 14px;
-  transition: background 0.15s;
+  text-decoration: none;
+  transition:
+    background 160ms ease,
+    transform 120ms ease;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 6px 16px -8px rgba(245, 118, 0, 0.55);
 }
+
 .tg-cta:hover {
   background: var(--mango-600);
+  transform: translateY(-1px);
 }
+
 .tg-close {
   background: transparent;
   border: 0;
   color: var(--ink-500);
+  font-family: var(--font-sans);
   font-size: 13px;
-  padding: 4px 0;
+  padding: 6px 0;
   cursor: pointer;
   align-self: center;
+  transition: color 120ms ease;
 }
+
 .tg-close:hover {
-  color: var(--ink-700);
+  color: var(--ink-900);
 }

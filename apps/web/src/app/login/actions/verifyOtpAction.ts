@@ -3,7 +3,14 @@
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
 
-const InputSchema = z.object({ email: z.string().email(), token: z.string().regex(/^\d{6}$/) });
+// Supabase OTP length is configurable per project (default 6, can be raised to
+// 8 or higher in Auth dashboard). Phase 1.6.0 hardcoded 6 → broke login the
+// moment the dashboard was set to 8. Phase 1.6.1: accept any numeric token
+// 4-10 digits and let Supabase be the final arbiter.
+const InputSchema = z.object({
+  email: z.string().email(),
+  token: z.string().regex(/^\d{4,10}$/),
+});
 
 export type VerifyOtpResult =
   | { ok: true; user_id: string }

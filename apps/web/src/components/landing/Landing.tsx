@@ -2,10 +2,13 @@
 
 import { createProjectAction } from '@/server/actions/projects';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
+import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { LandingFooter } from './LandingFooter';
 import { LandingInput } from './LandingInput';
 import { LandingSuggestions } from './LandingSuggestions';
+
+const AUTH_UI_ENABLED = process.env.NEXT_PUBLIC_AUTH_UI_ENABLED === 'true';
 
 type Aspect = '9:16' | '16:9' | '1:1';
 type Style = '3d_pixar' | '2d_drawn' | 'clay_art';
@@ -46,9 +49,11 @@ export function Landing() {
       <div className="landing-corner">
         <button type="button">Галерея</button>
         <button type="button">Цены</button>
-        <button type="button" className="login">
-          Войти
-        </button>
+        {AUTH_UI_ENABLED && (
+          <Link href="/login" className="login">
+            Войти
+          </Link>
+        )}
       </div>
 
       <div className="landing-stage">
