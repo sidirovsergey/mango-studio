@@ -657,3 +657,433 @@
 .tg-close:hover {
   color: var(--ink-900);
 }
+
+/* =====================================================================
+ * AccountMenu dropdown — Профиль link (Phase 1.6.2)
+ * ===================================================================== */
+
+.account-dropdown-link {
+  display: block;
+  padding: 9px 10px;
+  border-radius: 10px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ink-700);
+  text-decoration: none;
+  transition: background 120ms ease;
+}
+
+.account-dropdown-link:hover {
+  background: var(--ink-100);
+  color: var(--ink-900);
+}
+
+/* =====================================================================
+ * Landing corner — authed profile pill (Phase 1.6.2)
+ * Quiet, secondary; "Войти" dark pill stays untouched for the anon path.
+ * ===================================================================== */
+
+.landing-corner .profile-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--ink-200);
+  color: var(--ink-700);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  max-width: 220px;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 120ms ease;
+}
+
+.landing-corner .profile-pill:hover {
+  background: var(--cream);
+  border-color: var(--mango-300);
+  transform: translateY(-1px);
+}
+
+.landing-corner .profile-pill-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mango-500);
+  color: var(--paper);
+  font-size: 12px;
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+
+.landing-corner .profile-pill-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+/* =====================================================================
+ * /profile page — Account card (Phase 1.6.2)
+ * Mirrors /login shell: warm cream background, drifting blobs, paper
+ * card on shadow-glass. Centered card with internal stats grid.
+ * ===================================================================== */
+
+.profile-shell {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  background: var(--cream);
+  overflow: hidden;
+}
+
+.profile-aurora {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.profile-aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px) saturate(115%);
+  opacity: 0.5;
+  will-change: transform;
+}
+
+.profile-aurora-blob-a {
+  width: 520px;
+  height: 520px;
+  left: -160px;
+  top: -180px;
+  background: radial-gradient(circle, rgba(255, 200, 100, 0.55), rgba(255, 200, 100, 0) 70%);
+  animation: profileDrift1 22s ease-in-out infinite alternate;
+}
+
+.profile-aurora-blob-b {
+  width: 560px;
+  height: 560px;
+  right: -180px;
+  bottom: -220px;
+  background: radial-gradient(circle, rgba(80, 200, 130, 0.28), rgba(80, 200, 130, 0) 70%);
+  animation: profileDrift2 26s ease-in-out infinite alternate;
+}
+
+@keyframes profileDrift1 {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(50px, 40px, 0);
+  }
+}
+
+@keyframes profileDrift2 {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-40px, -30px, 0);
+  }
+}
+
+.profile-page {
+  position: relative;
+  z-index: 1;
+  max-width: 460px;
+  width: 100%;
+  padding: 36px 36px 32px;
+  background: var(--paper);
+  border-radius: var(--r-card);
+  border: 1px solid rgba(26, 18, 7, 0.06);
+  box-shadow: var(--shadow-glass);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  animation: profileCardIn 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes profileCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.profile-back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: -8px 0 -10px;
+  padding: 4px 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--ink-500);
+  text-decoration: none;
+  transition: color 120ms ease;
+}
+
+.profile-back:hover {
+  color: var(--mango-600);
+}
+
+.profile-back svg {
+  transition: transform 160ms ease;
+}
+
+.profile-back:hover svg {
+  transform: translateX(-2px);
+}
+
+.profile-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display, var(--font-sans));
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+  margin: 0;
+}
+
+.profile-eyebrow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mango-500);
+  box-shadow: 0 0 0 4px rgba(245, 118, 0, 0.18);
+}
+
+.profile-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profile-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mango-500);
+  color: var(--paper);
+  font-family: var(--font-serif);
+  font-size: 26px;
+  font-weight: 600;
+  flex: 0 0 auto;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.3) inset,
+    0 6px 16px -8px rgba(245, 118, 0, 0.45);
+}
+
+.profile-identity-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.profile-name {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink-900);
+  letter-spacing: -0.005em;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-email {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ink-500);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-tier {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: var(--r-input);
+  border: 1px solid var(--ink-100);
+  background: var(--cream);
+}
+
+.profile-tier-label {
+  font-family: var(--font-display, var(--font-sans));
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mango-600);
+}
+
+.profile-tier-sub {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ink-700);
+  line-height: 1.45;
+}
+
+.profile-tier-premium .profile-tier-label {
+  color: var(--leaf-500);
+}
+
+.profile-tier-premium {
+  border-color: rgba(31, 179, 100, 0.2);
+  background: rgba(31, 179, 100, 0.06);
+}
+
+.profile-tier-trial .profile-tier-label {
+  color: var(--ink-500);
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+
+.profile-stat {
+  margin: 0;
+  padding: 12px;
+  background: var(--cream);
+  border: 1px solid var(--ink-100);
+  border-radius: var(--r-input);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-stat dt {
+  font-family: var(--font-display, var(--font-sans));
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.profile-stat dd {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink-900);
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.profile-upgrade {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 16px;
+  border-radius: var(--r-input);
+  background: var(--mango-500);
+  color: var(--paper);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background 160ms ease,
+    transform 120ms ease;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 6px 16px -8px rgba(245, 118, 0, 0.55);
+}
+
+.profile-upgrade:hover {
+  background: var(--mango-600);
+  transform: translateY(-1px);
+}
+
+.profile-actions form {
+  flex: 1;
+}
+
+.profile-signout {
+  width: 100%;
+  padding: 11px 16px;
+  border-radius: var(--r-input);
+  background: var(--paper);
+  border: 1px solid var(--ink-200);
+  color: var(--ink-700);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.profile-signout:hover {
+  background: var(--cream);
+  border-color: var(--mango-300);
+  color: var(--ink-900);
+}
+
+@media (max-width: 520px) {
+  .profile-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Codex 1.6.2 a11y NTH: respect prefers-reduced-motion on infinite
+ * ambient animations on /login and /profile. Disables drift + card-in
+ * entrance for users who opt out of motion. */
+@media (prefers-reduced-motion: reduce) {
+  .login-aurora-blob,
+  .profile-aurora-blob {
+    animation: none !important;
+  }
+  .login-page,
+  .profile-page {
+    animation: none !important;
+  }
+  .tg-modal,
+  .tg-modal-backdrop,
+  .account-dropdown {
+    animation: none !important;
+  }
+}

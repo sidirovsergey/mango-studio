@@ -13,7 +13,13 @@ const AUTH_UI_ENABLED = process.env.NEXT_PUBLIC_AUTH_UI_ENABLED === 'true';
 type Aspect = '9:16' | '16:9' | '1:1';
 type Style = '3d_pixar' | '2d_drawn' | 'clay_art';
 
-export function Landing() {
+interface Props {
+  userEmail?: string | null;
+  isAnonymous?: boolean;
+}
+
+export function Landing({ userEmail = null, isAnonymous = true }: Props = {}) {
+  const isAuthed = AUTH_UI_ENABLED && !isAnonymous && Boolean(userEmail);
   const [idea, setIdea] = useState('');
   const [aspect, setAspect] = useState<Aspect>('9:16');
   const [style, setStyle] = useState<Style>('3d_pixar');
@@ -49,7 +55,15 @@ export function Landing() {
       <div className="landing-corner">
         <button type="button">Галерея</button>
         <button type="button">Цены</button>
-        {AUTH_UI_ENABLED && (
+        {AUTH_UI_ENABLED && isAuthed && userEmail && (
+          <Link href="/profile" className="profile-pill" title="Профиль">
+            <span className="profile-pill-avatar" aria-hidden="true">
+              {userEmail.charAt(0).toUpperCase()}
+            </span>
+            <span className="profile-pill-email">{userEmail}</span>
+          </Link>
+        )}
+        {AUTH_UI_ENABLED && !isAuthed && (
           <Link href="/login" className="login">
             Войти
           </Link>
