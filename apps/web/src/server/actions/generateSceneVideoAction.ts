@@ -8,6 +8,7 @@ import {
   recordPendingJob,
   rollbackMediaJobReservation,
 } from '@/server/lib/scene-helpers';
+import { getAccountTier } from '@/server/lib/get-account-tier';
 import {
   type ArcRole,
   type AudioDirection,
@@ -18,6 +19,8 @@ import {
   type SceneAssetVersion,
   type Tier,
   type VisualTheme,
+  TierGateError,
+  assertCapability,
   buildVideoPrompt,
   clampDurationToModel,
   getActiveVersion,
@@ -81,6 +84,7 @@ export async function generateSceneVideoAction(
 ): Promise<
   | { ok: true; job_id: string; existing: boolean; audio_mode: 'native' | 'silent_tts' }
   | { ok: false; error: string }
+  | { ok: false; error: 'tier_gate'; tier_gate: { required_tier: import('@mango/core').AccountTier; kind: import('@mango/core').MediaJobKind; message: string } }
 > {
   let input: Input;
   try {
@@ -204,6 +208,27 @@ export async function generateSceneVideoAction(
   // engines via the FalMediaProvider branch.
   const isGrok = model.startsWith('xai/grok-imagine-video');
   const grokResolution: '480p' | '720p' = effectiveTier === 'premium' ? '720p' : '480p';
+
+  // Account-tier capability gate (Phase 1.6).
+  // effectiveTier is 'economy' | 'premium' (Tier) — passed as modelTier so
+  // assertCapability can distinguish free+economy (allowed) vs free+premium (blocked).
+  try {
+    const accountTier = await getAccountTier(sb, user.id);
+    assertCapability(accountTier, 'scene_video', effectiveTier);
+  } catch (err) {
+    if (err instanceof TierGateError) {
+      return {
+        ok: false,
+        error: 'tier_gate',
+        tier_gate: {
+          required_tier: err.required_tier,
+          kind: err.kind,
+          message: err.message,
+        },
+      } as const;
+    }
+    throw err;
+  }
 
   // Atomic quota + reservation.
   const reservation = await reserveMediaJob({

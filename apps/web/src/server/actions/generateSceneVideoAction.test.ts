@@ -17,11 +17,13 @@ vi.mock('@/server/lib/rate-limit', () => ({
     dedup: false,
   }),
 }));
+vi.mock('@/server/lib/get-account-tier', () => ({ getAccountTier: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
+import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getServerSupabase } from '@mango/db/server';
 import { generateSceneVideoAction } from './generateSceneVideoAction';
 
@@ -394,5 +396,100 @@ describe('generateSceneVideoAction — native audio always (post-rip-out)', () =
     // [PERFORMANCE] blocks so the model can render synchronised speech.
     expect(prompt).toContain(CYRILLIC_DIALOGUE);
     expect(prompt).toContain('[AUDIO]');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1.6 D1 — account-tier capability gate
+// ---------------------------------------------------------------------------
+
+describe('generateSceneVideoAction — tier gate', () => {
+  /**
+   * Builds a supabase mock that satisfies both the project query (from+select+eq+single)
+   * and the user_accounts query inside getAccountTier (mocked separately via
+   * vi.mock('@/server/lib/get-account-tier')).
+   */
+  const makeProjectBuilder = () => {
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: makeProjectWithVersionedFrame(), error: null }),
+    };
+    return builder;
+  };
+
+  it('trial user: returns {ok:false, error:"tier_gate", tier_gate:{...}} and never calls reserveMediaJob', async () => {
+    // Arrange
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('trial');
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => makeProjectBuilder()),
+    });
+
+    // Act
+    const result = await generateSceneVideoAction({
+      project_id: PROJECT_ID,
+      scene_id: 's1',
+    });
+
+    // Assert: gate returned, reserveMediaJob NOT called
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('tier_gate');
+      // Narrowed: tier_gate payload must be present
+      const r = result as { ok: false; error: 'tier_gate'; tier_gate: { required_tier: string; kind: string; message: string } };
+      expect(r.tier_gate.required_tier).toBe('free');
+      expect(r.tier_gate.kind).toBe('scene_video');
+      expect(r.tier_gate.message).toBeTruthy();
+    }
+    expect(reserveMediaJob).not.toHaveBeenCalled();
+  });
+
+  it('free user with economy model: passes the gate and proceeds to reserveMediaJob', async () => {
+    // Arrange: free tier + economy model (premium project tier, but free user → economy gate check)
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+
+    // Economy scene (no tier override → falls back to project tier 'premium',
+    // but the project fixture's scene has no config_overrides so effectiveTier
+    // is inherited from project.tier which is 'premium' in makeProjectWithVersionedFrame).
+    // To properly test free+economy path, use a scene with config_overrides.tier = 'economy'.
+    const projectWithEconomy = {
+      ...makeProjectWithVersionedFrame({ config_overrides: { tier: 'economy' } }),
+    };
+
+    const submitSceneVideo = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-free',
+      model_used: 'bytedance/seedance-2.0/image-to-video',
+      request_input: { duration_sec: 7 },
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ submitSceneVideo });
+
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: projectWithEconomy, error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    });
+
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
+      job_id: 'job-free',
+      used: 1,
+      dedup: false,
+    });
+
+    // Act
+    const result = await generateSceneVideoAction({
+      project_id: PROJECT_ID,
+      scene_id: 's1',
+    });
+
+    // Assert: gate passed, reserveMediaJob WAS called
+    expect(reserveMediaJob).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(true);
   });
 });
