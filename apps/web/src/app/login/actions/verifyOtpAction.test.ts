@@ -69,9 +69,23 @@ describe('verifyOtpAction', () => {
     });
   });
 
-  it('rejects tokens shorter than 4 digits with invalid_input before hitting Supabase', async () => {
-    const result = await verifyOtpAction({ email: 'test@example.com', token: '123' });
+  it.each([
+    ['4-digit', '1234', 'min boundary accepted'],
+    ['10-digit', '1234567890', 'max boundary accepted'],
+  ])('accepts %s token (%s)', async (_label, token) => {
+    mockGetUser.mockResolvedValueOnce({ data: { user: null } });
+    mockVerifyOtp.mockResolvedValueOnce({ data: { user: { id: 'u-bnd' } }, error: null });
+    const result = await verifyOtpAction({ email: 'b@example.com', token });
+    expect(result.ok).toBe(true);
+  });
 
+  it.each([
+    ['3-digit', '123', 'below min'],
+    ['11-digit', '12345678901', 'above max'],
+    ['alphanumeric', '12a456', 'non-numeric'],
+    ['empty', '', 'empty'],
+  ])('rejects %s token with invalid_input before hitting Supabase (%s)', async (_label, token) => {
+    const result = await verifyOtpAction({ email: 'r@example.com', token });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe('invalid_input');
