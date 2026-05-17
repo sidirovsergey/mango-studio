@@ -200,9 +200,6 @@ export async function generateSceneVideoAction(
   const prompt = input.prompt_override ?? built.prompt;
   const { image_refs, aspect_ratio } = built;
 
-  const provider = getMediaProvider();
-  const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
-
   // Grok Imagine Video accepts an explicit resolution; map by effective tier
   // (economy → 480p for cost, premium → 720p for quality). Ignored by other
   // engines via the FalMediaProvider branch.
@@ -229,6 +226,10 @@ export async function generateSceneVideoAction(
     }
     throw err;
   }
+
+  // Provider is resolved after the tier gate so trial users never touch it.
+  const provider = getMediaProvider();
+  const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
 
   // Atomic quota + reservation.
   const reservation = await reserveMediaJob({

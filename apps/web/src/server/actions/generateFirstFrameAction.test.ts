@@ -498,6 +498,7 @@ describe('generateFirstFrameAction — tier gate on bulk path', () => {
     }
     // submitFirstFrame must NOT have been called for any scene
     expect(submitFirstFrame).not.toHaveBeenCalled();
+    expect(reserveMediaJob).not.toHaveBeenCalled();
   });
 
   it('free user (economy model) on bulk path: gate passes and fan-out proceeds', async () => {
@@ -531,9 +532,10 @@ describe('generateFirstFrameAction — tier gate on bulk path', () => {
     // Act
     const result = await generateAllFirstFramesAction({ project_id: PROJECT_ID });
 
-    // Assert: gate passed, fan-out submitted jobs
+    // Assert: gate passed, fan-out submitted jobs (2 scenes in makeBulkProject)
     expect(result.ok).toBe(true);
     expect(submitFirstFrame).toHaveBeenCalled();
+    expect(reserveMediaJob).toHaveBeenCalledTimes(2);
   });
 
   it('trial user on single path: no gate, submission proceeds (single path must remain open to all)', async () => {

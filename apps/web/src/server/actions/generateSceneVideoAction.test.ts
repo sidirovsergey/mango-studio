@@ -443,6 +443,7 @@ describe('generateSceneVideoAction — tier gate', () => {
       expect(r.tier_gate.message).toBeTruthy();
     }
     expect(reserveMediaJob).not.toHaveBeenCalled();
+    expect(getMediaProvider).not.toHaveBeenCalled();
   });
 
   it('free user with economy model: passes the gate and proceeds to reserveMediaJob', async () => {
@@ -488,8 +489,9 @@ describe('generateSceneVideoAction — tier gate', () => {
       scene_id: 's1',
     });
 
-    // Assert: gate passed, reserveMediaJob WAS called
+    // Assert: gate passed, reserveMediaJob AND submitSceneVideo WERE called
     expect(reserveMediaJob).toHaveBeenCalledTimes(1);
+    expect(submitSceneVideo).toHaveBeenCalledTimes(1);
     expect(result.ok).toBe(true);
   });
 });

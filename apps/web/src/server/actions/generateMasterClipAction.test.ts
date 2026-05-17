@@ -196,6 +196,7 @@ describe('generateMasterClipAction — tier gate', () => {
       expect(r.tier_gate.message).toBeTruthy();
     }
     expect(reserveMediaJob).not.toHaveBeenCalled();
+    expect(getMediaProvider).not.toHaveBeenCalled();
   });
 
   it('free user: passes the gate and proceeds to reserveMediaJob', async () => {
@@ -225,8 +226,9 @@ describe('generateMasterClipAction — tier gate', () => {
     // Act
     const result = await generateMasterClipAction({ project_id: PROJECT_ID });
 
-    // Assert: gate passed, reserveMediaJob WAS called
+    // Assert: gate passed, reserveMediaJob AND submitMasterConcat WERE called
     expect(reserveMediaJob).toHaveBeenCalledTimes(1);
+    expect(submitMasterConcat).toHaveBeenCalledTimes(1);
     expect(result.ok).toBe(true);
   });
 });

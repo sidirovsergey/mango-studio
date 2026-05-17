@@ -146,9 +146,6 @@ export async function generateMasterClipAction(
     return getVideoModelMeta(modelId)?.has_native_audio === true;
   });
 
-  const provider = getMediaProvider();
-  const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
-
   // Account-tier capability gate (Phase 1.6).
   try {
     const accountTier = await getAccountTier(sb, user.id);
@@ -167,6 +164,10 @@ export async function generateMasterClipAction(
     }
     throw err;
   }
+
+  // Provider is resolved after the tier gate so trial users never touch it.
+  const provider = getMediaProvider();
+  const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
 
   // Atomic quota + reservation. master_clip uses the (project_id, kind) partial
   // unique index — dedup hits when a master concat is already running.
