@@ -20,6 +20,7 @@
     "@supabase/supabase-js": "^2.104.1",
     "ai": "^6.0.168",
     "clsx": "^2.1.1",
+    "ipaddr.js": "^2.4.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
