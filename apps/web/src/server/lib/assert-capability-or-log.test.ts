@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { TierGateError } from '@mango/core';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { assertCapabilityOrLog } from './assert-capability-or-log';
 
 describe('assertCapabilityOrLog', () => {

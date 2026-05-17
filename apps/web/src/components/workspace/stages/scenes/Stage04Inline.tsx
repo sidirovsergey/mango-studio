@@ -1,8 +1,8 @@
 'use client';
 
+import { useTierGate } from '@/components/account/TierGateProvider';
 import { usePollJobs } from '@/hooks/use-poll-jobs';
 import { generateMasterClipAction } from '@/server/actions/generateMasterClipAction';
-import { useTierGate } from '@/components/account/TierGateProvider';
 import '@/styles/storyboard-inline.css';
 import '@/styles/audio-pipeline.css';
 import type { Database } from '@mango/db';

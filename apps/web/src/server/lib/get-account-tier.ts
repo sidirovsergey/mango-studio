@@ -20,5 +20,5 @@ export async function getAccountTier(
     .select('tier')
     .eq('user_id', userId)
     .maybeSingle();
-  return ((data?.tier as AccountTier | undefined) ?? 'trial');
+  return (data?.tier as AccountTier | undefined) ?? 'trial';
 }

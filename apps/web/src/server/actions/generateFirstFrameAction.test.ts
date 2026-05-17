@@ -23,10 +23,10 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('@/server/lib/get-account-tier', () => ({ getAccountTier: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
+import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
-import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getServerSupabase } from '@mango/db/server';
 import { generateAllFirstFramesAction, generateFirstFrameAction } from './generateFirstFrameAction';
 
@@ -498,7 +498,11 @@ describe('generateFirstFrameAction — tier gate on bulk path', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toBe('tier_gate');
-      const r = result as { ok: false; error: 'tier_gate'; tier_gate: { required_tier: string; kind: string; message: string } };
+      const r = result as {
+        ok: false;
+        error: 'tier_gate';
+        tier_gate: { required_tier: string; kind: string; message: string };
+      };
       expect(r.tier_gate.required_tier).toBe('free');
       expect(r.tier_gate.kind).toBe('scene_video');
       expect(r.tier_gate.message).toBeTruthy();
@@ -556,7 +560,9 @@ describe('generateFirstFrameAction — tier gate on bulk path', () => {
       model_used: 'fal-ai/nano-banana-2',
       request_input: { prompt: 'Scene 1' },
     });
-    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({ submitFirstFrame });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      submitFirstFrame,
+    });
 
     const builder = {
       select: vi.fn().mockReturnThis(),

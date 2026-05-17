@@ -5,9 +5,7 @@ import { z } from 'zod';
 
 const InputSchema = z.object({ email: z.string().email() });
 
-export type SendOtpResult =
-  | { ok: true }
-  | { ok: false; error: { code: string; message: string } };
+export type SendOtpResult = { ok: true } | { ok: false; error: { code: string; message: string } };
 
 export async function sendOtpAction(input: z.infer<typeof InputSchema>): Promise<SendOtpResult> {
   const parsed = InputSchema.safeParse(input);

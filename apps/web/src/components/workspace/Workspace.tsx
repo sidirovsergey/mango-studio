@@ -1,7 +1,7 @@
 'use client';
 
-import { Chat } from '@/components/chat/Chat';
 import { TierGateProvider } from '@/components/account/TierGateProvider';
+import { Chat } from '@/components/chat/Chat';
 import type { PersistedScript, Tier } from '@mango/core';
 import type { Database } from '@mango/db/types';
 import { TopBar } from './TopBar';

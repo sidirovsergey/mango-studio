@@ -20,10 +20,10 @@ vi.mock('@/server/lib/rate-limit', () => ({
 vi.mock('@/server/lib/get-account-tier', () => ({ getAccountTier: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
+import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
-import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getServerSupabase } from '@mango/db/server';
 import { generateMasterClipAction } from './generateMasterClipAction';
 
@@ -197,7 +197,11 @@ describe('generateMasterClipAction — tier gate', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toBe('tier_gate');
-      const r = result as { ok: false; error: 'tier_gate'; tier_gate: { required_tier: string; kind: string; message: string } };
+      const r = result as {
+        ok: false;
+        error: 'tier_gate';
+        tier_gate: { required_tier: string; kind: string; message: string };
+      };
       expect(r.tier_gate.required_tier).toBe('free');
       expect(r.tier_gate.kind).toBe('master_clip');
       expect(r.tier_gate.message).toBeTruthy();
@@ -216,7 +220,9 @@ describe('generateMasterClipAction — tier gate', () => {
       model_used: 'fal-ai/ffmpeg-api/merge-videos',
       request_input: { clip_urls: ['https://cdn.fal.ai/final-1.mp4'] },
     });
-    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ submitMasterConcat });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      submitMasterConcat,
+    });
 
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => makeProjectBuilder()),

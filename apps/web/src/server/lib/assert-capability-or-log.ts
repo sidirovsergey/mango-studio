@@ -1,5 +1,5 @@
 import 'server-only';
-import { assertCapability, TierGateError, type AccountTier, type MediaJobKind } from '@mango/core';
+import { type AccountTier, type MediaJobKind, TierGateError, assertCapability } from '@mango/core';
 
 function isEnforced(): boolean {
   return process.env.AUTH_GATE_ENFORCE === 'true';

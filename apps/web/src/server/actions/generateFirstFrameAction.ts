@@ -1,6 +1,8 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/get-user';
+import { assertCapabilityOrLog } from '@/server/lib/assert-capability-or-log';
+import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import {
@@ -15,13 +17,11 @@ import {
   type Lighting,
   type Style,
   type Tier,
-  type VisualTheme,
   TierGateError,
+  type VisualTheme,
   buildFirstFramePrompt,
   getDefaultModel,
 } from '@mango/core';
-import { assertCapabilityOrLog } from '@/server/lib/assert-capability-or-log';
-import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
 
@@ -235,12 +235,18 @@ const BulkInputSchema = z.object({
 
 const CAP = 5;
 
-export async function generateAllFirstFramesAction(
-  rawInput: unknown,
-): Promise<
+export async function generateAllFirstFramesAction(rawInput: unknown): Promise<
   | { ok: true; job_ids: string[]; existing_count: number; capped: boolean }
   | { ok: false; error: string }
-  | { ok: false; error: 'tier_gate'; tier_gate: { required_tier: import('@mango/core').AccountTier; kind: import('@mango/core').MediaJobKind; message: string } }
+  | {
+      ok: false;
+      error: 'tier_gate';
+      tier_gate: {
+        required_tier: import('@mango/core').AccountTier;
+        kind: import('@mango/core').MediaJobKind;
+        message: string;
+      };
+    }
 > {
   let input: z.infer<typeof BulkInputSchema>;
   try {

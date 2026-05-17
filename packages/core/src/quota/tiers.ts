@@ -69,7 +69,12 @@ export function assertCapability(
   }
 
   // Legacy audio kinds — tier gate is N/A (audio rip-out v1.5.0; action layer blocks new entry points).
-  if (kind === 'voice' || kind === 'scene_voice' || kind === 'final_clip' || kind === 'scene_final_clip') {
+  if (
+    kind === 'voice' ||
+    kind === 'scene_voice' ||
+    kind === 'final_clip' ||
+    kind === 'scene_final_clip'
+  ) {
     return;
   }
 

@@ -4,15 +4,30 @@ import { TierGateError, assertCapability } from './tiers';
 
 describe('assertCapability — capability matrix', () => {
   const allKinds: MediaJobKind[] = [
-    'character_dossier','character_avatar','character_reference','character_reference_image',
-    'first_frame','scene_first_frame',
-    'video','scene_video','master_clip',
-    'voice','scene_voice','final_clip','scene_final_clip',
-    'last_frame_extract','storage_mirror',
+    'character_dossier',
+    'character_avatar',
+    'character_reference',
+    'character_reference_image',
+    'first_frame',
+    'scene_first_frame',
+    'video',
+    'scene_video',
+    'master_clip',
+    'voice',
+    'scene_voice',
+    'final_clip',
+    'scene_final_clip',
+    'last_frame_extract',
+    'storage_mirror',
   ];
 
   it('trial allows all character image kinds', () => {
-    for (const k of ['character_dossier','character_avatar','character_reference','character_reference_image'] as MediaJobKind[]) {
+    for (const k of [
+      'character_dossier',
+      'character_avatar',
+      'character_reference',
+      'character_reference_image',
+    ] as MediaJobKind[]) {
       expect(() => assertCapability('trial', k)).not.toThrow();
     }
   });
@@ -23,7 +38,7 @@ describe('assertCapability — capability matrix', () => {
   });
 
   it('trial BLOCKS video kinds', () => {
-    for (const k of ['video','scene_video','master_clip'] as MediaJobKind[]) {
+    for (const k of ['video', 'scene_video', 'master_clip'] as MediaJobKind[]) {
       expect(() => assertCapability('trial', k)).toThrow(TierGateError);
     }
   });
@@ -42,7 +57,7 @@ describe('assertCapability — capability matrix', () => {
   });
 
   it('legacy audio kinds are tier-N/A (gate returns without throw — action layer blocks them)', () => {
-    for (const k of ['voice','scene_voice','final_clip','scene_final_clip'] as MediaJobKind[]) {
+    for (const k of ['voice', 'scene_voice', 'final_clip', 'scene_final_clip'] as MediaJobKind[]) {
       expect(() => assertCapability('trial', k)).not.toThrow();
       expect(() => assertCapability('free', k)).not.toThrow();
     }
@@ -75,7 +90,9 @@ describe('assertCapability — capability matrix', () => {
         () => assertCapability('premium', k, 'premium'),
       ];
       for (const fn of decisions) {
-        try { fn(); } catch (e) {
+        try {
+          fn();
+        } catch (e) {
           if (!(e instanceof TierGateError)) throw e;
         }
       }

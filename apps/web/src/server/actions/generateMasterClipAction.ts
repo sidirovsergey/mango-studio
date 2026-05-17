@@ -1,6 +1,8 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/get-user';
+import { assertCapabilityOrLog } from '@/server/lib/assert-capability-or-log';
+import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import {
@@ -8,9 +10,7 @@ import {
   recordPendingJob,
   rollbackMediaJobReservation,
 } from '@/server/lib/scene-helpers';
-import { TierGateError, type StoredAsset, getVideoModelMeta } from '@mango/core';
-import { assertCapabilityOrLog } from '@/server/lib/assert-capability-or-log';
-import { getAccountTier } from '@/server/lib/get-account-tier';
+import { type StoredAsset, TierGateError, getVideoModelMeta } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
 
@@ -49,12 +49,18 @@ function urlOfStorage(storage: StoredAsset): string {
   return `supabase://${storage.path}`;
 }
 
-export async function generateMasterClipAction(
-  rawInput: unknown,
-): Promise<
+export async function generateMasterClipAction(rawInput: unknown): Promise<
   | { ok: true; job_id: string; existing: boolean }
   | { ok: false; error: string }
-  | { ok: false; error: 'tier_gate'; tier_gate: { required_tier: import('@mango/core').AccountTier; kind: import('@mango/core').MediaJobKind; message: string } }
+  | {
+      ok: false;
+      error: 'tier_gate';
+      tier_gate: {
+        required_tier: import('@mango/core').AccountTier;
+        kind: import('@mango/core').MediaJobKind;
+        message: string;
+      };
+    }
 > {
   let input: Input;
   try {

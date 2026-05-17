@@ -20,10 +20,10 @@ vi.mock('@/server/lib/rate-limit', () => ({
 vi.mock('@/server/lib/get-account-tier', () => ({ getAccountTier: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
+import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
-import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getServerSupabase } from '@mango/db/server';
 import { generateSceneVideoAction } from './generateSceneVideoAction';
 
@@ -444,7 +444,11 @@ describe('generateSceneVideoAction — tier gate', () => {
     if (!result.ok) {
       expect(result.error).toBe('tier_gate');
       // Narrowed: tier_gate payload must be present
-      const r = result as { ok: false; error: 'tier_gate'; tier_gate: { required_tier: string; kind: string; message: string } };
+      const r = result as {
+        ok: false;
+        error: 'tier_gate';
+        tier_gate: { required_tier: string; kind: string; message: string };
+      };
       expect(r.tier_gate.required_tier).toBe('free');
       expect(r.tier_gate.kind).toBe('scene_video');
       expect(r.tier_gate.message).toBeTruthy();

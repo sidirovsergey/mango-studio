@@ -1,9 +1,9 @@
 'use client';
 
+import { useTierGate } from '@/components/account/TierGateProvider';
 import { buildProspectivePromptAction } from '@/server/actions/buildProspectivePromptAction';
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
-import { useTierGate } from '@/components/account/TierGateProvider';
 import type { AccountTier, MediaJobKind } from '@mango/core';
 import { useEffect, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';

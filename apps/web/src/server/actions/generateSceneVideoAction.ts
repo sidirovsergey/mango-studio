@@ -1,6 +1,8 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/get-user';
+import { assertCapabilityOrLog } from '@/server/lib/assert-capability-or-log';
+import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import {
@@ -8,7 +10,6 @@ import {
   recordPendingJob,
   rollbackMediaJobReservation,
 } from '@/server/lib/scene-helpers';
-import { getAccountTier } from '@/server/lib/get-account-tier';
 import {
   type ArcRole,
   type AudioDirection,
@@ -18,15 +19,14 @@ import {
   type Lighting,
   type SceneAssetVersion,
   type Tier,
-  type VisualTheme,
   TierGateError,
+  type VisualTheme,
   buildVideoPrompt,
   clampDurationToModel,
   getActiveVersion,
   getDefaultVideoModel,
   getVideoModelMeta,
 } from '@mango/core';
-import { assertCapabilityOrLog } from '@/server/lib/assert-capability-or-log';
 
 // Audio mode is hardcoded to 'native' post-2026-05-13 rip-out. Every active
 // video model carries native audio; the silent_tts → TTS → mux chain is gone.
@@ -79,12 +79,18 @@ type ScriptShape = {
   tier?: Tier | null;
 };
 
-export async function generateSceneVideoAction(
-  rawInput: unknown,
-): Promise<
+export async function generateSceneVideoAction(rawInput: unknown): Promise<
   | { ok: true; job_id: string; existing: boolean; audio_mode: 'native' | 'silent_tts' }
   | { ok: false; error: string }
-  | { ok: false; error: 'tier_gate'; tier_gate: { required_tier: import('@mango/core').AccountTier; kind: import('@mango/core').MediaJobKind; message: string } }
+  | {
+      ok: false;
+      error: 'tier_gate';
+      tier_gate: {
+        required_tier: import('@mango/core').AccountTier;
+        kind: import('@mango/core').MediaJobKind;
+        message: string;
+      };
+    }
 > {
   let input: Input;
   try {

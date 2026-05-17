@@ -1,7 +1,7 @@
 'use client';
+import { signOutAction } from '@/app/login/actions/signOutAction';
 import Link from 'next/link';
 import { useState } from 'react';
-import { signOutAction } from '@/app/login/actions/signOutAction';
 
 interface Props {
   userEmail: string | null;

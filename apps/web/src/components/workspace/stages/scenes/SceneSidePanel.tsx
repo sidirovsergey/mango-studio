@@ -1,9 +1,9 @@
 'use client';
 
+import { useTierGate } from '@/components/account/TierGateProvider';
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
 import { regenSceneTextAction } from '@/server/actions/regenSceneTextAction';
-import { useTierGate } from '@/components/account/TierGateProvider';
 import { setSceneDurationAction } from '@/server/actions/setSceneDurationAction';
 import { setSceneModelAction } from '@/server/actions/setSceneModelAction';
 import { setSceneTierAction } from '@/server/actions/setSceneTierAction';
@@ -30,7 +30,15 @@ interface Props {
 
 type ActionResult =
   | { ok: boolean; error?: string }
-  | { ok: false; error: 'tier_gate'; tier_gate: { required_tier: import('@mango/core').AccountTier; kind: import('@mango/core').MediaJobKind; message: string } };
+  | {
+      ok: false;
+      error: 'tier_gate';
+      tier_gate: {
+        required_tier: import('@mango/core').AccountTier;
+        kind: import('@mango/core').MediaJobKind;
+        message: string;
+      };
+    };
 
 const MODEL_LABEL: Record<string, string> = {
   // Active (native-audio only after 2026-05-13)

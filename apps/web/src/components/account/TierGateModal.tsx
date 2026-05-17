@@ -1,7 +1,7 @@
 'use client';
+import type { AccountTier, MediaJobKind } from '@mango/core';
 import Link from 'next/link';
 import { useEffect, useId, useRef } from 'react';
-import type { AccountTier, MediaJobKind } from '@mango/core';
 
 export interface TierGateModalState {
   kind: MediaJobKind;
@@ -67,8 +67,22 @@ export function TierGateModal({ state, onClose }: Props) {
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // Keyboard close is handled by the document-level Escape listener in
+  // useEffect above. The onKeyDown handlers below exist solely to satisfy
+  // biome's useKeyWithClickEvents rule (paired with onClick handlers).
+  const onBackdropKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      onClose();
+    }
+  };
+
   return (
-    <div className="tg-modal-backdrop" onClick={onClose}>
+    <div
+      className="tg-modal-backdrop"
+      onClick={onClose}
+      onKeyDown={onBackdropKey}
+      role="presentation"
+    >
       <div
         ref={modalRef}
         className="tg-modal"
@@ -78,6 +92,7 @@ export function TierGateModal({ state, onClose }: Props) {
         aria-describedby={bodyId}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       >
         <h3 id={titleId}>{copy.title}</h3>
         <p id={bodyId}>{copy.body}</p>

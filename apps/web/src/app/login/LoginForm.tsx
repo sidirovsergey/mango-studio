@@ -1,6 +1,6 @@
 'use client';
-import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { useState, useTransition } from 'react';
 import { sendOtpAction } from './actions/sendOtpAction';
 import { verifyOtpAction } from './actions/verifyOtpAction';
 
@@ -50,8 +50,14 @@ export function LoginForm() {
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
         />
-        <button type="submit" disabled={isPending || !email}>Получить код</button>
-        {error && <div className="login-error" role="alert">{error}</div>}
+        <button type="submit" disabled={isPending || !email}>
+          Получить код
+        </button>
+        {error && (
+          <div className="login-error" role="alert">
+            {error}
+          </div>
+        )}
       </form>
     );
   }
@@ -68,9 +74,17 @@ export function LoginForm() {
         onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
         autoComplete="one-time-code"
       />
-      <button type="submit" disabled={isPending || code.length !== 6}>Подтвердить</button>
-      <button type="button" className="login-back" onClick={() => setStage('email')}>← Изменить email</button>
-      {error && <div className="login-error" role="alert">{error}</div>}
+      <button type="submit" disabled={isPending || code.length !== 6}>
+        Подтвердить
+      </button>
+      <button type="button" className="login-back" onClick={() => setStage('email')}>
+        ← Изменить email
+      </button>
+      {error && (
+        <div className="login-error" role="alert">
+          {error}
+        </div>
+      )}
     </form>
   );
 }
