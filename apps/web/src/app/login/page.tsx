@@ -6,10 +6,24 @@ export default function LoginPage() {
     notFound();
   }
   return (
-    <main className="login-page">
-      <h1>Войти в Mango Studio</h1>
-      <p className="login-subtitle">Email — никаких паролей. Получите код одной кнопкой.</p>
-      <LoginForm />
-    </main>
+    <div className="login-shell">
+      <div className="login-aurora" aria-hidden="true">
+        <span className="login-aurora-blob login-aurora-blob-a" />
+        <span className="login-aurora-blob login-aurora-blob-b" />
+      </div>
+      <main className="login-page">
+        <span className="login-eyebrow">
+          <span className="login-eyebrow-dot" aria-hidden="true" />
+          Одним кодом — без паролей
+        </span>
+        <h1 className="login-headline">
+          Войти в <em>Mango Studio</em>
+        </h1>
+        <p className="login-subtitle">
+          Введите email — пришлём короткий код. Ваш текущий проект сохранится.
+        </p>
+        <LoginForm />
+      </main>
+    </div>
   );
 }

@@ -5,16 +5,39 @@ interface Props {
 }
 
 export function ClaimWorkBanner({ projectCount }: Props) {
+  const noun = pluralize(projectCount, ['проект', 'проекта', 'проектов']);
   return (
-    <div className="claim-banner">
-      <span>
-        У вас {projectCount} {pluralize(projectCount, ['проект', 'проекта', 'проектов'])} в этом
-        браузере.
-      </span>
-      <Link href="/login" className="claim-cta">
-        Войдите, чтобы сохранить навсегда и разблокировать видео
+    <aside className="claim-banner" aria-label="Сохранить работу">
+      <div className="claim-banner-meta">
+        <span className="claim-banner-eyebrow">Сохранить работу</span>
+        <span className="claim-banner-body">
+          У вас{' '}
+          <span className="claim-banner-count">
+            {projectCount} {noun}
+          </span>{' '}
+          в этом браузере
+        </span>
+      </div>
+      <Link href="/login" className="claim-banner-cta">
+        Войти и сохранить
+        <svg
+          className="claim-banner-arrow"
+          width="14"
+          height="14"
+          viewBox="0 0 14 14"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M3 7h8m0 0L7.5 3.5M11 7l-3.5 3.5"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </Link>
-    </div>
+    </aside>
   );
 }
 

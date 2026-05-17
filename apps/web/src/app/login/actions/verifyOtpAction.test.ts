@@ -55,6 +55,44 @@ describe('verifyOtpAction', () => {
     });
   });
 
+  it('accepts an 8-digit token (Supabase OTP length is configurable)', async () => {
+    mockGetUser.mockResolvedValueOnce({ data: { user: { id: 'u1', is_anonymous: true } } });
+    mockVerifyOtp.mockResolvedValueOnce({ data: { user: { id: 'u1' } }, error: null });
+
+    const result = await verifyOtpAction({ email: 'test@example.com', token: '12345678' });
+
+    expect(result.ok).toBe(true);
+    expect(mockVerifyOtp).toHaveBeenCalledWith({
+      email: 'test@example.com',
+      token: '12345678',
+      type: 'email_change',
+    });
+  });
+
+  it.each([
+    ['4-digit', '1234', 'min boundary accepted'],
+    ['10-digit', '1234567890', 'max boundary accepted'],
+  ])('accepts %s token (%s)', async (_label, token) => {
+    mockGetUser.mockResolvedValueOnce({ data: { user: null } });
+    mockVerifyOtp.mockResolvedValueOnce({ data: { user: { id: 'u-bnd' } }, error: null });
+    const result = await verifyOtpAction({ email: 'b@example.com', token });
+    expect(result.ok).toBe(true);
+  });
+
+  it.each([
+    ['3-digit', '123', 'below min'],
+    ['11-digit', '12345678901', 'above max'],
+    ['alphanumeric', '12a456', 'non-numeric'],
+    ['empty', '', 'empty'],
+  ])('rejects %s token with invalid_input before hitting Supabase (%s)', async (_label, token) => {
+    const result = await verifyOtpAction({ email: 'r@example.com', token });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('invalid_input');
+    }
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+  });
+
   it('passes through Supabase otp_expired error', async () => {
     mockGetUser.mockResolvedValueOnce({ data: { user: null } });
     mockVerifyOtp.mockResolvedValueOnce({
