@@ -185,3 +185,63 @@
     margin-left: 0;
   }
 }
+
+/* TierGateModal */
+.tg-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.tg-modal {
+  background: var(--paper);
+  border-radius: var(--r-card);
+  padding: 28px 32px;
+  max-width: 420px;
+  width: calc(100% - 32px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tg-modal h3 {
+  font-size: 18px;
+  margin: 0;
+  color: var(--ink-900);
+}
+.tg-modal p {
+  font-size: 14px;
+  color: var(--ink-700);
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+.tg-cta {
+  display: inline-block;
+  padding: 10px 16px;
+  background: var(--mango-500);
+  color: white;
+  border-radius: var(--r-input);
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  font-size: 14px;
+  transition: background 0.15s;
+}
+.tg-cta:hover {
+  background: var(--mango-600);
+}
+.tg-close {
+  background: transparent;
+  border: 0;
+  color: var(--ink-500);
+  font-size: 13px;
+  padding: 4px 0;
+  cursor: pointer;
+  align-self: center;
+}
+.tg-close:hover {
+  color: var(--ink-700);
+}
