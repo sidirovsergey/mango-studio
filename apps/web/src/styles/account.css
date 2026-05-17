@@ -1068,3 +1068,22 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Codex 1.6.2 a11y NTH: respect prefers-reduced-motion on infinite
+ * ambient animations on /login and /profile. Disables drift + card-in
+ * entrance for users who opt out of motion. */
+@media (prefers-reduced-motion: reduce) {
+  .login-aurora-blob,
+  .profile-aurora-blob {
+    animation: none !important;
+  }
+  .login-page,
+  .profile-page {
+    animation: none !important;
+  }
+  .tg-modal,
+  .tg-modal-backdrop,
+  .account-dropdown {
+    animation: none !important;
+  }
+}

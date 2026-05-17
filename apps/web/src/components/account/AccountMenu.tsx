@@ -59,26 +59,31 @@ export function AccountMenu({ userEmail, isAnonymous, authEnabled }: Props) {
         <span className="account-trigger-email">{userEmail}</span>
       </button>
       {open && (
-        <div className="account-dropdown" role="menu">
-          <div className="account-dropdown-email" title={userEmail}>
+        <div className="account-dropdown">
+          {/* Email caption is visual context, not a focusable menu item;
+              keep it OUTSIDE the role='menu' container so the menu only
+              owns true menuitems (Codex 1.6.2 a11y finding). */}
+          <div className="account-dropdown-email" title={userEmail} aria-hidden="true">
             {userEmail}
           </div>
-          <Link
-            href="/profile"
-            role="menuitem"
-            className="account-dropdown-link"
-            onClick={() => setOpen(false)}
-          >
-            Профиль
-          </Link>
-          {/* Wrapper form is required by Next.js server-action invocation; we
-              suppress the implicit form ARIA role so the menu structure
-              (menuitem button) reads cleanly to assistive tech. */}
-          <form action={signOutAction} role="presentation">
-            <button type="submit" role="menuitem">
-              Выйти
-            </button>
-          </form>
+          <div role="menu" aria-label="Меню аккаунта">
+            <Link
+              href="/profile"
+              role="menuitem"
+              className="account-dropdown-link"
+              onClick={() => setOpen(false)}
+            >
+              Профиль
+            </Link>
+            {/* Wrapper form is required by Next.js server-action invocation; we
+                suppress the implicit form ARIA role so the menu structure
+                (menuitem button) reads cleanly to assistive tech. */}
+            <form action={signOutAction} role="presentation">
+              <button type="submit" role="menuitem">
+                Выйти
+              </button>
+            </form>
+          </div>
         </div>
       )}
     </div>
