@@ -11,9 +11,11 @@ import { RefineCharacterPopover } from './RefineCharacterPopover';
 interface Props {
   projectId: string;
   character: Character;
+  generating?: boolean;
+  generationError?: string | null;
 }
 
-export function CharacterCardActions({ projectId, character }: Props) {
+export function CharacterCardActions({ projectId, character, generating, generationError }: Props) {
   const [isPending, startTransition] = useTransition();
   const [openPop, setOpenPop] = useState<null | 'refine' | 'model' | 'delete'>(null);
   const [regenError, setRegenError] = useState<string | null>(null);
@@ -45,16 +47,18 @@ export function CharacterCardActions({ projectId, character }: Props) {
     router.push(`?char=${character.id}&tab=refs`, { scroll: false });
   };
 
+  const regenLabel = generating ? 'Досье уже генерируется' : 'Перегенерировать';
+
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation guard, not an interactive element
     <div className="char-actions" onClick={(e) => e.stopPropagation()}>
       <button
         type="button"
         className="icon-btn"
-        disabled={isPending}
+        disabled={isPending || generating}
         onClick={handleRegen}
-        title="Перегенерировать"
-        aria-label="Перегенерировать"
+        title={regenLabel}
+        aria-label={regenLabel}
       >
         <svg className="i" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M3 12a9 9 0 0 1 15.5-6.3L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.3L3 16M3 21v-5h5" />
@@ -105,8 +109,8 @@ export function CharacterCardActions({ projectId, character }: Props) {
         </svg>
       </button>
 
-      {regenError && (
-        <span className="regen-error" title={regenError}>
+      {(regenError || generationError) && (
+        <span className="regen-error" title={regenError ?? generationError ?? undefined}>
           !
         </span>
       )}

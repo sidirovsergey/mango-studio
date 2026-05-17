@@ -13,7 +13,7 @@ interface Props {
 
 export async function CharacterModal({ projectId, character, initialTab = 'main', style }: Props) {
   const refUrls = await Promise.all(
-    character.reference_images.map((r) => getDisplayUrl(r.storage, 'character-references')),
+    (character.reference_images ?? []).map((r) => getDisplayUrl(r.storage, 'character-references')),
   );
 
   return (

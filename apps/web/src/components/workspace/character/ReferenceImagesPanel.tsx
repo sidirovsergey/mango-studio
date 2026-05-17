@@ -19,6 +19,7 @@ export function ReferenceImagesPanel({ projectId, character, initialFocus, refer
   const fileInput = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
   const [refError, setRefError] = useState<string | null>(null);
+  const referenceImages = character.reference_images ?? [];
 
   const handleUploadClick = () => {
     setRefError(null);
@@ -73,12 +74,10 @@ export function ReferenceImagesPanel({ projectId, character, initialFocus, refer
 
   return (
     <div className="refs-panel" data-focus={initialFocus ? 'true' : undefined}>
-      <div className="char-modal-section-title">
-        Референсы ({character.reference_images.length})
-      </div>
+      <div className="char-modal-section-title">Референсы ({referenceImages.length})</div>
 
       <div className="refs-grid">
-        {character.reference_images.map((r, i) => (
+        {referenceImages.map((r, i) => (
           <div
             key={r.storage.kind === 'fal_passthrough' ? r.storage.url : r.storage.path}
             className="ref-thumb"

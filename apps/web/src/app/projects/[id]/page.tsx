@@ -1,7 +1,10 @@
 import { ProjectJobsPoller } from '@/components/workspace/ProjectJobsPoller';
 import { Workspace } from '@/components/workspace/Workspace';
 import { CharacterModal } from '@/components/workspace/character/CharacterModal';
-import { StageCharacters } from '@/components/workspace/stages/StageCharacters';
+import {
+  type CharacterJobSummary,
+  StageCharacters,
+} from '@/components/workspace/stages/StageCharacters';
 import { getCurrentUserId } from '@/lib/auth/get-user';
 import { getCharactersForUI } from '@/server/lib/get-characters-for-ui';
 import type { PersistedScript, Tier } from '@mango/core';
@@ -31,7 +34,7 @@ export default async function ProjectPage({ params, searchParams }: Props) {
   await getCurrentUserId();
   const supabase = await getServerSupabase();
 
-  const [projectResult, messagesResult] = await Promise.all([
+  const [projectResult, messagesResult, characterJobsResult] = await Promise.all([
     supabase
       .from('projects')
       .select(
@@ -44,6 +47,14 @@ export default async function ProjectPage({ params, searchParams }: Props) {
       .select('id, project_id, role, content, created_at, tool_chips, pending_action')
       .eq('project_id', id)
       .order('created_at', { ascending: true }),
+    supabase
+      .from('media_jobs')
+      .select('id, character_id, kind, status, error_code, created_at')
+      .eq('project_id', id)
+      .in('kind', ['character_dossier', 'character_avatar'])
+      .in('status', ['reserved', 'pending', 'running', 'error'])
+      .order('created_at', { ascending: false })
+      .limit(50),
   ]);
 
   if (projectResult.error || !projectResult.data) {
@@ -67,6 +78,7 @@ export default async function ProjectPage({ params, searchParams }: Props) {
       script={script}
       tier={project.tier as Tier}
       style={style}
+      characterJobs={(characterJobsResult.data ?? []) as CharacterJobSummary[]}
     />
   );
 

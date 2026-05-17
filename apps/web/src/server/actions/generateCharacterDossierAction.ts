@@ -77,6 +77,7 @@ export async function generateCharacterDossierAction(
   const quality = (character.config_overrides?.quality ??
     (tier === 'premium' ? '1080p' : '720p')) as '720p' | '1080p' | '2k';
   const ctx = { user_id: user.id, project_id: input.project_id, character_id: character.id };
+  const referenceImages = character.reference_images ?? [];
 
   try {
     const provider = getMediaProvider();
@@ -150,7 +151,7 @@ export async function generateCharacterDossierAction(
                 model,
                 format: '16:9',
                 quality,
-                image_refs: character.reference_images.map((r) => r.storage),
+                image_refs: referenceImages.map((r) => r.storage),
               },
               ctx,
             )

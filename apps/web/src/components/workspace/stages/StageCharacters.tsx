@@ -10,9 +10,43 @@ interface Props {
   script: PersistedScript | null;
   tier: Tier;
   style?: '3d_pixar' | '2d_drawn' | 'clay_art';
+  characterJobs?: CharacterJobSummary[];
 }
 
-export async function StageCharacters({ projectId, script, tier, style: _style }: Props) {
+export interface CharacterJobSummary {
+  id: string;
+  character_id: string | null;
+  kind: string;
+  status: string;
+  error_code: string | null;
+  created_at: string | null;
+}
+
+const ACTIVE_JOB_STATUSES = new Set(['reserved', 'pending', 'running']);
+
+function summarizeCharacterJobs(characterId: string, jobs: CharacterJobSummary[] | undefined) {
+  const charJobs = (jobs ?? []).filter((j) => j.character_id === characterId);
+  const active = charJobs.find((j) => ACTIVE_JOB_STATUSES.has(j.status));
+  if (active) return { generating: true, error: null };
+
+  const failed = charJobs.find((j) => j.status === 'error');
+  if (failed) {
+    return {
+      generating: false,
+      error: failed.error_code ?? 'generation_failed',
+    };
+  }
+
+  return { generating: false, error: null };
+}
+
+export async function StageCharacters({
+  projectId,
+  script,
+  tier,
+  style: _style,
+  characterJobs,
+}: Props) {
   const characters = script?.characters;
   const { active } = getCharactersForUI(characters);
 
@@ -30,9 +64,18 @@ export async function StageCharacters({ projectId, script, tier, style: _style }
       </div>
 
       <div className="char-grid">
-        {active.map((c) => (
-          <CharacterCard key={c.id} projectId={projectId} character={c} />
-        ))}
+        {active.map((c) => {
+          const job = summarizeCharacterJobs(c.id, characterJobs);
+          return (
+            <CharacterCard
+              key={c.id}
+              projectId={projectId}
+              character={c}
+              generating={job.generating}
+              generationError={job.error}
+            />
+          );
+        })}
         <AddCharacterCard projectId={projectId} />
       </div>
     </section>

@@ -111,6 +111,24 @@
   min-height: 32px;
 }
 
+.char-job-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: rgba(245, 118, 0, 0.10);
+  color: var(--mango-700);
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+.char-job-status.error {
+  background: rgba(217, 45, 32, 0.08);
+  color: #d92d20;
+}
+
 .char-actions {
   display: flex;
   gap: 6px;
