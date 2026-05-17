@@ -63,6 +63,14 @@ export function AccountMenu({ userEmail, isAnonymous, authEnabled }: Props) {
           <div className="account-dropdown-email" title={userEmail}>
             {userEmail}
           </div>
+          <Link
+            href="/profile"
+            role="menuitem"
+            className="account-dropdown-link"
+            onClick={() => setOpen(false)}
+          >
+            Профиль
+          </Link>
           {/* Wrapper form is required by Next.js server-action invocation; we
               suppress the implicit form ARIA role so the menu structure
               (menuitem button) reads cleanly to assistive tech. */}
