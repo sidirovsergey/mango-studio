@@ -5,7 +5,7 @@ import {
   type CharacterJobSummary,
   StageCharacters,
 } from '@/components/workspace/stages/StageCharacters';
-import { getCurrentUserId } from '@/lib/auth/get-user';
+import { getCurrentUser } from '@/lib/auth/get-user';
 import { getCharactersForUI } from '@/server/lib/get-characters-for-ui';
 import type { PersistedScript, Tier } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
@@ -31,7 +31,7 @@ interface Props {
 export default async function ProjectPage({ params, searchParams }: Props) {
   const { id } = await params;
   const sp = await searchParams;
-  await getCurrentUserId();
+  const user = await getCurrentUser();
   const supabase = await getServerSupabase();
 
   const [projectResult, messagesResult, characterJobsResult] = await Promise.all([
@@ -89,6 +89,8 @@ export default async function ProjectPage({ params, searchParams }: Props) {
         project={project}
         initialChatMessages={messagesResult.data ?? []}
         charactersSlot={charactersSlot}
+        userEmail={user.email ?? null}
+        isAnonymous={Boolean(user.is_anonymous)}
       />
       {expandedCharacter && (
         <CharacterModal

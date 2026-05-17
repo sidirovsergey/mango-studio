@@ -1,5 +1,6 @@
 'use client';
 
+import { AccountMenu } from '@/components/account/AccountMenu';
 import { setAutoModeAction } from '@/server/actions/projects';
 import type { Tier } from '@mango/core';
 import Link from 'next/link';
@@ -11,9 +12,12 @@ interface Props {
   autoMode: boolean;
   format: '9:16' | '16:9' | '1:1';
   tier: Tier;
+  userEmail: string | null;
+  isAnonymous: boolean;
 }
 
-export function TopBar({ projectId, autoMode, format, tier }: Props) {
+export function TopBar({ projectId, autoMode, format, tier, userEmail, isAnonymous }: Props) {
+  const authEnabled = process.env.NEXT_PUBLIC_AUTH_UI_ENABLED === 'true';
   const [isPending, startTransition] = useTransition();
 
   const onAutoToggle = () => {
@@ -72,6 +76,7 @@ export function TopBar({ projectId, autoMode, format, tier }: Props) {
           </svg>
           Опубликовать
         </button>
+        <AccountMenu userEmail={userEmail} isAnonymous={isAnonymous} authEnabled={authEnabled} />
       </div>
     </div>
   );

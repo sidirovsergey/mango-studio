@@ -88,3 +88,64 @@
   color: #c0392b;
   font-size: 13px;
 }
+
+/* AccountMenu widget in TopBar */
+.account-cta {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: var(--r-input);
+  background: var(--mango-500);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.account-cta:hover {
+  background: var(--mango-600);
+}
+.account-menu {
+  position: relative;
+}
+.account-trigger {
+  padding: 6px 12px;
+  border-radius: var(--r-input);
+  background: transparent;
+  border: 1px solid var(--ink-200);
+  color: var(--ink-700);
+  font-size: 13px;
+  cursor: pointer;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-trigger:hover {
+  background: var(--ink-100, rgba(0, 0, 0, 0.04));
+}
+.account-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--paper);
+  border: 1px solid var(--ink-200);
+  border-radius: var(--r-card);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  min-width: 140px;
+  z-index: 50;
+}
+.account-dropdown form button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 14px;
+  background: transparent;
+  border: 0;
+  font-size: 13px;
+  color: var(--ink-700);
+  cursor: pointer;
+  border-radius: var(--r-card);
+}
+.account-dropdown form button:hover {
+  background: var(--ink-100, rgba(0, 0, 0, 0.04));
+}
