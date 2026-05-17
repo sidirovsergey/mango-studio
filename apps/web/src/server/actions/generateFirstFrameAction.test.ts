@@ -20,11 +20,13 @@ vi.mock('@/server/lib/rate-limit', () => ({
 // The dynamic import of generateReferenceImageAction (F53 hard-precondition) pulls
 // in next/cache; stub revalidatePath so the inner action does not throw in test env.
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('@/server/lib/get-account-tier', () => ({ getAccountTier: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
+import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getServerSupabase } from '@mango/db/server';
 import { generateAllFirstFramesAction, generateFirstFrameAction } from './generateFirstFrameAction';
 
@@ -418,5 +420,162 @@ describe('generateFirstFrameAction', () => {
       expect(result.capped).toBe(true);
     }
     expect(submitFirstFrame).toHaveBeenCalledTimes(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1.6 D2 — account-tier capability gate on bulk first-frame path
+// ---------------------------------------------------------------------------
+
+describe('generateFirstFrameAction — tier gate on bulk path', () => {
+  const makeBulkProject = () => ({
+    id: PROJECT_ID,
+    user_id: 'u1',
+    tier: 'economy',
+    style: '3d_pixar',
+    script: {
+      title: 'Test',
+      master_clip: null,
+      characters: [],
+      scenes: [
+        {
+          scene_id: 's1',
+          description: 'Scene 1',
+          duration_sec: 8,
+          dialogue: null,
+          character_ids: [],
+          first_frame_source: 'auto_continuity',
+          first_frame: null,
+          last_frame: null,
+          video: null,
+          voice_audio: null,
+          final_clip: null,
+        },
+        {
+          scene_id: 's2',
+          description: 'Scene 2',
+          duration_sec: 8,
+          dialogue: null,
+          character_ids: [],
+          first_frame_source: 'auto_continuity',
+          first_frame: null,
+          last_frame: null,
+          video: null,
+          voice_audio: null,
+          final_clip: null,
+        },
+      ],
+    },
+  });
+
+  it('trial user on bulk path: returns {ok:false, error:"tier_gate"} and never calls submitFirstFrame', async () => {
+    // Arrange: trial account tier → should be blocked before fan-out
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('trial');
+
+    const submitFirstFrame = vi.fn();
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ submitFirstFrame });
+
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: makeBulkProject(), error: null }),
+      })),
+    });
+
+    // Act
+    const result = await generateAllFirstFramesAction({ project_id: PROJECT_ID });
+
+    // Assert: gate returned, fan-out never fired
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('tier_gate');
+      const r = result as { ok: false; error: 'tier_gate'; tier_gate: { required_tier: string; kind: string; message: string } };
+      expect(r.tier_gate.required_tier).toBe('free');
+      expect(r.tier_gate.kind).toBe('scene_video');
+      expect(r.tier_gate.message).toBeTruthy();
+    }
+    // submitFirstFrame must NOT have been called for any scene
+    expect(submitFirstFrame).not.toHaveBeenCalled();
+  });
+
+  it('free user (economy model) on bulk path: gate passes and fan-out proceeds', async () => {
+    // Arrange: free account tier + economy project tier → allowed
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+
+    const submitFirstFrame = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-bulk-free',
+      model_used: 'fal-ai/nano-banana-2',
+      request_input: { prompt: 'Scene 1' },
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ submitFirstFrame });
+
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: makeBulkProject(), error: null }),
+      })),
+    });
+
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      mode: 'reserved' as const,
+      job_id: 'job-bulk-free',
+      used: 1,
+      dedup: false,
+    });
+
+    // Act
+    const result = await generateAllFirstFramesAction({ project_id: PROJECT_ID });
+
+    // Assert: gate passed, fan-out submitted jobs
+    expect(result.ok).toBe(true);
+    expect(submitFirstFrame).toHaveBeenCalled();
+  });
+
+  it('trial user on single path: no gate, submission proceeds (single path must remain open to all)', async () => {
+    // Arrange: trial account tier — single path is image kind, gate NOT applied
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    // getAccountTier should NOT be called on the single path
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('trial');
+
+    const submitFirstFrame = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-single-trial',
+      model_used: 'fal-ai/nano-banana-2',
+      request_input: { prompt: 'Scene 1' },
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({ submitFirstFrame });
+
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: makeBulkProject(), error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    });
+
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
+      job_id: 'job-single-trial',
+      used: 1,
+      dedup: false,
+    });
+
+    // Act: single-path call (mode defaults to 'single', no bulk=true flag)
+    const result = await generateFirstFrameAction({
+      project_id: PROJECT_ID,
+      scene_id: 's1',
+    });
+
+    // Assert: single path proceeds regardless of account tier
+    expect(result.ok).toBe(true);
+    expect(submitFirstFrame).toHaveBeenCalledTimes(1);
+    // getAccountTier must NOT have been called on the single path
+    expect(getAccountTier).not.toHaveBeenCalled();
   });
 });
