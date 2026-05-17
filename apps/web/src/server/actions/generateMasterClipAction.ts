@@ -8,7 +8,8 @@ import {
   recordPendingJob,
   rollbackMediaJobReservation,
 } from '@/server/lib/scene-helpers';
-import { type StoredAsset, getVideoModelMeta } from '@mango/core';
+import { assertCapability, TierGateError, type StoredAsset, getVideoModelMeta } from '@mango/core';
+import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
 
@@ -49,7 +50,11 @@ function urlOfStorage(storage: StoredAsset): string {
 
 export async function generateMasterClipAction(
   rawInput: unknown,
-): Promise<{ ok: true; job_id: string; existing: boolean } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; job_id: string; existing: boolean }
+  | { ok: false; error: string }
+  | { ok: false; error: 'tier_gate'; tier_gate: { required_tier: import('@mango/core').AccountTier; kind: import('@mango/core').MediaJobKind; message: string } }
+> {
   let input: Input;
   try {
     input = InputSchema.parse(rawInput);
@@ -143,6 +148,25 @@ export async function generateMasterClipAction(
 
   const provider = getMediaProvider();
   const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
+
+  // Account-tier capability gate (Phase 1.6).
+  try {
+    const accountTier = await getAccountTier(sb, user.id);
+    assertCapability(accountTier, 'master_clip');
+  } catch (err) {
+    if (err instanceof TierGateError) {
+      return {
+        ok: false,
+        error: 'tier_gate',
+        tier_gate: {
+          required_tier: err.required_tier,
+          kind: err.kind,
+          message: err.message,
+        },
+      } as const;
+    }
+    throw err;
+  }
 
   // Atomic quota + reservation. master_clip uses the (project_id, kind) partial
   // unique index — dedup hits when a master concat is already running.
