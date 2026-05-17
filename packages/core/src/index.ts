@@ -157,6 +157,9 @@ export type {
   VisualTheme,
 } from './media/cinematography-schemas';
 
+export type { AccountTier, MediaJobKind } from './quota';
+export { TierGateError, assertCapability } from './quota';
+
 // NOTE: `ScriptGenSchema`/`ScriptSchema`/`SceneSchema` (from `./llm/schemas`)
 // and `upgradeScene`/`upgradeScript`/`downgradeScript` (from `./llm/migration`)
 // are deliberately NOT re-exported here — both files have client-incompatible

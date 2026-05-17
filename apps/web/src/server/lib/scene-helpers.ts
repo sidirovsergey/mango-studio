@@ -11,16 +11,26 @@ import { getServerSupabase } from '@mango/db/server';
 type Script = ScriptGenOutput;
 
 export type MediaJobKind =
+  // Character lifecycle (1.2 + 1.3)
   | 'character_dossier'
-  | 'character_reference'
-  | 'character_reference_image'
   | 'character_avatar'
+  | 'character_reference'
+  // Character lifecycle (1.4): single-pose 1:1 reference image
+  | 'character_reference_image'
+  // Scene lifecycle: 1.3.0 names (kept for backward compat during 1.3.5 rollout)
   | 'first_frame'
   | 'video'
-  | 'last_frame_extract'
   | 'voice'
   | 'final_clip'
-  | 'master_clip';
+  | 'last_frame_extract'
+  // Scene lifecycle: 1.3.5 names (preferred going forward)
+  | 'scene_first_frame'
+  | 'scene_video'
+  | 'scene_voice'
+  | 'scene_final_clip'
+  // Master clip + storage mirror
+  | 'master_clip'
+  | 'storage_mirror';
 
 /**
  * Inserts a media_jobs row in 'pending' state. Idempotent: when a unique-violation

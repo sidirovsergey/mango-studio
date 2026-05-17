@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/auth/get-user', () => ({ getCurrentUser: vi.fn() }));
 vi.mock('@/server/lib/media-provider-factory', () => ({ getMediaProvider: vi.fn() }));
@@ -17,8 +17,10 @@ vi.mock('@/server/lib/rate-limit', () => ({
     dedup: false,
   }),
 }));
+vi.mock('@/server/lib/get-account-tier', () => ({ getAccountTier: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
+import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
@@ -159,5 +161,87 @@ describe('generateMasterClipAction', () => {
     expect(reserveCall.scene_id).toBeUndefined();
     expect(reserveCall.character_id).toBeUndefined();
     expect(reserveCall.kind).toBe('master_clip');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1.6 D3 — account-tier capability gate
+// ---------------------------------------------------------------------------
+
+describe('generateMasterClipAction — tier gate', () => {
+  beforeEach(() => {
+    vi.stubEnv('AUTH_GATE_ENFORCE', 'true');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const makeProjectBuilder = () => ({
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data: makeProject(), error: null }),
+  });
+
+  it('trial user: returns {ok:false, error:"tier_gate", tier_gate:{...}} and never calls reserveMediaJob', async () => {
+    // Arrange
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('trial');
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => makeProjectBuilder()),
+    });
+
+    // Act
+    const result = await generateMasterClipAction({ project_id: PROJECT_ID });
+
+    // Assert: gate returned, reserveMediaJob NOT called
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('tier_gate');
+      const r = result as {
+        ok: false;
+        error: 'tier_gate';
+        tier_gate: { required_tier: string; kind: string; message: string };
+      };
+      expect(r.tier_gate.required_tier).toBe('free');
+      expect(r.tier_gate.kind).toBe('master_clip');
+      expect(r.tier_gate.message).toBeTruthy();
+    }
+    expect(reserveMediaJob).not.toHaveBeenCalled();
+    expect(getMediaProvider).not.toHaveBeenCalled();
+  });
+
+  it('free user: passes the gate and proceeds to reserveMediaJob', async () => {
+    // Arrange
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+
+    const submitMasterConcat = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-free-concat',
+      model_used: 'fal-ai/ffmpeg-api/merge-videos',
+      request_input: { clip_urls: ['https://cdn.fal.ai/final-1.mp4'] },
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      submitMasterConcat,
+    });
+
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => makeProjectBuilder()),
+    });
+
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
+      job_id: 'job-free-concat',
+      used: 1,
+      dedup: false,
+    });
+
+    // Act
+    const result = await generateMasterClipAction({ project_id: PROJECT_ID });
+
+    // Assert: gate passed, reserveMediaJob AND submitMasterConcat WERE called
+    expect(reserveMediaJob).toHaveBeenCalledTimes(1);
+    expect(submitMasterConcat).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(true);
   });
 });

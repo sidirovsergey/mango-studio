@@ -69,7 +69,8 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
     versionsForMode.length > 0 ? versionsForMode[versionsForMode.length - 1] : null;
   const isLatest = !!active && !!lastVersion && lastVersion.version_id === active.version_id;
   const isActiveJob = !!activeJob && ['pending', 'running'].includes(activeJob.status);
-  const isAudioJob = !!activeJob && (activeJob.kind === 'voice' || activeJob.kind === 'final_clip');
+  const _isAudioJob =
+    !!activeJob && (activeJob.kind === 'voice' || activeJob.kind === 'final_clip');
 
   const handlePickVersion = (vid: string) => {
     if (mode === 'final') return;

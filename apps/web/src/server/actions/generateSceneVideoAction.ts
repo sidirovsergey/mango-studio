@@ -1,6 +1,8 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/get-user';
+import { assertCapabilityOrLog } from '@/server/lib/assert-capability-or-log';
+import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import {
@@ -17,6 +19,7 @@ import {
   type Lighting,
   type SceneAssetVersion,
   type Tier,
+  TierGateError,
   type VisualTheme,
   buildVideoPrompt,
   clampDurationToModel,
@@ -76,11 +79,18 @@ type ScriptShape = {
   tier?: Tier | null;
 };
 
-export async function generateSceneVideoAction(
-  rawInput: unknown,
-): Promise<
+export async function generateSceneVideoAction(rawInput: unknown): Promise<
   | { ok: true; job_id: string; existing: boolean; audio_mode: 'native' | 'silent_tts' }
   | { ok: false; error: string }
+  | {
+      ok: false;
+      error: 'tier_gate';
+      tier_gate: {
+        required_tier: import('@mango/core').AccountTier;
+        kind: import('@mango/core').MediaJobKind;
+        message: string;
+      };
+    }
 > {
   let input: Input;
   try {
@@ -196,14 +206,36 @@ export async function generateSceneVideoAction(
   const prompt = input.prompt_override ?? built.prompt;
   const { image_refs, aspect_ratio } = built;
 
-  const provider = getMediaProvider();
-  const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
-
   // Grok Imagine Video accepts an explicit resolution; map by effective tier
   // (economy → 480p for cost, premium → 720p for quality). Ignored by other
   // engines via the FalMediaProvider branch.
   const isGrok = model.startsWith('xai/grok-imagine-video');
   const grokResolution: '480p' | '720p' = effectiveTier === 'premium' ? '720p' : '480p';
+
+  // Account-tier capability gate (Phase 1.6).
+  // effectiveTier is 'economy' | 'premium' (Tier) — passed as modelTier so
+  // assertCapability can distinguish free+economy (allowed) vs free+premium (blocked).
+  try {
+    const accountTier = await getAccountTier(sb, user.id);
+    assertCapabilityOrLog(accountTier, 'scene_video', effectiveTier);
+  } catch (err) {
+    if (err instanceof TierGateError) {
+      return {
+        ok: false,
+        error: 'tier_gate',
+        tier_gate: {
+          required_tier: err.required_tier,
+          kind: err.kind,
+          message: err.message,
+        },
+      } as const;
+    }
+    throw err;
+  }
+
+  // Provider is resolved after the tier gate so trial users never touch it.
+  const provider = getMediaProvider();
+  const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
 
   // Atomic quota + reservation.
   const reservation = await reserveMediaJob({

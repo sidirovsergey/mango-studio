@@ -1,11 +1,15 @@
 'use client';
 
+import { useTierGate } from '@/components/account/TierGateProvider';
 import { buildProspectivePromptAction } from '@/server/actions/buildProspectivePromptAction';
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
+import type { AccountTier, MediaJobKind } from '@mango/core';
 import { useEffect, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import { useStage04 } from './Stage04Provider';
+
+type TierGatePayload = { required_tier: AccountTier; kind: MediaJobKind; message: string };
 
 type Kind = 'first_frame' | 'video';
 
@@ -18,6 +22,7 @@ interface Props {
 
 export function PromptEditorModal({ projectId, sceneId, kind, onClose }: Props) {
   const { script } = useStage04();
+  const { open: openTierGate } = useTierGate();
   const scene = script?.scenes.find((s) => s.scene_id === sceneId);
 
   const versions = kind === 'first_frame' ? scene?.first_frame_versions : scene?.video_versions;
@@ -103,6 +108,11 @@ export function PromptEditorModal({ projectId, sceneId, kind, onClose }: Props) 
         prompt_override: text,
       });
       if (!r.ok) {
+        if (r.error === 'tier_gate' && 'tier_gate' in r) {
+          const tg = (r as { ok: false; error: 'tier_gate'; tier_gate: TierGatePayload }).tier_gate;
+          openTierGate({ kind: tg.kind, required_tier: tg.required_tier });
+          return;
+        }
         setError(r.error);
         return;
       }

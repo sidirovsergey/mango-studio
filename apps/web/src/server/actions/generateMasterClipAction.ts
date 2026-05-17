@@ -1,6 +1,8 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/get-user';
+import { assertCapabilityOrLog } from '@/server/lib/assert-capability-or-log';
+import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import {
@@ -8,7 +10,7 @@ import {
   recordPendingJob,
   rollbackMediaJobReservation,
 } from '@/server/lib/scene-helpers';
-import { type StoredAsset, getVideoModelMeta } from '@mango/core';
+import { type StoredAsset, TierGateError, getVideoModelMeta } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
 
@@ -47,9 +49,19 @@ function urlOfStorage(storage: StoredAsset): string {
   return `supabase://${storage.path}`;
 }
 
-export async function generateMasterClipAction(
-  rawInput: unknown,
-): Promise<{ ok: true; job_id: string; existing: boolean } | { ok: false; error: string }> {
+export async function generateMasterClipAction(rawInput: unknown): Promise<
+  | { ok: true; job_id: string; existing: boolean }
+  | { ok: false; error: string }
+  | {
+      ok: false;
+      error: 'tier_gate';
+      tier_gate: {
+        required_tier: import('@mango/core').AccountTier;
+        kind: import('@mango/core').MediaJobKind;
+        message: string;
+      };
+    }
+> {
   let input: Input;
   try {
     input = InputSchema.parse(rawInput);
@@ -141,6 +153,26 @@ export async function generateMasterClipAction(
     return getVideoModelMeta(modelId)?.has_native_audio === true;
   });
 
+  // Account-tier capability gate (Phase 1.6).
+  try {
+    const accountTier = await getAccountTier(sb, user.id);
+    assertCapabilityOrLog(accountTier, 'master_clip');
+  } catch (err) {
+    if (err instanceof TierGateError) {
+      return {
+        ok: false,
+        error: 'tier_gate',
+        tier_gate: {
+          required_tier: err.required_tier,
+          kind: err.kind,
+          message: err.message,
+        },
+      } as const;
+    }
+    throw err;
+  }
+
+  // Provider is resolved after the tier gate so trial users never touch it.
   const provider = getMediaProvider();
   const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
 

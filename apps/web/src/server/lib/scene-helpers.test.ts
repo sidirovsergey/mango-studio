@@ -1,5 +1,6 @@
 import { normalizeScene } from '@mango/core';
 import { describe, expect, it } from 'vitest';
+import type { MediaJobKind } from './scene-helpers';
 import {
   applyAssetToScript,
   applyMasterClipToScript,
@@ -119,5 +120,28 @@ describe('isMasterClipStale', () => {
       scene_ids_snapshot: ['s1', 's2'],
     });
     expect(isMasterClipStale(withMaster)).toBe(true);
+  });
+});
+
+describe('MediaJobKind union mirrors DB constraint', () => {
+  it('contains every value from 20260512000001 migration', () => {
+    const dbConstraint: MediaJobKind[] = [
+      'character_dossier',
+      'character_avatar',
+      'character_reference',
+      'character_reference_image',
+      'first_frame',
+      'video',
+      'voice',
+      'final_clip',
+      'last_frame_extract',
+      'scene_first_frame',
+      'scene_video',
+      'scene_voice',
+      'scene_final_clip',
+      'master_clip',
+      'storage_mirror',
+    ];
+    expect(dbConstraint.length).toBe(15);
   });
 });

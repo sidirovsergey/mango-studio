@@ -1,0 +1,247 @@
+/* Login / account pages */
+
+.login-page {
+  max-width: 380px;
+  margin: 80px auto;
+  padding: var(--space-7);
+  background: var(--paper);
+  border-radius: var(--r-card);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 8px 18px -10px rgba(26, 18, 7, 0.12);
+}
+
+.login-page h1 {
+  font-size: 22px;
+  font-family: var(--font-display);
+  color: var(--ink-900);
+  margin: 0 0 var(--space-2);
+}
+
+.login-subtitle {
+  font-size: 14px;
+  color: var(--ink-500);
+  margin: 0 0 var(--space-6);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.login-form input {
+  font-size: 16px;
+  font-family: var(--font-sans);
+  padding: 10px 12px;
+  border-radius: var(--r-input);
+  border: 1px solid var(--ink-200);
+  background: var(--paper);
+  color: var(--ink-900);
+  outline: none;
+  transition: border-color 160ms ease;
+}
+
+.login-form input:focus {
+  border-color: var(--mango-400);
+}
+
+.login-form button[type='submit'] {
+  padding: 10px 12px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  border-radius: var(--r-input);
+  border: 0;
+  background: var(--mango-500);
+  color: var(--paper);
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.login-form button[type='submit']:hover:not(:disabled) {
+  background: var(--mango-600);
+}
+
+.login-form button[type='submit']:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.login-form .login-back {
+  background: none;
+  border: 0;
+  color: var(--ink-500);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: left;
+  transition: color 120ms ease;
+}
+
+.login-form .login-back:hover {
+  color: var(--ink-700);
+}
+
+.login-error {
+  color: #c0392b;
+  font-size: 13px;
+}
+
+/* AccountMenu widget in TopBar */
+.account-cta {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: var(--r-input);
+  background: var(--mango-500);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.account-cta:hover {
+  background: var(--mango-600);
+}
+.account-menu {
+  position: relative;
+}
+.account-trigger {
+  padding: 6px 12px;
+  border-radius: var(--r-input);
+  background: transparent;
+  border: 1px solid var(--ink-200);
+  color: var(--ink-700);
+  font-size: 13px;
+  cursor: pointer;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-trigger:hover {
+  background: var(--ink-100, rgba(0, 0, 0, 0.04));
+}
+.account-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--paper);
+  border: 1px solid var(--ink-200);
+  border-radius: var(--r-card);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  min-width: 140px;
+  z-index: 50;
+}
+.account-dropdown form button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 14px;
+  background: transparent;
+  border: 0;
+  font-size: 13px;
+  color: var(--ink-700);
+  cursor: pointer;
+  border-radius: var(--r-card);
+}
+.account-dropdown form button:hover {
+  background: var(--ink-100, rgba(0, 0, 0, 0.04));
+}
+
+/* ClaimWorkBanner — shown above Workspace for anonymous users with ≥1 project */
+.claim-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--mango-50, rgba(255, 138, 0, 0.08));
+  border: 1px solid var(--mango-200, rgba(255, 138, 0, 0.2));
+  border-radius: var(--r-card);
+  margin: 0 auto 12px;
+  max-width: 1280px;
+  font-size: 13px;
+  color: var(--ink-700);
+}
+.claim-banner .claim-cta {
+  margin-left: auto;
+  color: var(--mango-600);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.claim-banner .claim-cta:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .claim-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .claim-banner .claim-cta {
+    margin-left: 0;
+  }
+}
+
+/* TierGateModal */
+.tg-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.tg-modal {
+  background: var(--paper);
+  border-radius: var(--r-card);
+  padding: 28px 32px;
+  max-width: 420px;
+  width: calc(100% - 32px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tg-modal h3 {
+  font-size: 18px;
+  margin: 0;
+  color: var(--ink-900);
+}
+.tg-modal p {
+  font-size: 14px;
+  color: var(--ink-700);
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+.tg-cta {
+  display: inline-block;
+  padding: 10px 16px;
+  background: var(--mango-500);
+  color: white;
+  border-radius: var(--r-input);
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  font-size: 14px;
+  transition: background 0.15s;
+}
+.tg-cta:hover {
+  background: var(--mango-600);
+}
+.tg-close {
+  background: transparent;
+  border: 0;
+  color: var(--ink-500);
+  font-size: 13px;
+  padding: 4px 0;
+  cursor: pointer;
+  align-self: center;
+}
+.tg-close:hover {
+  color: var(--ink-700);
+}

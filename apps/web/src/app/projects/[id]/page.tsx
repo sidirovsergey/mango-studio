@@ -1,3 +1,4 @@
+import { ClaimWorkBanner } from '@/components/account/ClaimWorkBanner';
 import { ProjectJobsPoller } from '@/components/workspace/ProjectJobsPoller';
 import { Workspace } from '@/components/workspace/Workspace';
 import { CharacterModal } from '@/components/workspace/character/CharacterModal';
@@ -5,7 +6,7 @@ import {
   type CharacterJobSummary,
   StageCharacters,
 } from '@/components/workspace/stages/StageCharacters';
-import { getCurrentUserId } from '@/lib/auth/get-user';
+import { getCurrentUser } from '@/lib/auth/get-user';
 import { getCharactersForUI } from '@/server/lib/get-characters-for-ui';
 import type { PersistedScript, Tier } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
@@ -31,7 +32,7 @@ interface Props {
 export default async function ProjectPage({ params, searchParams }: Props) {
   const { id } = await params;
   const sp = await searchParams;
-  await getCurrentUserId();
+  const user = await getCurrentUser();
   const supabase = await getServerSupabase();
 
   const [projectResult, messagesResult, characterJobsResult] = await Promise.all([
@@ -61,6 +62,16 @@ export default async function ProjectPage({ params, searchParams }: Props) {
     return notFound();
   }
 
+  const { count: projectCount } = await supabase
+    .from('projects')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id);
+
+  const anonWithProjects =
+    process.env.NEXT_PUBLIC_AUTH_UI_ENABLED === 'true' &&
+    Boolean(user.is_anonymous) &&
+    (projectCount ?? 0) >= 1;
+
   const project = projectResult.data;
   const expandedCharacterId = typeof sp.char === 'string' ? sp.char : undefined;
   const modalTab = sp.tab === 'refs' ? ('refs' as const) : ('main' as const);
@@ -85,10 +96,13 @@ export default async function ProjectPage({ params, searchParams }: Props) {
   return (
     <>
       <ProjectJobsPoller projectId={project.id} />
+      {anonWithProjects && <ClaimWorkBanner projectCount={projectCount ?? 0} />}
       <Workspace
         project={project}
         initialChatMessages={messagesResult.data ?? []}
         charactersSlot={charactersSlot}
+        userEmail={user.email ?? null}
+        isAnonymous={Boolean(user.is_anonymous)}
       />
       {expandedCharacter && (
         <CharacterModal

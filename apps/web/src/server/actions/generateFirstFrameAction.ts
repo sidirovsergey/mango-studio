@@ -1,6 +1,8 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/get-user';
+import { assertCapabilityOrLog } from '@/server/lib/assert-capability-or-log';
+import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import {
@@ -15,6 +17,7 @@ import {
   type Lighting,
   type Style,
   type Tier,
+  TierGateError,
   type VisualTheme,
   buildFirstFramePrompt,
   getDefaultModel,
@@ -232,11 +235,18 @@ const BulkInputSchema = z.object({
 
 const CAP = 5;
 
-export async function generateAllFirstFramesAction(
-  rawInput: unknown,
-): Promise<
+export async function generateAllFirstFramesAction(rawInput: unknown): Promise<
   | { ok: true; job_ids: string[]; existing_count: number; capped: boolean }
   | { ok: false; error: string }
+  | {
+      ok: false;
+      error: 'tier_gate';
+      tier_gate: {
+        required_tier: import('@mango/core').AccountTier;
+        kind: import('@mango/core').MediaJobKind;
+        message: string;
+      };
+    }
 > {
   let input: z.infer<typeof BulkInputSchema>;
   try {
@@ -265,6 +275,30 @@ export async function generateAllFirstFramesAction(
 
   const script = project.script as unknown as ScriptShape;
   if (!script) return { ok: false, error: 'project has no script' };
+
+  // Account-tier capability gate (Phase 1.6 D2).
+  // Single first-frame is an image kind (open to all tiers). Bulk path
+  // fans out to scene_video chains, so check the scene_video capability instead.
+  // projectTier ('economy' | 'premium') is passed as modelTier so assertCapability
+  // can distinguish free+economy (allowed) vs free+premium (blocked).
+  const projectTier = (project.tier ?? 'economy') as Tier;
+  try {
+    const accountTier = await getAccountTier(sb, user.id);
+    assertCapabilityOrLog(accountTier, 'scene_video', projectTier);
+  } catch (err) {
+    if (err instanceof TierGateError) {
+      return {
+        ok: false,
+        error: 'tier_gate',
+        tier_gate: {
+          required_tier: err.required_tier,
+          kind: err.kind,
+          message: err.message,
+        },
+      } as const;
+    }
+    throw err;
+  }
 
   const allSceneIds = script.scenes.map((s) => s.scene_id);
   const total = allSceneIds.length;

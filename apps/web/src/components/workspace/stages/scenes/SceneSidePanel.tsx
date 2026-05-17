@@ -1,5 +1,6 @@
 'use client';
 
+import { useTierGate } from '@/components/account/TierGateProvider';
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
 import { regenSceneTextAction } from '@/server/actions/regenSceneTextAction';
@@ -27,7 +28,17 @@ interface Props {
   tier: 'economy' | 'premium';
 }
 
-type ActionResult = { ok: boolean; error?: string };
+type ActionResult =
+  | { ok: boolean; error?: string }
+  | {
+      ok: false;
+      error: 'tier_gate';
+      tier_gate: {
+        required_tier: import('@mango/core').AccountTier;
+        kind: import('@mango/core').MediaJobKind;
+        message: string;
+      };
+    };
 
 const MODEL_LABEL: Record<string, string> = {
   // Active (native-audio only after 2026-05-13)
@@ -83,6 +94,7 @@ export function SceneSidePanel({
   const [promptModal, setPromptModal] = useState<'first_frame' | 'video' | null>(null);
   const [activeAction, setActiveAction] = useState<ActionId | null>(null);
   const { prospectivePrompts } = useStage04();
+  const { open: openTierGate } = useTierGate();
 
   // F53 UI gate — mirror the server-side hard precondition in
   // generateFirstFrameAction so the "Кадр" tile is visibly disabled while the
@@ -132,8 +144,16 @@ export function SceneSidePanel({
     setActiveAction(id);
     startTransition(async () => {
       const r = await fn();
-      if (!r.ok) setError(r.error ?? 'unknown');
-      else setError(null);
+      if (!r.ok) {
+        if (r.error === 'tier_gate' && 'tier_gate' in r) {
+          openTierGate({ kind: r.tier_gate.kind, required_tier: r.tier_gate.required_tier });
+          setActiveAction(null);
+          return;
+        }
+        setError(r.error ?? 'unknown');
+      } else {
+        setError(null);
+      }
       setActiveAction(null);
     });
   };

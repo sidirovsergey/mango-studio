@@ -1,5 +1,6 @@
 'use client';
 
+import { useTierGate } from '@/components/account/TierGateProvider';
 import { usePollJobs } from '@/hooks/use-poll-jobs';
 import { generateMasterClipAction } from '@/server/actions/generateMasterClipAction';
 import '@/styles/storyboard-inline.css';
@@ -35,6 +36,7 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
   const { script, jobs } = useStage04();
   const [masterError, setMasterError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const { open: openTierGate } = useTierGate();
   usePollJobs(projectId);
 
   // Auto-clear error after 6s so it doesn't linger
@@ -111,6 +113,10 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
       if (r.ok) {
         scrollToFinal();
       } else {
+        if (r.error === 'tier_gate' && 'tier_gate' in r) {
+          openTierGate({ kind: r.tier_gate.kind, required_tier: r.tier_gate.required_tier });
+          return;
+        }
         setMasterError(r.error ?? 'не удалось запустить финализацию');
       }
     });
