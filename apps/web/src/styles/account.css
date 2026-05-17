@@ -149,3 +149,39 @@
 .account-dropdown form button:hover {
   background: var(--ink-100, rgba(0, 0, 0, 0.04));
 }
+
+/* ClaimWorkBanner — shown above Workspace for anonymous users with ≥1 project */
+.claim-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--mango-50, rgba(255, 138, 0, 0.08));
+  border: 1px solid var(--mango-200, rgba(255, 138, 0, 0.2));
+  border-radius: var(--r-card);
+  margin: 0 auto 12px;
+  max-width: 1280px;
+  font-size: 13px;
+  color: var(--ink-700);
+}
+.claim-banner .claim-cta {
+  margin-left: auto;
+  color: var(--mango-600);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.claim-banner .claim-cta:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .claim-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .claim-banner .claim-cta {
+    margin-left: 0;
+  }
+}
