@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/auth/get-user', () => ({ getCurrentUser: vi.fn() }));
 vi.mock('@/server/lib/media-provider-factory', () => ({ getMediaProvider: vi.fn() }));
@@ -404,6 +404,13 @@ describe('generateSceneVideoAction — native audio always (post-rip-out)', () =
 // ---------------------------------------------------------------------------
 
 describe('generateSceneVideoAction — tier gate', () => {
+  beforeEach(() => {
+    vi.stubEnv('AUTH_GATE_ENFORCE', 'true');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   /**
    * Builds a supabase mock that satisfies both the project query (from+select+eq+single)
    * and the user_accounts query inside getAccountTier (mocked separately via

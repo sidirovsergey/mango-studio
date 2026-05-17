@@ -20,13 +20,13 @@ import {
   type Tier,
   type VisualTheme,
   TierGateError,
-  assertCapability,
   buildVideoPrompt,
   clampDurationToModel,
   getActiveVersion,
   getDefaultVideoModel,
   getVideoModelMeta,
 } from '@mango/core';
+import { assertCapabilityOrLog } from '@/server/lib/assert-capability-or-log';
 
 // Audio mode is hardcoded to 'native' post-2026-05-13 rip-out. Every active
 // video model carries native audio; the silent_tts → TTS → mux chain is gone.
@@ -211,7 +211,7 @@ export async function generateSceneVideoAction(
   // assertCapability can distinguish free+economy (allowed) vs free+premium (blocked).
   try {
     const accountTier = await getAccountTier(sb, user.id);
-    assertCapability(accountTier, 'scene_video', effectiveTier);
+    assertCapabilityOrLog(accountTier, 'scene_video', effectiveTier);
   } catch (err) {
     if (err instanceof TierGateError) {
       return {

@@ -8,7 +8,8 @@ import {
   recordPendingJob,
   rollbackMediaJobReservation,
 } from '@/server/lib/scene-helpers';
-import { assertCapability, TierGateError, type StoredAsset, getVideoModelMeta } from '@mango/core';
+import { TierGateError, type StoredAsset, getVideoModelMeta } from '@mango/core';
+import { assertCapabilityOrLog } from '@/server/lib/assert-capability-or-log';
 import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
@@ -149,7 +150,7 @@ export async function generateMasterClipAction(
   // Account-tier capability gate (Phase 1.6).
   try {
     const accountTier = await getAccountTier(sb, user.id);
-    assertCapability(accountTier, 'master_clip');
+    assertCapabilityOrLog(accountTier, 'master_clip');
   } catch (err) {
     if (err instanceof TierGateError) {
       return {

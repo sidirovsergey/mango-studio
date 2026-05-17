@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/auth/get-user', () => ({ getCurrentUser: vi.fn() }));
 vi.mock('@/server/lib/media-provider-factory', () => ({ getMediaProvider: vi.fn() }));
@@ -169,6 +169,13 @@ describe('generateMasterClipAction', () => {
 // ---------------------------------------------------------------------------
 
 describe('generateMasterClipAction — tier gate', () => {
+  beforeEach(() => {
+    vi.stubEnv('AUTH_GATE_ENFORCE', 'true');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   const makeProjectBuilder = () => ({
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),

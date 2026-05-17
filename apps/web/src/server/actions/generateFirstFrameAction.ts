@@ -17,10 +17,10 @@ import {
   type Tier,
   type VisualTheme,
   TierGateError,
-  assertCapability,
   buildFirstFramePrompt,
   getDefaultModel,
 } from '@mango/core';
+import { assertCapabilityOrLog } from '@/server/lib/assert-capability-or-log';
 import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
@@ -278,7 +278,7 @@ export async function generateAllFirstFramesAction(
   const projectTier = (project.tier ?? 'economy') as Tier;
   try {
     const accountTier = await getAccountTier(sb, user.id);
-    assertCapability(accountTier, 'scene_video', projectTier);
+    assertCapabilityOrLog(accountTier, 'scene_video', projectTier);
   } catch (err) {
     if (err instanceof TierGateError) {
       return {

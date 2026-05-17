@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/auth/get-user', () => ({ getCurrentUser: vi.fn() }));
 vi.mock('@/server/lib/media-provider-factory', () => ({ getMediaProvider: vi.fn() }));
@@ -428,6 +428,13 @@ describe('generateFirstFrameAction', () => {
 // ---------------------------------------------------------------------------
 
 describe('generateFirstFrameAction — tier gate on bulk path', () => {
+  beforeEach(() => {
+    vi.stubEnv('AUTH_GATE_ENFORCE', 'true');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   const makeBulkProject = () => ({
     id: PROJECT_ID,
     user_id: 'u1',
