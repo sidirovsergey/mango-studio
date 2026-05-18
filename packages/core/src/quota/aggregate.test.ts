@@ -80,4 +80,20 @@ describe('aggregateProjectPrice', () => {
     expect(Number.isInteger(q.kopeks)).toBe(true);
     expect(q.kopeks).toBe(50 * 5000 + 50 * 25000 + 1000);
   });
+
+  it('rejects invalid model_tier at runtime (Codex audit #3)', () => {
+    expect(() =>
+      aggregateProjectPrice({
+        scenes: [{ scene_id: 's1', model_tier: 'banana' as 'economy' }],
+      }),
+    ).toThrow(/invalid model_tier/);
+  });
+
+  it('rejects undefined model_tier at runtime', () => {
+    expect(() =>
+      aggregateProjectPrice({
+        scenes: [{ scene_id: 's1', model_tier: undefined as unknown as 'economy' }],
+      }),
+    ).toThrow(/invalid model_tier/);
+  });
 });

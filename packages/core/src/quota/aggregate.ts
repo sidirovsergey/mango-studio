@@ -33,10 +33,24 @@ export interface AggregatePriceInput {
  * are NOT included — they're user-initiated post-payment line items and
  * priced at per-call `priceQuote({ kind: 'scene_video', model_tier })`.
  */
+const VALID_TIERS: readonly ModelTier[] = ['economy', 'premium'];
+
 export function aggregateProjectPrice(input: AggregatePriceInput): PriceQuote {
   const withMaster = input.withMasterClip ?? true;
   const modifiers: PriceQuote['breakdown']['modifiers'] = [];
   let total = 0;
+
+  // Codex audit 2026-05-18 #3 — runtime tier validation. TS callers are safe,
+  // but if input crosses a trust boundary (DB column, server action body,
+  // RSC URL params) an unknown string like 'banana' would silently price
+  // as economy in flatPriceKopeks. Reject loud.
+  for (const s of input.scenes) {
+    if (!VALID_TIERS.includes(s.model_tier)) {
+      throw new Error(
+        `aggregateProjectPrice: invalid model_tier '${String(s.model_tier)}' for scene ${s.scene_id}`,
+      );
+    }
+  }
 
   // Stable grouping order: scenes appear by tier insertion order, then
   // master_clip. Tier order = first appearance in input.scenes (deterministic).
@@ -63,9 +77,12 @@ export function aggregateProjectPrice(input: AggregatePriceInput): PriceQuote {
 
   return {
     kopeks: total,
-    // `kind` and `model_tier` are not meaningful for an aggregate — surface
-    // a synthetic kind so downstream UI can still narrow on it without
-    // crashing the discriminated union.
+    // Codex audit 2026-05-18 #4 — kind is a SYNTHETIC value here, not a real
+    // media-job kind. Consumers MUST treat aggregate quotes as project-level
+    // totals; the kind field is set to master_clip purely to satisfy the
+    // discriminated-union return type and SHOULD NOT be inspected. If a future
+    // consumer needs to narrow on aggregate vs single-job quotes, introduce a
+    // separate AggregatePriceQuote type rather than overloading PriceQuote.kind.
     kind: 'master_clip' as MediaJobKind,
     model_tier: null,
     breakdown: { base_kopeks: 0, modifiers },
