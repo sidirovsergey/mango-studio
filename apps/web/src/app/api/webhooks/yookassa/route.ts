@@ -22,7 +22,10 @@ type BillingSupabase = {
   ) => Promise<{ data: T | null; error: { code?: string; message: string } | null }>;
   from: (table: string) => {
     select: (cols: string) => {
-      eq: (col: string, val: string) => {
+      eq: (
+        col: string,
+        val: string,
+      ) => {
         single: () => Promise<{
           data: Record<string, unknown> | null;
           error: { code?: string; message: string } | null;
@@ -116,9 +119,7 @@ export async function POST(req: Request): Promise<Response> {
       return new Response('ok', { status: 200 });
     }
 
-    const paymentRow = lookup.data as
-      | { id: string; intent_id: string | null }
-      | null;
+    const paymentRow = lookup.data as { id: string; intent_id: string | null } | null;
     if (paymentRow?.intent_id) {
       const settle = await supabase.rpc<string | null>('fn_settle_paid_intent', {
         p_billing_payment_id: paymentRow.id,

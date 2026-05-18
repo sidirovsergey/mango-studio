@@ -41,9 +41,7 @@ describe('enqueueRenderForProject', () => {
   afterEach(() => vi.restoreAllMocks());
 
   it('project_not_found → error result, no actions called', async () => {
-    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
-      mockProject(null),
-    );
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(mockProject(null));
     const r = await enqueueRenderForProject({ intent_id: INTENT_ID, project_id: PROJECT_ID });
     expect(r.ok).toBe(false);
     expect(r.master_error).toBe('project_not_found');

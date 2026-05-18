@@ -81,9 +81,7 @@ describe('TopupInputSchema', () => {
   });
 
   it('topup_only intent does not require project_id or return_to', () => {
-    expect(() =>
-      TopupIntentSchema.parse({ kind: 'topup_only' }),
-    ).not.toThrow();
+    expect(() => TopupIntentSchema.parse({ kind: 'topup_only' })).not.toThrow();
   });
 
   it('render/studio intent require project_id + return_to', () => {

@@ -34,12 +34,14 @@ function jsonReq(body: unknown, headers: Record<string, string> = {}): Request {
  *  - .from(table).select(cols).eq(col, val).single() → payment lookup
  *  - .from(table).update(row).eq(col, val) → cancel path
  */
-function makeSupabase(opts: {
-  rpcByFn?: Record<string, { data?: unknown; error?: { code?: string; message: string } | null }>;
-  selectRow?: Record<string, unknown> | null;
-  selectError?: { code?: string; message: string } | null;
-  updateResult?: { error: unknown };
-} = {}) {
+function makeSupabase(
+  opts: {
+    rpcByFn?: Record<string, { data?: unknown; error?: { code?: string; message: string } | null }>;
+    selectRow?: Record<string, unknown> | null;
+    selectError?: { code?: string; message: string } | null;
+    updateResult?: { error: unknown };
+  } = {},
+) {
   const rpc = vi.fn().mockImplementation((fn: string) => {
     const r = opts.rpcByFn?.[fn];
     return Promise.resolve({ data: r?.data ?? null, error: r?.error ?? null });
@@ -53,7 +55,15 @@ function makeSupabase(opts: {
   const updateEq = vi.fn().mockResolvedValue(opts.updateResult ?? { error: null });
   const update = vi.fn().mockReturnValue({ eq: updateEq });
   const from = vi.fn().mockReturnValue({ select, update });
-  return { rpc, from, _rpc: rpc, _from: from, _update: update, _updateEq: updateEq, _select: select };
+  return {
+    rpc,
+    from,
+    _rpc: rpc,
+    _from: from,
+    _update: update,
+    _updateEq: updateEq,
+    _select: select,
+  };
 }
 
 describe('POST /api/webhooks/yookassa', () => {

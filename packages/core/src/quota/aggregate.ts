@@ -1,5 +1,5 @@
-import type { MediaJobKind } from './tiers';
 import { type ModelTier, type PriceQuote, priceQuote } from './balance';
+import type { MediaJobKind } from './tiers';
 
 /**
  * Phase 1.7.1 — aggregate price for the storyboard sticky-CTA («Получить

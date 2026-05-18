@@ -73,9 +73,7 @@ export default async function PublicSlugPage(props: {
         sceneJobIds={result.scene_job_ids}
         masterJobId={result.master_job_id}
         partialError={
-          result.ok
-            ? null
-            : { sceneErrors: result.scene_errors, masterError: result.master_error }
+          result.ok ? null : { sceneErrors: result.scene_errors, masterError: result.master_error }
         }
       />
     );
@@ -83,7 +81,14 @@ export default async function PublicSlugPage(props: {
 
   // Already consumed (user refresh or earlier landing).
   if (row.intent_status === 'consumed') {
-    return <RenderProgressView projectId={row.project_id} sceneJobIds={[]} masterJobId={undefined} partialError={null} />;
+    return (
+      <RenderProgressView
+        projectId={row.project_id}
+        sceneJobIds={[]}
+        masterJobId={undefined}
+        partialError={null}
+      />
+    );
   }
 
   if (row.intent_status === 'expired') {

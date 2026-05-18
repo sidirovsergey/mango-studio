@@ -147,9 +147,7 @@ describe('createTopupAction — legacy v1.7.0 behavior preserved', () => {
       }),
     );
     expect(sb.from).toHaveBeenCalledWith('billing_payments');
-    expect(sb._mocks.insertMock).toHaveBeenCalledWith(
-      expect.objectContaining({ intent_id: null }),
-    );
+    expect(sb._mocks.insertMock).toHaveBeenCalledWith(expect.objectContaining({ intent_id: null }));
   });
 
   it('idempotent retry: UNIQUE constraint violation (23505) on billing_payments → still returns confirmation_url', async () => {

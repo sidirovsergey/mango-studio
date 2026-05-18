@@ -53,7 +53,10 @@ export async function enqueueRenderForProject(opts: {
   const { data, error } = await (
     sb.from as unknown as (table: string) => {
       select: (cols: string) => {
-        eq: (col: string, val: string) => {
+        eq: (
+          col: string,
+          val: string,
+        ) => {
           single: () => Promise<{ data: ProjectRow | null; error: unknown }>;
         };
       };
@@ -101,10 +104,7 @@ export async function enqueueRenderForProject(opts: {
     } else {
       scene_errors.push({
         scene_id: s.scene_id,
-        error:
-          'error' in r && typeof r.error === 'string'
-            ? r.error
-            : 'unknown',
+        error: 'error' in r && typeof r.error === 'string' ? r.error : 'unknown',
       });
     }
   }
@@ -120,8 +120,7 @@ export async function enqueueRenderForProject(opts: {
     if (mr.ok) {
       master_job_id = mr.job_id;
     } else {
-      master_error =
-        'error' in mr && typeof mr.error === 'string' ? mr.error : 'unknown';
+      master_error = 'error' in mr && typeof mr.error === 'string' ? mr.error : 'unknown';
     }
   } else {
     master_error = 'skipped_due_to_scene_errors';

@@ -29,7 +29,10 @@ type SbInsert = (
 ) => Promise<{ error: { code?: string; message: string } | null }>;
 type SbSelectOne = {
   select: (cols: string) => {
-    eq: (col: string, val: string) => {
+    eq: (
+      col: string,
+      val: string,
+    ) => {
       single: () => Promise<{
         data: Record<string, unknown> | null;
         error: { code?: string; message: string } | null;

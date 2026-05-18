@@ -7,7 +7,12 @@ const scn = (id: string, model_tier: ModelTier) => ({ scene_id: id, model_tier }
 describe('aggregateProjectPrice', () => {
   it('4 economy scenes + master = 4×50 + 10 = 210 ₽ (21000 kopeks)', () => {
     const q = aggregateProjectPrice({
-      scenes: [scn('s1', 'economy'), scn('s2', 'economy'), scn('s3', 'economy'), scn('s4', 'economy')],
+      scenes: [
+        scn('s1', 'economy'),
+        scn('s2', 'economy'),
+        scn('s3', 'economy'),
+        scn('s4', 'economy'),
+      ],
     });
     expect(q.kopeks).toBe(4 * 5000 + 1000);
     expect(q.breakdown.modifiers).toEqual([
