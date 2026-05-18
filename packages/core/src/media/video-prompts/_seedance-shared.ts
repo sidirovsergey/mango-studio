@@ -214,6 +214,10 @@ export function buildSubjectBlock(input: VideoPromptInput): string {
 }
 
 export function buildActionBlock(input: VideoPromptInput): string {
+  // Phase 1.8.0a: equivalent to normalize-script.ts's `image_prompt_text`
+  // channel (description_en ?? description). Do NOT switch to
+  // `narrative_paragraph` (Russian-canonical UI channel) or downstream
+  // Veo/Seedance prompts flip language.
   const desc = input.scene.description_en ?? input.scene.description;
   const segments = timeSegments(input.scene.duration_sec);
 

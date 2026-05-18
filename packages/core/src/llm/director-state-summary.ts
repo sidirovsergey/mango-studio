@@ -79,6 +79,11 @@ function formatSceneRow(scene: Scene): string {
   const arcRaw = scene.arc_role ?? '???';
   const arc = padRight(arcRaw, ARC_ROLE_WIDTH);
   const flags = sceneMediaFlags(scene);
+  // Phase 1.8.0a: this chain is the EXACT semantic of normalize-script.ts's
+  // `image_prompt_text` channel — English-preferred for downstream model
+  // context. Do NOT switch this to `narrative_paragraph` (Russian-canonical
+  // UI channel) or you flip Veo/Seedance prompt language for asymmetric
+  // projects. Test in director-state-summary.test.ts case #12 is the guard.
   const rawDesc = (scene.description_en ?? null) || scene.description;
   const desc = truncate(rawDesc, SCENE_DESC_MAX);
   return `  ${scene.scene_id} | ${duration} | ${arc} | ${flags} | "${desc}"`;

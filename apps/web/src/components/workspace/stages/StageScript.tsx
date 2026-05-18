@@ -1,6 +1,7 @@
 'use client';
 
 import { ThinkingShimmer } from '@/components/effects/ThinkingShimmer';
+import { useNormalizedScript } from '@/hooks/useNormalizedScript';
 import {
   type ScriptActionError,
   generateScriptClientAction,
@@ -32,6 +33,9 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 export function StageScript({ project, script }: Props) {
   const [currentScript, setCurrentScript] = useState<PersistedScript | null>(script);
+  // Phase 1.8.0a: normalised view of the current script. Russian-canonical
+  // narrative_paragraph used for the beat text below.
+  const normalized = useNormalizedScript(currentScript);
   const [isPending, startTransition] = useTransition();
   const [refineFormOpen, setRefineFormOpen] = useState(false);
   const [refineInstruction, setRefineInstruction] = useState('');
@@ -355,7 +359,12 @@ export function StageScript({ project, script }: Props) {
                   <span className="beat-duration">{scene.duration_sec} сек</span>
                   <span className="beat-arrow">→</span>
                   <span className="beat-text" data-beat-text>
-                    {scene.description}
+                    {/* Phase 1.8.0a: read from normalised narrative_paragraph
+                       (RU canonical) instead of raw scene.description. For
+                       symmetric projects (description == description_ru) the
+                       text is bit-identical to before 1.8.0a. */}
+                    {normalized?.scenes.find((s) => s.scene_id === scene.scene_id)
+                      ?.narrative_paragraph ?? scene.description}
                   </span>
                   <svg className="i beat-act" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M3 21l3-9 9-9 6 6-9 9-9 3z" />
@@ -391,7 +400,7 @@ export function StageScript({ project, script }: Props) {
       {activeBeatId && (
         <form className="refine-form" style={{ marginTop: 12 }} onSubmit={handleBeatRefineSubmit}>
           <textarea
-            placeholder={`Уточни бит «${currentScript?.scenes.find((s) => s.scene_id === activeBeatId)?.description ?? ''}»`}
+            placeholder={`Уточни бит «${normalized?.scenes.find((s) => s.scene_id === activeBeatId)?.narrative_paragraph ?? ''}»`}
             value={activeBeatInstruction}
             onChange={(e) => setActiveBeatInstruction(e.target.value)}
             // biome-ignore lint/a11y/noAutofocus: refine form opens on explicit user action; autofocus is desired UX

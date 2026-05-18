@@ -182,7 +182,10 @@ export function buildFirstFramePrompt(input: FirstFramePromptInput): {
     );
   }
 
-  // [8] Scene description (English preferred)
+  // [8] Scene description (English preferred).
+  // Phase 1.8.0a: equivalent to normalize-script.ts's `image_prompt_text`
+  // channel (description_en ?? description). Do NOT switch to
+  // `narrative_paragraph` (Russian-canonical UI channel).
   const sceneDesc = scene.description_en || scene.description;
   parts.push(sceneDesc);
 

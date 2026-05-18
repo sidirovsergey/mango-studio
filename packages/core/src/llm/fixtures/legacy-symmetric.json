@@ -1,0 +1,28 @@
+{
+  "scenes": [
+    {
+      "scene_id": "s1",
+      "description": "Кот-разработчик заходит в офис и здоровается с псом-PM.",
+      "description_ru": "Кот-разработчик заходит в офис и здоровается с псом-PM.",
+      "description_en": "Cat developer walks into the office and greets the dog PM.",
+      "duration_sec": 8,
+      "dialogue": { "speaker": "cat_dev", "text": "Доброе утро, господа разработчики!" },
+      "character_ids": ["cat_dev", "dog_pm"],
+      "arc_role": "hook"
+    },
+    {
+      "scene_id": "s2",
+      "description": "Пёс-PM поднимает усталый взгляд от ноутбука.",
+      "description_ru": "Пёс-PM поднимает усталый взгляд от ноутбука.",
+      "description_en": "The dog PM looks up wearily from the laptop.",
+      "duration_sec": 6,
+      "dialogue": { "speaker": "dog_pm", "text": "Опять ты со своими идеями..." },
+      "character_ids": ["dog_pm"],
+      "arc_role": "rising"
+    }
+  ],
+  "characters": [
+    { "id": "cat_dev", "name": "Кот-разработчик", "description": "Серый домашний кот в очках" },
+    { "id": "dog_pm", "name": "Пёс-PM", "description": "Большой ленивый лабрадор" }
+  ]
+}

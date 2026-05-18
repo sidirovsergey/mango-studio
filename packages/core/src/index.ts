@@ -93,7 +93,12 @@ export type {
   ScriptCharacterAction,
   StoredAssetParsed,
 } from './llm';
-export { normalizeScene } from './llm';
+export { normalizeScene, normalizeScript } from './llm';
+export type {
+  NormalizedScript,
+  NormalizedScene,
+  ShotSpec,
+} from './llm/normalize-script';
 export {
   LLMProviderError,
   classifyLLMError,

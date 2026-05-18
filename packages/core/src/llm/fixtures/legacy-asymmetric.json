@@ -1,0 +1,27 @@
+{
+  "scenes": [
+    {
+      "scene_id": "s1",
+      "description": "An old fisherman casts a net into the misty lake at dawn.",
+      "description_ru": "Старый рыбак забрасывает сеть в туманное озеро на рассвете.",
+      "description_en": "An old fisherman casts a net into the misty lake at dawn, golden hour light catching the ripples.",
+      "duration_sec": 10,
+      "dialogue": null,
+      "character_ids": ["fisherman"],
+      "arc_role": "hook"
+    },
+    {
+      "scene_id": "s2",
+      "description": "He pulls up a glowing fish.",
+      "description_ru": "Он вытаскивает светящуюся рыбу.",
+      "description_en": "He pulls up a glowing fish, its scales emitting a soft blue light.",
+      "duration_sec": 8,
+      "dialogue": { "speaker": "fisherman", "text": "Вот это улов!" },
+      "character_ids": ["fisherman"],
+      "arc_role": "climax"
+    }
+  ],
+  "characters": [
+    { "id": "fisherman", "name": "Рыбак", "description": "Седобородый старик с обветренным лицом" }
+  ]
+}

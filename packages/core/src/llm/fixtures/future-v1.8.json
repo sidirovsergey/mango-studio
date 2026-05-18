@@ -1,0 +1,48 @@
+{
+  "scenes": [
+    {
+      "scene_id": "s1",
+      "duration_sec": 10,
+      "location": "Open-space офис, утро, через окно видны горы",
+      "narrative_paragraph": "Аббат-кот Шрёдингер заходит в офис и здоровается с псом-PM. «Доброе утро, господа разработчики!» — провозглашает он. Пёс-PM поднимает усталый взгляд: «Опять ты со своими идеями...»",
+      "dialogue": [
+        { "speaker": "cat_dev", "text": "Доброе утро, господа разработчики!" },
+        { "speaker": "dog_pm", "text": "Опять ты со своими идеями..." }
+      ],
+      "shots": [
+        {
+          "shot_id": "s1_shot1",
+          "description": "Wide shot of office entrance, cat walks in from left",
+          "image_prompt": "Wide shot of bright open-space office at dawn, cartoon cat in glasses walking in from left, mountain view through windows"
+        },
+        {
+          "shot_id": "s1_shot2",
+          "description": "Tight on dog-PM's tired face",
+          "image_prompt": "Close-up of a tired labrador's face at a laptop, dim screen glow, exasperated expression"
+        }
+      ],
+      "character_ids": ["cat_dev", "dog_pm"],
+      "arc_role": "hook"
+    },
+    {
+      "scene_id": "s2",
+      "duration_sec": 8,
+      "location": "Тот же офис, после первой шутки",
+      "narrative_paragraph": "Тишина повисает на пару секунд, потом весь open-space фыркает в смешке.",
+      "dialogue": [],
+      "shots": [
+        {
+          "shot_id": "s2_shot1",
+          "description": "Office crowd reacting",
+          "image_prompt": "Open-plan office, several cartoon devs at desks turning to look, one stifling a laugh"
+        }
+      ],
+      "character_ids": ["cat_dev", "dog_pm"],
+      "arc_role": "rising"
+    }
+  ],
+  "characters": [
+    { "id": "cat_dev", "name": "Кот-разработчик", "description": "Серый домашний кот в очках" },
+    { "id": "dog_pm", "name": "Пёс-PM", "description": "Большой ленивый лабрадор" }
+  ]
+}
