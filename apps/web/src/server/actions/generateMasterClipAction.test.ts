@@ -18,9 +18,11 @@ vi.mock('@/server/lib/rate-limit', () => ({
   }),
 }));
 vi.mock('@/server/lib/get-account-tier', () => ({ getAccountTier: vi.fn() }));
+vi.mock('@/server/lib/get-balance', () => ({ getBalance: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getAccountTier } from '@/server/lib/get-account-tier';
+import { getBalance } from '@/server/lib/get-balance';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
@@ -99,6 +101,7 @@ describe('generateMasterClipAction', () => {
 
   it('submits concat using each scene active final_clip; passes composed metadata', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(99999);
 
     const submitMasterConcat = vi.fn().mockResolvedValue({
       fal_request_id: 'req-concat-1',
@@ -122,6 +125,7 @@ describe('generateMasterClipAction', () => {
     };
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => projectQuery),
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     });
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
@@ -214,6 +218,7 @@ describe('generateMasterClipAction — tier gate', () => {
     // Arrange
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
     (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(99999);
 
     const submitMasterConcat = vi.fn().mockResolvedValue({
       fal_request_id: 'req-free-concat',
@@ -226,6 +231,7 @@ describe('generateMasterClipAction — tier gate', () => {
 
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => makeProjectBuilder()),
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     });
 
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
@@ -243,5 +249,146 @@ describe('generateMasterClipAction — tier gate', () => {
     expect(reserveMediaJob).toHaveBeenCalledTimes(1);
     expect(submitMasterConcat).toHaveBeenCalledTimes(1);
     expect(result.ok).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1.7 D4 — balance gate
+// ---------------------------------------------------------------------------
+
+describe('generateMasterClipAction — balance gate (Phase 1.7)', () => {
+  beforeEach(() => {
+    vi.stubEnv('AUTH_GATE_ENFORCE', 'true');
+    vi.stubEnv('PAYMENTS_GATE_ENFORCE', 'true');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const makeProjectBuilder = () => ({
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data: makeProject(), error: null }),
+  });
+
+  it('free user with zero balance returns insufficient_balance', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(0);
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => makeProjectBuilder()),
+    });
+
+    const result = await generateMasterClipAction({ project_id: PROJECT_ID });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('insufficient_balance');
+      const r = result as {
+        ok: false;
+        error: 'insufficient_balance';
+        insufficient_balance: {
+          required_kopeks: number;
+          current_kopeks: number;
+          kind: string;
+          model_tier: null;
+        };
+      };
+      expect(r.insufficient_balance.required_kopeks).toBe(1000);
+      expect(r.insufficient_balance.current_kopeks).toBe(0);
+      expect(r.insufficient_balance.kind).toBe('master_clip');
+      expect(r.insufficient_balance.model_tier).toBeNull();
+    }
+    expect(reserveMediaJob).not.toHaveBeenCalled();
+  });
+
+  it('free user with sufficient balance (>=1000) passes pre-flight and calls fn_reserve_balance', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(1000);
+
+    const submitMasterConcat = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-balance-ok',
+      model_used: 'fal-ai/ffmpeg-api/merge-videos',
+      request_input: {},
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      submitMasterConcat,
+    });
+
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => makeProjectBuilder()),
+      rpc,
+    });
+
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
+      job_id: 'job-balance-ok',
+      used: 1,
+      dedup: false,
+    });
+
+    const result = await generateMasterClipAction({ project_id: PROJECT_ID });
+
+    expect(result.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('fn_reserve_balance', {
+      p_job_id: 'job-balance-ok',
+      p_user_id: 'u1',
+      p_kopeks: 1000,
+      p_kind: 'master_clip',
+      p_model_tier: null,
+    });
+  });
+
+  it('balance pre-flight passes but fn_reserve_balance returns false → cancels media_job + returns insufficient_balance', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(1000);
+
+    const rpc = vi.fn().mockResolvedValue({ data: false, error: null });
+    const updateChain = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn((table: string) => {
+        if (table === 'media_jobs') return updateChain;
+        return makeProjectBuilder();
+      }),
+      rpc,
+    });
+
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
+      job_id: 'job-drain',
+      used: 1,
+      dedup: false,
+    });
+
+    const result = await generateMasterClipAction({ project_id: PROJECT_ID });
+
+    expect(updateChain.update).toHaveBeenCalledWith({ status: 'canceled' });
+    expect(updateChain.eq).toHaveBeenCalledWith('id', 'job-drain');
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('insufficient_balance');
+      const r = result as {
+        ok: false;
+        error: 'insufficient_balance';
+        insufficient_balance: {
+          required_kopeks: number;
+          current_kopeks: number;
+          kind: string;
+          model_tier: null;
+        };
+      };
+      expect(r.insufficient_balance.required_kopeks).toBe(1000);
+      expect(r.insufficient_balance.kind).toBe('master_clip');
+      expect(r.insufficient_balance.model_tier).toBeNull();
+    }
   });
 });

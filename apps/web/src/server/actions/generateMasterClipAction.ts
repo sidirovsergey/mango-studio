@@ -1,8 +1,10 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/get-user';
+import { assertBalanceOrLog } from '@/server/lib/assert-balance-or-log';
 import { assertCapabilityOrLog } from '@/server/lib/assert-capability-or-log';
 import { getAccountTier } from '@/server/lib/get-account-tier';
+import { getBalance } from '@/server/lib/get-balance';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import {
@@ -10,7 +12,14 @@ import {
   recordPendingJob,
   rollbackMediaJobReservation,
 } from '@/server/lib/scene-helpers';
-import { type StoredAsset, TierGateError, getVideoModelMeta } from '@mango/core';
+import {
+  BalanceGateError,
+  type ModelTier,
+  type StoredAsset,
+  TierGateError,
+  getVideoModelMeta,
+  priceKopeks,
+} from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
 
@@ -59,6 +68,16 @@ export async function generateMasterClipAction(rawInput: unknown): Promise<
         required_tier: import('@mango/core').AccountTier;
         kind: import('@mango/core').MediaJobKind;
         message: string;
+      };
+    }
+  | {
+      ok: false;
+      error: 'insufficient_balance';
+      insufficient_balance: {
+        required_kopeks: number;
+        current_kopeks: number;
+        kind: import('@mango/core').MediaJobKind;
+        model_tier: ModelTier | null;
       };
     }
 > {
@@ -172,6 +191,29 @@ export async function generateMasterClipAction(rawInput: unknown): Promise<
     throw err;
   }
 
+  // Phase 1.7 — Balance pre-flight (cheap UX gate; not the atomic authority).
+  const balance = await getBalance(sb, user.id);
+  const priceKop = priceKopeks('master_clip'); // flat 1000 kopeks, no tier arg
+  if (priceKop > 0) {
+    try {
+      assertBalanceOrLog(balance, 'master_clip');
+    } catch (err) {
+      if (err instanceof BalanceGateError) {
+        return {
+          ok: false,
+          error: 'insufficient_balance',
+          insufficient_balance: {
+            required_kopeks: err.required_kopeks,
+            current_kopeks: err.current_kopeks,
+            kind: err.kind,
+            model_tier: null, // master_clip has no tier
+          },
+        } as const;
+      }
+      throw err;
+    }
+  }
+
   // Provider is resolved after the tier gate so trial users never touch it.
   const provider = getMediaProvider();
   const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
@@ -186,6 +228,37 @@ export async function generateMasterClipAction(rawInput: unknown): Promise<
   if (!reservation.ok) return { ok: false, error: reservation.error };
   if (reservation.mode === 'reserved' && reservation.dedup) {
     return { ok: true, job_id: reservation.job_id, existing: true };
+  }
+
+  // Phase 1.7 — Atomic balance reservation (race-safe authority).
+  // Only runs in 'reserved' mode (bypass has no media_jobs row to link).
+  // Generated Supabase types don't know about fn_reserve_balance (added in
+  // Phase 1.7 migration); cast through unknown, same pattern as D2.
+  if (priceKop > 0 && reservation.mode === 'reserved') {
+    const reserveBalanceRpc = sb.rpc as unknown as (
+      name: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: boolean | null; error: { message: string } | null }>;
+    const reserved = await reserveBalanceRpc('fn_reserve_balance', {
+      p_job_id: reservation.job_id,
+      p_user_id: user.id,
+      p_kopeks: priceKop,
+      p_kind: 'master_clip',
+      p_model_tier: null, // master_clip has no tier
+    });
+    if (reserved.error || reserved.data === false) {
+      await sb.from('media_jobs').update({ status: 'canceled' }).eq('id', reservation.job_id);
+      return {
+        ok: false,
+        error: 'insufficient_balance',
+        insufficient_balance: {
+          required_kopeks: priceKop,
+          current_kopeks: balance, // stale; UI re-fetches on close
+          kind: 'master_clip',
+          model_tier: null,
+        },
+      } as const;
+    }
   }
 
   let handle: Awaited<ReturnType<typeof provider.submitMasterConcat>>;
