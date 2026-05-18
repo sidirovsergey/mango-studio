@@ -22,7 +22,14 @@ import { RenderProgressView } from './components/RenderProgressView';
  *
  * Routing model: [publicSlug] is the short URL-safe id (10 chars) from
  * projects.public_slug. Direct shareable URL.
+ *
+ * Codex pre-PR audit (2026-05-19) fix: `force-dynamic` prevents Next/Vercel
+ * from caching rendered HTML that embeds short-lived signed image URLs
+ * (1h TTL on Supabase storage URLs). Without this, a shared link viewed
+ * >1h later would render broken first_frame images. The page is cheap to
+ * regenerate (one DB query + Promise.all over 4-8 scene URL signs).
  */
+export const dynamic = 'force-dynamic';
 type IntentInspectRow = {
   intent_id: string;
   project_id: string;

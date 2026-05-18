@@ -202,13 +202,44 @@ export async function toPublicProjectView(
 }
 
 /**
+ * Statuses where the project is share-ready — script + first frames exist.
+ * Codex pre-PR audit fix (2026-05-19): explicit gate vs slug-only exposure.
+ *
+ * Excluded: `draft_input` (no idea yet), `generating_storyboard` (no frames
+ * yet), `error` (failed generation, nothing to show).
+ *
+ * Included: `storyboard_ready`, `paywalled`, `rendering`, `done`, `editing`
+ * — all carry a complete script + first_frame_versions. Plus legacy values
+ * `completed`/`ready` from v1.6.x for back-compat with existing prod rows.
+ *
+ * If a new status is added to the project state machine, add it here only
+ * after confirming the storyboard is renderable in that state.
+ */
+const SHARE_READY_STATUSES = new Set([
+  'storyboard_ready',
+  'paywalled',
+  'rendering',
+  'done',
+  'editing',
+  'completed',
+  'ready',
+]);
+
+/**
  * Fetch the project row by public_slug via service_role + map to the public
- * view. Returns `null` when no project matches OR mapping fails.
+ * view. Returns `null` when no project matches, mapping fails, OR status is
+ * NOT share-ready (drafts, in-flight generation, errored — see
+ * SHARE_READY_STATUSES).
  *
  * SECURITY: service_role bypasses RLS — relying on the mapper allowlist as
  * the boundary. Do NOT add `select *` here. The fields listed are exactly
  * the ProjectRowSubset shape; if you need a new field, also extend the
  * type + the mapper + the leak test.
+ *
+ * Codex pre-PR audit (2026-05-19): low guessability is NOT an authorization
+ * rule. Projects in draft / generating / error states are NOT public even
+ * though they have a slug. Anti-enumeration: return null indistinguishably
+ * for "slug not found" vs "status not share-ready".
  */
 export async function fetchPublicProjectBySlug(
   publicSlug: string,
@@ -236,5 +267,8 @@ export async function fetchPublicProjectBySlug(
     return null;
   }
   if (!data) return null;
+  if (!SHARE_READY_STATUSES.has(data.status)) {
+    return null;
+  }
   return toPublicProjectView(data);
 }
