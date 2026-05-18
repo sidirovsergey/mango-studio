@@ -172,7 +172,9 @@ export {
   priceKopeks,
   priceQuote,
   assertBalance,
+  aggregateProjectPrice,
 } from './quota';
+export type { AggregateSceneSpec, AggregatePriceInput } from './quota';
 
 // NOTE: `ScriptGenSchema`/`ScriptSchema`/`SceneSchema` (from `./llm/schemas`)
 // and `upgradeScene`/`upgradeScript`/`downgradeScript` (from `./llm/migration`)
