@@ -19,8 +19,11 @@ vi.mock('@/server/lib/rate-limit', () => ({
 }));
 vi.mock('@/server/lib/get-account-tier', () => ({ getAccountTier: vi.fn() }));
 
+vi.mock('@/server/lib/get-balance', () => ({ getBalance: vi.fn() }));
+
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getAccountTier } from '@/server/lib/get-account-tier';
+import { getBalance } from '@/server/lib/get-balance';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
@@ -111,6 +114,7 @@ describe('generateSceneVideoAction', () => {
 
   it('uses active first_frame_version as ref when multiple versions exist', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(99999);
 
     const project = makeProjectWithVersionedFrame({
       first_frame_versions: [
@@ -143,6 +147,7 @@ describe('generateSceneVideoAction', () => {
     };
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => builder),
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     });
 
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
@@ -179,6 +184,7 @@ describe('generateSceneVideoAction', () => {
     // pipeline. Every active model bakes audio in directly, so even Russian
     // dialogue routes through the same native-audio path.
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(99999);
 
     const project = makeProjectWithVersionedFrame({
       audio_mode: 'auto',
@@ -199,6 +205,7 @@ describe('generateSceneVideoAction', () => {
     };
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => builder),
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     });
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
@@ -218,6 +225,7 @@ describe('generateSceneVideoAction', () => {
 
   it('uses prompt_override when provided (skips builder output)', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(99999);
     const project = makeProjectWithVersionedFrame();
 
     const submitSceneVideo = vi.fn().mockResolvedValue({
@@ -235,6 +243,7 @@ describe('generateSceneVideoAction', () => {
     };
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => builder),
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     });
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
@@ -258,6 +267,7 @@ describe('generateSceneVideoAction', () => {
 
   it('returns native audio_mode when latin dialogue + native model', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(99999);
 
     const project = makeProjectWithVersionedFrame({
       audio_mode: 'auto',
@@ -278,6 +288,7 @@ describe('generateSceneVideoAction', () => {
     };
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => builder),
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     });
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
@@ -309,6 +320,7 @@ async function runAndCapturePrompt(
   scriptOverrides: Record<string, unknown> = {},
 ): Promise<string> {
   (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+  (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(99999);
 
   const project = makeProjectWithVersionedFrame(sceneOverrides, scriptOverrides);
 
@@ -328,6 +340,7 @@ async function runAndCapturePrompt(
   };
   (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
     from: vi.fn(() => builder),
+    rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
   });
   (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
     ok: true,
@@ -403,6 +416,166 @@ describe('generateSceneVideoAction — native audio always (post-rip-out)', () =
 // Phase 1.6 D1 — account-tier capability gate
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Phase 1.7 D2 — balance pre-flight + atomic fn_reserve_balance
+// ---------------------------------------------------------------------------
+
+describe('generateSceneVideoAction — balance gate', () => {
+  beforeEach(() => {
+    vi.stubEnv('AUTH_GATE_ENFORCE', 'true');
+    vi.stubEnv('PAYMENTS_GATE_ENFORCE', 'true');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  /** Economy project fixture — config_overrides.tier='economy' so effectiveTier='economy' */
+  const makeEconomyProject = () => ({
+    ...makeProjectWithVersionedFrame({ config_overrides: { tier: 'economy' } }),
+  });
+
+  /** Builds a supabase mock with rpc + optional update chain */
+  const makeSupabaseMock = (opts: {
+    rpcData: boolean | null;
+    rpcError?: null | { message: string };
+    updateOk?: boolean;
+  }) => {
+    const updateChain = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+    };
+    const projectBuilder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: makeEconomyProject(), error: null }),
+    };
+    const fromFn = vi.fn((table: string) => {
+      if (table === 'media_jobs') return updateChain;
+      return projectBuilder;
+    });
+    const rpcFn = vi.fn().mockResolvedValue({
+      data: opts.rpcData,
+      error: opts.rpcError ?? null,
+    });
+    return { sb: { from: fromFn, rpc: rpcFn }, updateChain, projectBuilder };
+  };
+
+  it('free user with zero balance returns insufficient_balance, never calls reserveMediaJob or getMediaProvider', async () => {
+    // Arrange
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(0);
+
+    const { sb } = makeSupabaseMock({ rpcData: null });
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sb);
+
+    // Act
+    const result = await generateSceneVideoAction({
+      project_id: PROJECT_ID,
+      scene_id: 's1',
+    });
+
+    // Assert: gate blocked
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('insufficient_balance');
+      const r = result as {
+        ok: false;
+        error: 'insufficient_balance';
+        insufficient_balance: {
+          required_kopeks: number;
+          current_kopeks: number;
+          kind: string;
+          model_tier: string | null;
+        };
+      };
+      expect(r.insufficient_balance.required_kopeks).toBe(5000);
+      expect(r.insufficient_balance.current_kopeks).toBe(0);
+      expect(r.insufficient_balance.kind).toBe('scene_video');
+      expect(r.insufficient_balance.model_tier).toBe('economy');
+    }
+    expect(reserveMediaJob).not.toHaveBeenCalled();
+    expect(getMediaProvider).not.toHaveBeenCalled();
+  });
+
+  it('free user with sufficient balance passes pre-flight and calls fn_reserve_balance', async () => {
+    // Arrange
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(5000);
+
+    const { sb } = makeSupabaseMock({ rpcData: true });
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sb);
+
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
+      job_id: 'job-1',
+      used: 1,
+      dedup: false,
+    });
+
+    const submitSceneVideo = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-bal',
+      model_used: 'bytedance/seedance-2.0/image-to-video',
+      request_input: { duration_sec: 7 },
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ submitSceneVideo });
+
+    // Act
+    const result = await generateSceneVideoAction({
+      project_id: PROJECT_ID,
+      scene_id: 's1',
+    });
+
+    // Assert: rpc called with correct params, result ok
+    expect(sb.rpc).toHaveBeenCalledWith('fn_reserve_balance', {
+      p_kind: 'scene_video',
+      p_model_tier: 'economy',
+      p_kopeks: 5000,
+      p_user_id: 'u1',
+      p_job_id: 'job-1',
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('balance pre-flight passes but fn_reserve_balance returns false → cancels media_job + returns insufficient_balance', async () => {
+    // Arrange — balance=5000 passes pre-flight, but rpc signals concurrent drain
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(5000);
+
+    const { sb, updateChain } = makeSupabaseMock({ rpcData: false });
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sb);
+
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
+      job_id: 'job-1',
+      used: 1,
+      dedup: false,
+    });
+
+    const submitSceneVideo = vi.fn();
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ submitSceneVideo });
+
+    // Act
+    const result = await generateSceneVideoAction({
+      project_id: PROJECT_ID,
+      scene_id: 's1',
+    });
+
+    // Assert: media_job rolled back, insufficient_balance returned, submit NOT called
+    expect(updateChain.update).toHaveBeenCalledWith({ status: 'canceled' });
+    expect(updateChain.eq).toHaveBeenCalledWith('id', 'job-1');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('insufficient_balance');
+    }
+    expect(submitSceneVideo).not.toHaveBeenCalled();
+  });
+});
+
 describe('generateSceneVideoAction — tier gate', () => {
   beforeEach(() => {
     vi.stubEnv('AUTH_GATE_ENFORCE', 'true');
@@ -461,6 +634,7 @@ describe('generateSceneVideoAction — tier gate', () => {
     // Arrange: free tier + economy model (premium project tier, but free user → economy gate check)
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
     (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(99999);
 
     // Economy scene (no tier override → falls back to project tier 'premium',
     // but the project fixture's scene has no config_overrides so effectiveTier
@@ -484,6 +658,7 @@ describe('generateSceneVideoAction — tier gate', () => {
     };
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn(() => builder),
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     });
 
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({

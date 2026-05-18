@@ -1,8 +1,10 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/get-user';
+import { assertBalanceOrLog } from '@/server/lib/assert-balance-or-log';
 import { assertCapabilityOrLog } from '@/server/lib/assert-capability-or-log';
 import { getAccountTier } from '@/server/lib/get-account-tier';
+import { getBalance } from '@/server/lib/get-balance';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import {
@@ -13,10 +15,12 @@ import {
 import {
   type ArcRole,
   type AudioDirection,
+  BalanceGateError,
   type CameraMovement,
   type Character,
   type Composition,
   type Lighting,
+  type ModelTier,
   type SceneAssetVersion,
   type Tier,
   TierGateError,
@@ -26,6 +30,7 @@ import {
   getActiveVersion,
   getDefaultVideoModel,
   getVideoModelMeta,
+  priceKopeks,
 } from '@mango/core';
 
 // Audio mode is hardcoded to 'native' post-2026-05-13 rip-out. Every active
@@ -89,6 +94,16 @@ export async function generateSceneVideoAction(rawInput: unknown): Promise<
         required_tier: import('@mango/core').AccountTier;
         kind: import('@mango/core').MediaJobKind;
         message: string;
+      };
+    }
+  | {
+      ok: false;
+      error: 'insufficient_balance';
+      insufficient_balance: {
+        required_kopeks: number;
+        current_kopeks: number;
+        kind: import('@mango/core').MediaJobKind;
+        model_tier: ModelTier | null;
       };
     }
 > {
@@ -233,6 +248,29 @@ export async function generateSceneVideoAction(rawInput: unknown): Promise<
     throw err;
   }
 
+  // Phase 1.7 — Balance pre-flight (cheap UX gate; not the atomic authority).
+  const balance = await getBalance(sb, user.id);
+  const priceKop = priceKopeks('scene_video', effectiveTier as ModelTier);
+  if (priceKop > 0) {
+    try {
+      assertBalanceOrLog(balance, 'scene_video', effectiveTier as ModelTier);
+    } catch (err) {
+      if (err instanceof BalanceGateError) {
+        return {
+          ok: false,
+          error: 'insufficient_balance',
+          insufficient_balance: {
+            required_kopeks: err.required_kopeks,
+            current_kopeks: err.current_kopeks,
+            kind: err.kind,
+            model_tier: effectiveTier as ModelTier | null,
+          },
+        } as const;
+      }
+      throw err;
+    }
+  }
+
   // Provider is resolved after the tier gate so trial users never touch it.
   const provider = getMediaProvider();
   const ctx = { user_id: user.id, project_id: input.project_id, character_id: '' };
@@ -247,6 +285,40 @@ export async function generateSceneVideoAction(rawInput: unknown): Promise<
   if (!reservation.ok) return { ok: false, error: reservation.error };
   if (reservation.mode === 'reserved' && reservation.dedup) {
     return { ok: true, job_id: reservation.job_id, existing: true, audio_mode: audioMode };
+  }
+
+  // Phase 1.7 — Atomic balance reservation (race-safe authority).
+  // Only runs in 'reserved' mode (bypass has no media_jobs row to link).
+  // Even if pre-flight passed, a concurrent submit could have drained the
+  // balance between read and now. fn_reserve_balance is the actual authority.
+  // Generated Supabase types don't know about fn_reserve_balance (added in
+  // Phase 1.7 migration); cast through unknown, same pattern as rate-limit.ts.
+  if (priceKop > 0 && reservation.mode === 'reserved') {
+    const reserveBalanceRpc = sb.rpc as unknown as (
+      name: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: boolean | null; error: { message: string } | null }>;
+    const reserved = await reserveBalanceRpc('fn_reserve_balance', {
+      p_job_id: reservation.job_id,
+      p_user_id: user.id,
+      p_kopeks: priceKop,
+      p_kind: 'scene_video',
+      p_model_tier: (effectiveTier as ModelTier) ?? null,
+    });
+    if (reserved.error || reserved.data === false) {
+      // Rollback the media_job (before provider submit, so no external work wasted)
+      await sb.from('media_jobs').update({ status: 'canceled' }).eq('id', reservation.job_id);
+      return {
+        ok: false,
+        error: 'insufficient_balance',
+        insufficient_balance: {
+          required_kopeks: priceKop,
+          current_kopeks: balance, // stale; UI re-fetches on close
+          kind: 'scene_video',
+          model_tier: (effectiveTier as ModelTier) ?? null,
+        },
+      } as const;
+    }
   }
 
   let handle: Awaited<ReturnType<typeof provider.submitSceneVideo>>;
