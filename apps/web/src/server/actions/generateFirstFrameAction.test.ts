@@ -21,9 +21,11 @@ vi.mock('@/server/lib/rate-limit', () => ({
 // in next/cache; stub revalidatePath so the inner action does not throw in test env.
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('@/server/lib/get-account-tier', () => ({ getAccountTier: vi.fn() }));
+vi.mock('@/server/lib/get-balance', () => ({ getBalance: vi.fn() }));
 
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { getAccountTier } from '@/server/lib/get-account-tier';
+import { getBalance } from '@/server/lib/get-balance';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
@@ -392,17 +394,28 @@ describe('generateFirstFrameAction', () => {
       submitFirstFrame,
     });
 
-    // getServerSupabase called multiple times — once per action
+    // getServerSupabase called multiple times — once per action.
+    // The bulk wrapper's sb also needs rpc for fn_reserve_balance (Phase 1.7 D3).
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      from: vi.fn(() => ({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: projectWith7Scenes,
-          error: null,
-        }),
-      })),
+      from: vi.fn((table: string) => {
+        if (table === 'media_jobs') {
+          return { update: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() };
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: projectWith7Scenes,
+            error: null,
+          }),
+        };
+      }),
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     });
+
+    // Phase 1.7: balance pre-flight needs sufficient balance for 5 premium scenes.
+    // 5 × 25000 = 125000 kopeks required.
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(999999);
 
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
@@ -516,6 +529,8 @@ describe('generateFirstFrameAction — tier gate on bulk path', () => {
     // Arrange: free account tier + economy project tier → allowed
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'u1' });
     (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+    // Phase 1.7: sufficient balance for 2 economy scenes (2 × 5000 = 10000 kopeks required)
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(99999);
 
     const submitFirstFrame = vi.fn().mockResolvedValue({
       fal_request_id: 'req-bulk-free',
@@ -524,12 +539,19 @@ describe('generateFirstFrameAction — tier gate on bulk path', () => {
     });
     (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ submitFirstFrame });
 
+    // Phase 1.7: sb needs rpc for fn_reserve_balance in the bulk loop
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      from: vi.fn(() => ({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: makeBulkProject(), error: null }),
-      })),
+      from: vi.fn((table: string) => {
+        if (table === 'media_jobs') {
+          return { update: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() };
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: makeBulkProject(), error: null }),
+        };
+      }),
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     });
 
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -592,5 +614,238 @@ describe('generateFirstFrameAction — tier gate on bulk path', () => {
     expect(submitFirstFrame).toHaveBeenCalledTimes(1);
     // getAccountTier must NOT have been called on the single path
     expect(getAccountTier).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1.7 D3 — balance gate on generateAllFirstFramesAction bulk path
+// ---------------------------------------------------------------------------
+
+describe('generateAllFirstFramesAction bulk — balance gate (Phase 1.7)', () => {
+  beforeEach(() => {
+    vi.stubEnv('AUTH_GATE_ENFORCE', 'true');
+    vi.stubEnv('PAYMENTS_GATE_ENFORCE', 'true');
+    // Reset getAccountTier mock to clear any queued once-return values from
+    // prior describe blocks (e.g. "trial user on single path" sets a queued
+    // 'trial' that is never consumed because single path skips getAccountTier).
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockReset();
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  // 2-scene economy project: each scene_video costs 5000 kopeks → 10000 total
+  const makeTwoSceneEconomyProject = () => ({
+    id: PROJECT_ID,
+    user_id: 'u1',
+    tier: 'economy',
+    style: '3d_pixar',
+    script: {
+      title: 'Test',
+      master_clip: null,
+      characters: [],
+      scenes: [
+        {
+          scene_id: 's1',
+          description: 'Scene 1',
+          duration_sec: 8,
+          dialogue: null,
+          character_ids: [],
+          first_frame_source: 'auto_continuity',
+          first_frame: null,
+          last_frame: null,
+          video: null,
+          voice_audio: null,
+          final_clip: null,
+        },
+        {
+          scene_id: 's2',
+          description: 'Scene 2',
+          duration_sec: 8,
+          dialogue: null,
+          character_ids: [],
+          first_frame_source: 'auto_continuity',
+          first_frame: null,
+          last_frame: null,
+          video: null,
+          voice_audio: null,
+          final_clip: null,
+        },
+      ],
+    },
+  });
+
+  const makeSupabaseMockBulk = (opts: {
+    rpcData: boolean | null;
+    rpcError?: null | { message: string };
+  }) => {
+    const updateChain = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+    };
+    const projectBuilder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: makeTwoSceneEconomyProject(), error: null }),
+    };
+    const fromFn = vi.fn((table: string) => {
+      if (table === 'media_jobs') return updateChain;
+      return projectBuilder;
+    });
+    const rpcFn = vi.fn().mockResolvedValue({
+      data: opts.rpcData,
+      error: opts.rpcError ?? null,
+    });
+    return { sb: { from: fromFn, rpc: rpcFn }, updateChain };
+  };
+
+  it('balance < total required (2 economy scenes need 10000, user has 5000) → insufficient_balance, zero scenes submitted', async () => {
+    // Arrange
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+    // 5000 < 10000 required → pre-flight fires
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(5000);
+
+    const { sb } = makeSupabaseMockBulk({ rpcData: null });
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(sb);
+
+    const submitFirstFrame = vi.fn();
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ submitFirstFrame });
+
+    // Act
+    const result = await generateAllFirstFramesAction({ project_id: PROJECT_ID });
+
+    // Assert: pre-flight returned insufficient_balance, no scenes submitted
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('insufficient_balance');
+      const r = result as {
+        ok: false;
+        error: 'insufficient_balance';
+        insufficient_balance: {
+          required_kopeks: number;
+          current_kopeks: number;
+          kind: string;
+          model_tier: string | null;
+        };
+      };
+      expect(r.insufficient_balance.required_kopeks).toBe(10000);
+      expect(r.insufficient_balance.current_kopeks).toBe(5000);
+      expect(r.insufficient_balance.kind).toBe('scene_video');
+    }
+    // No scenes submitted — reserveMediaJob never called
+    expect(reserveMediaJob).not.toHaveBeenCalled();
+    expect(submitFirstFrame).not.toHaveBeenCalled();
+  });
+
+  it('balance >= total required (2 scenes, balance=10000) → fan-out succeeds, rpc called per scene', async () => {
+    // Arrange: balance exactly equal to required
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(10000);
+
+    const { sb } = makeSupabaseMockBulk({ rpcData: true });
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(sb);
+
+    const submitFirstFrame = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-d3-ok',
+      model_used: 'fal-ai/nano-banana-2',
+      request_input: {},
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ submitFirstFrame });
+
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      mode: 'reserved' as const,
+      job_id: 'job-d3-ok',
+      used: 1,
+      dedup: false,
+    });
+
+    // Act
+    const result = await generateAllFirstFramesAction({ project_id: PROJECT_ID });
+
+    // Assert: both scenes submitted, rpc called twice (once per scene)
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.job_ids).toHaveLength(2);
+    }
+    expect(sb.rpc).toHaveBeenCalledTimes(2);
+    expect(sb.rpc).toHaveBeenCalledWith(
+      'fn_reserve_balance',
+      expect.objectContaining({
+        p_kind: 'scene_video',
+        p_kopeks: 5000,
+        p_user_id: 'u1',
+      }),
+    );
+  });
+
+  it('mid-loop drain: balance=10000, first scene rpc returns true, second rpc returns false → both jobs canceled, returns insufficient_balance', async () => {
+    // Arrange: balance passes pre-flight (10000 >= 10000) but second rpc drains concurrently
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(10000);
+
+    const updateChain = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+    };
+    const projectBuilder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: makeTwoSceneEconomyProject(), error: null }),
+    };
+    // rpc returns true for first scene, false for second (simulates concurrent drain)
+    const rpcFn = vi
+      .fn()
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({ data: false, error: null });
+    const sb = {
+      from: vi.fn((table: string) => {
+        if (table === 'media_jobs') return updateChain;
+        return projectBuilder;
+      }),
+      rpc: rpcFn,
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(sb);
+
+    const submitFirstFrame = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-d3-drain',
+      model_used: 'fal-ai/nano-banana-2',
+      request_input: {},
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ submitFirstFrame });
+
+    // Return different job_ids for the two scenes so we can assert rollback
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        ok: true,
+        mode: 'reserved' as const,
+        job_id: 'job-scene1',
+        used: 1,
+        dedup: false,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        mode: 'reserved' as const,
+        job_id: 'job-scene2',
+        used: 2,
+        dedup: false,
+      });
+
+    // Act
+    const result = await generateAllFirstFramesAction({ project_id: PROJECT_ID });
+
+    // Assert: second scene failed → both jobs canceled → insufficient_balance
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('insufficient_balance');
+    }
+    // Both job IDs must be canceled (job-scene2 current + job-scene1 prior rollback)
+    expect(updateChain.update).toHaveBeenCalledWith({ status: 'canceled' });
+    // eq called for both job-scene2 (current) and job-scene1 (prior rollback)
+    expect(updateChain.eq).toHaveBeenCalledWith('id', 'job-scene2');
+    expect(updateChain.eq).toHaveBeenCalledWith('id', 'job-scene1');
   });
 });
