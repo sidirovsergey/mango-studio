@@ -158,7 +158,13 @@ export type {
 } from './media/cinematography-schemas';
 
 export type { AccountTier, MediaJobKind, ModelTier, PriceQuote } from './quota';
-export { TierGateError, assertCapability, BalanceGateError, priceKopeks, assertBalance } from './quota';
+export {
+  TierGateError,
+  assertCapability,
+  BalanceGateError,
+  priceKopeks,
+  assertBalance,
+} from './quota';
 
 // NOTE: `ScriptGenSchema`/`ScriptSchema`/`SceneSchema` (from `./llm/schemas`)
 // and `upgradeScene`/`upgradeScript`/`downgradeScript` (from `./llm/migration`)
