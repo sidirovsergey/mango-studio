@@ -87,6 +87,29 @@ COMMIT;
 
 Safe because `billing_intents` is a new table; `billing_payments.intent_id` is nullable (existing v1.7.0 rows have NULL there). No data backfill performed by this migration.
 
+## ⚠️ DO NOT rollback migration `_004` alone
+
+Migration `20260518000004_billing_intents_ownership_check` adds an
+`EXISTS (SELECT 1 FROM projects WHERE id = p_project_id AND user_id =
+p_user_id)` gate to `fn_get_or_create_intent` via `CREATE OR REPLACE`.
+
+If operator only drops `_004` (without rolling back `_003`), the function
+**reverts to the v1 body without ownership check** — Codex BLOCKER #1
+is re-opened: any authed user can create a pending intent against any
+project UUID, bypassing the projects RLS owner-only policy.
+
+**Safe rollback paths:**
+
+- **Full rollback (recommended):** apply the DROP block above which
+  removes the function entirely.
+- **Re-harden after partial rollback:** if you must keep `_003` live but
+  drop `_004`, immediately apply the ownership-check body from `_004`'s
+  CREATE OR REPLACE block, or REVOKE the function from `authenticated`
+  to lock down access until re-hardened.
+- **Audit gate:** before any production rollback operation, `grep
+  "project ownership check failed" < pg_get_functiondef(...)` and refuse
+  if the string is missing.
+
 ## Codex audit findings (2026-05-18)
 
 Audit task `task-mpbhz7le-8lol78` reported one BLOCKER, mitigated via

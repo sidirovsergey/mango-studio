@@ -7,6 +7,14 @@ import { getServerSupabase, getServiceRoleSupabase } from '@mango/db/server';
 /**
  * Phase 1.7.1 — enqueue render orchestrator.
  *
+ * Idempotency: safe to call multiple times on the same project. The chain
+ * generateSceneVideoAction → reserveMediaJob is dedup-aware (returns
+ * `existing: true` if a media_jobs row already exists for the (user,
+ * project, scene) tuple, no new row created, no double balance debit).
+ * Same for generateMasterClipAction. Codex audit F2 #4: a user refresh
+ * mid-partial-failure does NOT double-reserve already-reserved scenes;
+ * only the failed scenes get retried.
+ *
  * Called from `/p/[slug]?nonce=X` after `fn_inspect_intent` reports
  * intent_status='paid' and payment_status='succeeded'. Iterates the
  * project's scenes, fires generateSceneVideoAction for each, then

@@ -5,8 +5,10 @@
 -- for full design rationale + Codex audit history.
 --
 -- Purpose: persist «what should happen after payment» so the webhook can
--- atomically promote intent on success and auto-enqueue render. Defeats
--- three race classes that v1.7.0 doesn't cover:
+-- atomically promote intent on success and the /p/[slug]?nonce= page can
+-- pick up the dispatch on user return (webhook itself does NOT enqueue —
+-- 15s ЮKassa budget + auth context constraints, see enqueue-render.ts).
+-- Defeats three race classes that v1.7.0 doesn't cover:
 --   (a) tab close after ЮKassa redirect
 --   (b) webhook arrives before user returns
 --   (c) two tabs same project_id+kind

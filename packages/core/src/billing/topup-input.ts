@@ -5,7 +5,10 @@ import { z } from 'zod';
  *
  * v1.7.0 callers passed `{ package_code }` only. v1.7.1 callers MAY also
  * pass `intent` to bind the top-up to a render or studio entry on a
- * specific project; webhook auto-enqueues the render after payment succeeds.
+ * specific project. After payment succeeds, the ЮKassa webhook settles the
+ * intent (status pending|expired → paid) and the `/p/[slug]?nonce=X` page
+ * dispatches the actual render via enqueueRenderForProject — webhook does
+ * NOT auto-enqueue itself (15s timeout + auth context constraints).
  *
  * Backward compatibility: `intent` defaults to `{ kind: 'topup_only' }`,
  * which means no `billing_intents` row is created and the behavior is
