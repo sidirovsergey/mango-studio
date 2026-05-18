@@ -87,6 +87,34 @@ COMMIT;
 
 Safe because `billing_intents` is a new table; `billing_payments.intent_id` is nullable (existing v1.7.0 rows have NULL there). No data backfill performed by this migration.
 
+## Codex audit findings (2026-05-18)
+
+Audit task `task-mpbhz7le-8lol78` reported one BLOCKER, mitigated via
+follow-up migration `20260518000004_billing_intents_ownership_check`.
+
+**Codex BLOCKER #1 (mitigated):** `fn_get_or_create_intent` is `SECURITY
+DEFINER` and `GRANTed` to `authenticated`. It enforced `p_user_id =
+auth.uid()` but did NOT verify `p_project_id` is owned by `p_user_id`.
+A valid authed user could create a pending intent against another
+user's project by knowing the UUID, bypassing `projects` RLS.
+
+Mitigation: `20260518000004` `CREATE OR REPLACE`s the function with an
+`EXISTS (SELECT 1 FROM projects WHERE id = p_project_id AND user_id =
+p_user_id)` gate placed BEFORE any DB read/write. `topup_only` kind has
+`NULL project_id` and is exempt.
+
+Same gate also defeats Codex blocker #2 (cross-user `(project_id, kind)`
+conflict): if non-owners are rejected before reaching the partial UNIQUE,
+the only legitimate way two callers race on the index is when both own
+the project — which our data model forbids (one user per project row).
+
+Verification: `pg_get_functiondef(...) LIKE '%project ownership check
+failed%'` returns `true` post-apply.
+
+**Codex SHOULD-FIX (deferred):** monitoring invariant for `consumed_at IS
+NOT NULL` on non-`consumed` statuses. Not a correctness bug; tracked for
+future ops dashboard if any rows appear.
+
 ## Coordination with v1.7.0
 
 v1.7.0 base (`20260518000002_billing`) provides `billing_payments` table. The `billing_payments.intent_id` column added here is nullable + FK + ON DELETE SET NULL — purely additive, zero impact on existing v1.7.0 callers that don't pass `intent`.
