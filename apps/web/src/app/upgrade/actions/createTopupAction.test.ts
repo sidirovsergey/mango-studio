@@ -298,7 +298,7 @@ describe('createTopupAction — Phase 1.7.1 intent path', () => {
     );
   });
 
-  it('two-tab reuse: existing intent already has billing_payment_id → reuses URL, NO ЮKassa.create', async () => {
+  it('two-tab reuse: existing intent already has billing_payment_id (status=pending) → reuses URL, NO ЮKassa.create', async () => {
     const sb = makeSupabase({
       user: { id: 'u1', email: 'a@b.ru' },
       rpcByFn: {
@@ -315,6 +315,7 @@ describe('createTopupAction — Phase 1.7.1 intent path', () => {
       },
       selectRow: {
         id: 'bp-existing-1',
+        status: 'pending',
         metadata: {
           confirmation: { confirmation_url: 'https://yk/c/yp-prev' },
         },
@@ -352,7 +353,7 @@ describe('createTopupAction — Phase 1.7.1 intent path', () => {
           ],
         },
       },
-      selectRow: { id: 'bp-broken', metadata: {} },
+      selectRow: { id: 'bp-broken', status: 'pending', metadata: {} },
     });
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(sb);
 
@@ -362,6 +363,108 @@ describe('createTopupAction — Phase 1.7.1 intent path', () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe('payment_url_missing');
+  });
+
+  it('reuse path: existing payment status=canceled → returns intent_payment_dead error', async () => {
+    const sb = makeSupabase({
+      user: { id: 'u1', email: 'a@b.ru' },
+      rpcByFn: {
+        fn_get_or_create_intent: {
+          data: [
+            {
+              intent_id: 'int-1',
+              out_nonce: 'AAAAAAAAAAAAAAAA',
+              out_billing_payment_id: 'bp-canceled',
+              is_new: false,
+            },
+          ],
+        },
+      },
+      selectRow: {
+        id: 'bp-canceled',
+        status: 'canceled',
+        metadata: { confirmation: { confirmation_url: 'https://yk/c/dead' } },
+      },
+    });
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(sb);
+
+    const result = await createTopupAction({
+      package_code: 'topup_2000',
+      intent: { kind: 'render', project_id: VALID_UUID, return_to: '/p/abc' },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('intent_payment_dead');
+    expect(createYooKassaPayment).not.toHaveBeenCalled();
+  });
+
+  it('intent flow uses intent-scoped Idempotence-Key (Codex audit C #1)', async () => {
+    const sb = makeSupabase({
+      user: { id: 'u1', email: 'a@b.ru' },
+      rpcByFn: {
+        fn_get_or_create_intent: {
+          data: [
+            {
+              intent_id: 'int-1',
+              out_nonce: 'aBcDeFgHiJkLmNoP',
+              out_billing_payment_id: null,
+              is_new: true,
+            },
+          ],
+        },
+        fn_link_payment_to_intent: { data: true },
+      },
+      selectRow: { id: 'bp-local-1' },
+    });
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(sb);
+    (createYooKassaPayment as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 'yp-1',
+      confirmation: { type: 'redirect', confirmation_url: 'https://yk/c/yp-1' },
+      metadata: {},
+    });
+
+    await createTopupAction({
+      package_code: 'topup_2000',
+      intent: { kind: 'render', project_id: VALID_UUID, return_to: '/p/abc' },
+    });
+
+    expect(createYooKassaPayment).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotence_key: 'topup-intent:int-1' }),
+    );
+  });
+
+  it('return_url preserves existing query params (Codex audit C #3, URL ctor)', async () => {
+    const sb = makeSupabase({
+      user: { id: 'u1', email: 'a@b.ru' },
+      rpcByFn: {
+        fn_get_or_create_intent: {
+          data: [
+            {
+              intent_id: 'int-1',
+              out_nonce: 'NONCE12345678901',
+              out_billing_payment_id: null,
+              is_new: true,
+            },
+          ],
+        },
+        fn_link_payment_to_intent: { data: true },
+      },
+      selectRow: { id: 'bp-local-1' },
+    });
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(sb);
+    (createYooKassaPayment as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 'yp-1',
+      confirmation: { type: 'redirect', confirmation_url: 'https://yk/c/yp-1' },
+      metadata: {},
+    });
+
+    await createTopupAction({
+      package_code: 'topup_2000',
+      intent: { kind: 'render', project_id: VALID_UUID, return_to: '/p/abc?foo=bar' },
+    });
+
+    const call = (createYooKassaPayment as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+    // Existing ?foo=bar preserved; nonce appended as additional param.
+    expect(call.return_url).toBe('https://mangopro.ru/p/abc?foo=bar&nonce=NONCE12345678901');
   });
 
   it('fn_get_or_create_intent RPC error → returns intent_error', async () => {

@@ -106,9 +106,13 @@ export async function createTopupAction(input: unknown): Promise<CreateTopupResu
     // If a prior call already bound a billing_payment to this pending intent,
     // reuse its ЮKassa confirmation_url. DO NOT call ЮKassa.Payment.create
     // again — that would create a second authorisation on the user's card.
+    //
+    // Codex audit C #2: also require the linked payment to be status='pending'.
+    // A canceled/failed/refunded payment's confirmation_url is dead; reusing
+    // it would send the user to a broken checkout page.
     if (row.out_billing_payment_id) {
       const lookup = await sbFrom('billing_payments')
-        .select('id, metadata')
+        .select('id, status, metadata')
         .eq('id', row.out_billing_payment_id)
         .single();
       if (lookup.error || !lookup.data) {
@@ -117,6 +121,20 @@ export async function createTopupAction(input: unknown): Promise<CreateTopupResu
           error: {
             code: lookup.error?.code ?? 'payment_lookup_error',
             message: lookup.error?.message ?? 'Не удалось найти существующий платёж.',
+          },
+        };
+      }
+      const paymentStatus = lookup.data.status as string | undefined;
+      if (paymentStatus !== 'pending') {
+        // Linked payment is dead — intent is locked to it via UNIQUE
+        // (project_id, kind) WHERE status='pending'. User must start fresh.
+        // Operator can manually cancel the intent via SQL with audit.
+        return {
+          ok: false,
+          error: {
+            code: 'intent_payment_dead',
+            message:
+              'Предыдущая попытка оплаты завершилась неуспешно. Начните заново через /upgrade.',
           },
         };
       }
@@ -144,12 +162,29 @@ export async function createTopupAction(input: unknown): Promise<CreateTopupResu
   // ---------------------------------------------------------------------
   // Standard ЮKassa Payment.create path.
   // ---------------------------------------------------------------------
+  // Codex audit C #1: use intent-scoped Idempotence-Key when in intent flow.
+  // If two tabs race past fn_get_or_create_intent BEFORE either binds a
+  // billing_payment, both reach this point with the same intent_id. Using
+  // intent_id as the dedup key collapses both ЮKassa.Payment.create calls
+  // server-side at ЮKassa, leaving only one real authorisation. Legacy
+  // topup_only flow keeps the v1.7.0 user+package+minute key.
   const minute = Math.floor(Date.now() / 60_000);
-  const idempotence_key = `topup:${authedUser.id}:${package_code}:${minute}`;
-  const return_url =
-    intent.kind === 'topup_only'
-      ? 'https://mangopro.ru/profile?topup=pending'
-      : `https://mangopro.ru${intent.return_to}?nonce=${nonce}`;
+  const idempotence_key = intentId
+    ? `topup-intent:${intentId}`
+    : `topup:${authedUser.id}:${package_code}:${minute}`;
+
+  // Codex audit C #3: use URL constructor to safely embed nonce in
+  // return_url. String concatenation breaks when return_to contains
+  // '?' or '#'. Schema already enforces same-origin; URL ctor handles
+  // existing query params + fragments correctly.
+  let return_url: string;
+  if (intent.kind === 'topup_only') {
+    return_url = 'https://mangopro.ru/profile?topup=pending';
+  } else {
+    const u = new URL(intent.return_to, 'https://mangopro.ru');
+    if (nonce) u.searchParams.set('nonce', nonce);
+    return_url = u.toString();
+  }
 
   const metadata: Record<string, string> = {
     user_id: authedUser.id,
