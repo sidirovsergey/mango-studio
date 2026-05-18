@@ -1,22 +1,35 @@
 import { enqueueRenderForProject } from '@/server/lib/enqueue-render';
+import { fetchPublicProjectBySlug } from '@/server/lib/public-project-view';
 import { getServerSupabase } from '@mango/db/server';
 import { notFound } from 'next/navigation';
 import { IntentCanceledView } from './components/IntentCanceledView';
 import { IntentExpiredView } from './components/IntentExpiredView';
 import { PaymentPendingView } from './components/PaymentPendingView';
+import { PublicStoryboardView } from './components/PublicStoryboardView';
 import { RenderProgressView } from './components/RenderProgressView';
 
 /**
- * Phase 1.7.1 — minimal /p/[publicSlug] route.
+ * Phase 1.8.1 — public storyboard view.
  *
- * Scope: ONLY ?nonce= handling for post-ЮKassa-redirect intent resolution.
- * The public storyboard view itself (sticky-CTA, raskadrovka, share button)
- * lives in Phase 1.8.1; until then `/p/{slug}` without a nonce returns 404.
+ * Two modes:
+ * - Without `?nonce=`: render the public storyboard via fetchPublicProjectBySlug
+ *   (service_role bypass; allowlisted via toPublicProjectView). User can be
+ *   anon or another logged-in user; the page is intentionally public.
  *
- * Routing model in 1.7.1: [publicSlug] is the project_id UUID. 1.8.1 will
- * introduce projects.public_slug (short id) and switch the lookup; the
- * route file path stays the same.
+ * - With `?nonce=`: 1.7.1 intent resolution flow (PaymentPendingView,
+ *   RenderProgressView, IntentExpiredView, IntentCanceledView). Used after
+ *   ЮKassa redirect.
+ *
+ * Routing model: [publicSlug] is the short URL-safe id (10 chars) from
+ * projects.public_slug. Direct shareable URL.
+ *
+ * Codex pre-PR audit (2026-05-19) fix: `force-dynamic` prevents Next/Vercel
+ * from caching rendered HTML that embeds short-lived signed image URLs
+ * (1h TTL on Supabase storage URLs). Without this, a shared link viewed
+ * >1h later would render broken first_frame images. The page is cheap to
+ * regenerate (one DB query + Promise.all over 4-8 scene URL signs).
  */
+export const dynamic = 'force-dynamic';
 type IntentInspectRow = {
   intent_id: string;
   project_id: string;
@@ -35,8 +48,13 @@ export default async function PublicSlugPage(props: {
   const { nonce } = await props.searchParams;
 
   if (!nonce) {
-    // 1.8.1 will replace this with the full public storyboard view.
-    notFound();
+    // Phase 1.8.1: full public storyboard render. Slug → project lookup via
+    // service_role + allowlisted mapper.
+    const view = await fetchPublicProjectBySlug(publicSlug);
+    if (!view) {
+      notFound();
+    }
+    return <PublicStoryboardView project={view} />;
   }
 
   const sb = await getServerSupabase();
