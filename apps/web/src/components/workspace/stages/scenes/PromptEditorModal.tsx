@@ -1,5 +1,6 @@
 'use client';
 
+import { useInsufficientBalance } from '@/components/account/InsufficientBalanceProvider';
 import { useTierGate } from '@/components/account/TierGateProvider';
 import { buildProspectivePromptAction } from '@/server/actions/buildProspectivePromptAction';
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
@@ -10,6 +11,11 @@ import { createPortal } from 'react-dom';
 import { useStage04 } from './Stage04Provider';
 
 type TierGatePayload = { required_tier: AccountTier; kind: MediaJobKind; message: string };
+type InsufficientBalancePayload = {
+  kind: MediaJobKind;
+  required_kopeks: number;
+  current_kopeks: number;
+};
 
 type Kind = 'first_frame' | 'video';
 
@@ -23,6 +29,7 @@ interface Props {
 export function PromptEditorModal({ projectId, sceneId, kind, onClose }: Props) {
   const { script } = useStage04();
   const { open: openTierGate } = useTierGate();
+  const { open: openInsufficientBalance } = useInsufficientBalance();
   const scene = script?.scenes.find((s) => s.scene_id === sceneId);
 
   const versions = kind === 'first_frame' ? scene?.first_frame_versions : scene?.video_versions;
@@ -108,6 +115,21 @@ export function PromptEditorModal({ projectId, sceneId, kind, onClose }: Props) 
         prompt_override: text,
       });
       if (!r.ok) {
+        if (r.error === 'insufficient_balance' && 'insufficient_balance' in r) {
+          const ib = (
+            r as {
+              ok: false;
+              error: 'insufficient_balance';
+              insufficient_balance: InsufficientBalancePayload;
+            }
+          ).insufficient_balance;
+          openInsufficientBalance({
+            kind: ib.kind,
+            required_kopeks: ib.required_kopeks,
+            current_kopeks: ib.current_kopeks,
+          });
+          return;
+        }
         if (r.error === 'tier_gate' && 'tier_gate' in r) {
           const tg = (r as { ok: false; error: 'tier_gate'; tier_gate: TierGatePayload }).tier_gate;
           openTierGate({ kind: tg.kind, required_tier: tg.required_tier });

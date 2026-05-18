@@ -1,5 +1,6 @@
 'use client';
 
+import { useInsufficientBalance } from '@/components/account/InsufficientBalanceProvider';
 import { useTierGate } from '@/components/account/TierGateProvider';
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
@@ -37,6 +38,15 @@ type ActionResult =
         required_tier: import('@mango/core').AccountTier;
         kind: import('@mango/core').MediaJobKind;
         message: string;
+      };
+    }
+  | {
+      ok: false;
+      error: 'insufficient_balance';
+      insufficient_balance: {
+        kind: import('@mango/core').MediaJobKind;
+        required_kopeks: number;
+        current_kopeks: number;
       };
     };
 
@@ -95,6 +105,7 @@ export function SceneSidePanel({
   const [activeAction, setActiveAction] = useState<ActionId | null>(null);
   const { prospectivePrompts } = useStage04();
   const { open: openTierGate } = useTierGate();
+  const { open: openInsufficientBalance } = useInsufficientBalance();
 
   // F53 UI gate — mirror the server-side hard precondition in
   // generateFirstFrameAction so the "Кадр" tile is visibly disabled while the
@@ -145,6 +156,15 @@ export function SceneSidePanel({
     startTransition(async () => {
       const r = await fn();
       if (!r.ok) {
+        if (r.error === 'insufficient_balance' && 'insufficient_balance' in r) {
+          openInsufficientBalance({
+            kind: r.insufficient_balance.kind,
+            required_kopeks: r.insufficient_balance.required_kopeks,
+            current_kopeks: r.insufficient_balance.current_kopeks,
+          });
+          setActiveAction(null);
+          return;
+        }
         if (r.error === 'tier_gate' && 'tier_gate' in r) {
           openTierGate({ kind: r.tier_gate.kind, required_tier: r.tier_gate.required_tier });
           setActiveAction(null);
