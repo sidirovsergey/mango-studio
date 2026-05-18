@@ -1,6 +1,7 @@
 import { ProfileCard } from '@/components/account/ProfileCard';
 import { getAccountMeta } from '@/server/lib/get-account-meta';
 import { getAccountTier } from '@/server/lib/get-account-tier';
+import { getBalance } from '@/server/lib/get-balance';
 import { getServerSupabase } from '@mango/db/server';
 import { notFound, redirect } from 'next/navigation';
 
@@ -25,11 +26,11 @@ export default async function ProfilePage() {
 
   // Parallel server-side reads — all scoped to the current user (RLS-enforced
   // on user_accounts + projects + media_jobs).
-  const [tier, meta, projectCountResult, costRowsResult] = await Promise.all([
+  const [tier, meta, projectCountResult, balanceKopeks] = await Promise.all([
     getAccountTier(supabase, user.id),
     getAccountMeta(supabase, user.id),
     supabase.from('projects').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-    supabase.from('media_jobs').select('cost_usd').eq('user_id', user.id).eq('status', 'completed'),
+    getBalance(supabase, user.id),
   ]);
 
   const projectCount = projectCountResult.count ?? 0;
@@ -38,11 +39,6 @@ export default async function ProfilePage() {
   const createdAt = meta.created_at ?? user.created_at ?? null;
   const displayName = meta.display_name;
 
-  const totalSpendUsd = (costRowsResult.data ?? []).reduce(
-    (acc, row) => acc + (typeof row.cost_usd === 'number' ? row.cost_usd : 0),
-    0,
-  );
-
   return (
     <ProfileCard
       email={user.email}
@@ -50,7 +46,7 @@ export default async function ProfilePage() {
       tier={tier}
       createdAt={createdAt}
       projectCount={projectCount}
-      totalSpendUsd={totalSpendUsd}
+      balanceKopeks={balanceKopeks}
     />
   );
 }

@@ -1036,6 +1036,33 @@
   transform: translateY(-1px);
 }
 
+/* Phase 1.7 F4 — "Пополнить" CTA (env-gated on NEXT_PUBLIC_PAYMENTS_UI_ENABLED) */
+.profile-topup {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 16px;
+  border-radius: var(--r-input);
+  background: var(--mango-500);
+  color: var(--paper);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background 160ms ease,
+    transform 120ms ease;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 6px 16px -8px rgba(245, 118, 0, 0.55);
+}
+
+.profile-topup:hover {
+  background: var(--mango-600);
+  transform: translateY(-1px);
+}
+
 .profile-actions form {
   flex: 1;
 }
