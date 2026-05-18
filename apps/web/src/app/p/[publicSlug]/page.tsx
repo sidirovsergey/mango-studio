@@ -1,9 +1,14 @@
 import { enqueueRenderForProject } from '@/server/lib/enqueue-render';
-import { fetchPublicProjectBySlug } from '@/server/lib/public-project-view';
+import {
+  fetchPublicProjectBySlug,
+  fetchPublicProjectStatusBySlug,
+} from '@/server/lib/public-project-view';
 import { getServerSupabase } from '@mango/db/server';
 import { notFound } from 'next/navigation';
+import { ErrorView } from './components/ErrorView';
 import { IntentCanceledView } from './components/IntentCanceledView';
 import { IntentExpiredView } from './components/IntentExpiredView';
+import { LoadingView } from './components/LoadingView';
 import { PaymentPendingView } from './components/PaymentPendingView';
 import { PublicStoryboardView } from './components/PublicStoryboardView';
 import { RenderProgressView } from './components/RenderProgressView';
@@ -48,10 +53,30 @@ export default async function PublicSlugPage(props: {
   const { nonce } = await props.searchParams;
 
   if (!nonce) {
-    // Phase 1.8.1: full public storyboard render. Slug → project lookup via
-    // service_role + allowlisted mapper.
+    // Phase 1.8.2: branch on project status BEFORE the heavyweight mapper.
+    // - not found → 404.
+    // - generating_storyboard / generating_script → LoadingView (poll until flip).
+    // - share-ready → fetch full view + StoryboardView.
+    // - error → ErrorView.
+    // - anything else (draft, etc.) → 404 (same anti-enumeration as
+    //   fetchPublicProjectBySlug's status gate).
+    const probe = await fetchPublicProjectStatusBySlug(publicSlug);
+    if (!probe) {
+      notFound();
+    }
+    if (probe.is_generating) {
+      return <LoadingView publicSlug={publicSlug} title={probe.title} />;
+    }
+    if (probe.status === 'error') {
+      return <ErrorView publicSlug={publicSlug} />;
+    }
+    if (!probe.is_share_ready) {
+      // draft, draft_input, or any other unknown intermediate status.
+      notFound();
+    }
     const view = await fetchPublicProjectBySlug(publicSlug);
     if (!view) {
+      // Race: status flipped to non-share-ready between the two queries.
       notFound();
     }
     return <PublicStoryboardView project={view} />;

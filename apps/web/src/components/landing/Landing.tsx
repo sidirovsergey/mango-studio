@@ -1,6 +1,6 @@
 'use client';
 
-import { createProjectAction } from '@/server/actions/projects';
+import { createProjectFromIdeaAction } from '@/server/actions/projects';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
@@ -31,7 +31,12 @@ export function Landing({ userEmail = null, isAnonymous = true }: Props = {}) {
     setError(null);
     startTransition(async () => {
       try {
-        await createProjectAction({
+        // Phase 1.8.2: new-CJM hero flow. Server action INSERTs the project
+        // with status='generating_storyboard', fires script gen + first-frame
+        // batch in the background via next/server.after(), and redirects to
+        // /p/{public_slug}. The browser then renders LoadingView until status
+        // flips to share-ready.
+        await createProjectFromIdeaAction({
           idea: text.trim(),
           style,
           format: aspect,
