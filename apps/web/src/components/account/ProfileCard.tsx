@@ -8,17 +8,17 @@ interface Props {
   tier: AccountTier;
   createdAt: string | null;
   projectCount: number;
-  totalSpendUsd: number;
+  balanceKopeks: number;
 }
 
 const TIER_COPY: Record<AccountTier, { label: string; sub: string }> = {
   trial: {
     label: 'Trial',
-    sub: 'Только персонажи и первые кадры. Видео откроется после входа.',
+    sub: 'Только персонажи и первые кадры. Пополните баланс, чтобы генерировать видео.',
   },
   free: {
-    label: 'Free',
-    sub: 'Эконом-режим видео доступен. Премиум-модели — в Premium.',
+    label: 'Авторизованный',
+    sub: 'Видео по балансу: Эконом и Премиум режимы доступны.',
   },
   premium: {
     label: 'Premium',
@@ -32,7 +32,7 @@ export function ProfileCard({
   tier,
   createdAt,
   projectCount,
-  totalSpendUsd,
+  balanceKopeks,
 }: Props) {
   const tierCopy = TIER_COPY[tier];
   const displayed = displayName?.trim() || email;
@@ -87,8 +87,8 @@ export function ProfileCard({
             <dd>{projectCount}</dd>
           </div>
           <div className="profile-stat">
-            <dt>Использовано</dt>
-            <dd>{formatUsd(totalSpendUsd)}</dd>
+            <dt>Баланс</dt>
+            <dd>{formatRub(balanceKopeks)}</dd>
           </div>
           <div className="profile-stat">
             <dt>С нами с</dt>
@@ -97,9 +97,9 @@ export function ProfileCard({
         </dl>
 
         <div className="profile-actions">
-          {tier === 'free' && (
-            <Link href="/upgrade" className="profile-upgrade">
-              Перейти на Premium
+          {process.env.NEXT_PUBLIC_PAYMENTS_UI_ENABLED === 'true' && (
+            <Link href="/upgrade" className="profile-topup">
+              Пополнить
             </Link>
           )}
           <form action={signOutAction}>
@@ -113,9 +113,8 @@ export function ProfileCard({
   );
 }
 
-function formatUsd(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return '$0.00';
-  return `$${value.toFixed(2)}`;
+function formatRub(kopeks: number): string {
+  return `${Math.floor(kopeks / 100).toLocaleString('ru-RU')} ₽`;
 }
 
 function formatDate(iso: string | null): string {

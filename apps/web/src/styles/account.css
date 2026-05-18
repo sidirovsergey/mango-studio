@@ -1036,6 +1036,33 @@
   transform: translateY(-1px);
 }
 
+/* Phase 1.7 F4 — "Пополнить" CTA (env-gated on NEXT_PUBLIC_PAYMENTS_UI_ENABLED) */
+.profile-topup {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 16px;
+  border-radius: var(--r-input);
+  background: var(--mango-500);
+  color: var(--paper);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background 160ms ease,
+    transform 120ms ease;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 6px 16px -8px rgba(245, 118, 0, 0.55);
+}
+
+.profile-topup:hover {
+  background: var(--mango-600);
+  transform: translateY(-1px);
+}
+
 .profile-actions form {
   flex: 1;
 }
@@ -1084,6 +1111,428 @@
   .tg-modal,
   .tg-modal-backdrop,
   .account-dropdown {
+    animation: none !important;
+  }
+}
+
+/* =====================================================================
+ * /upgrade page — balance top-up shell (Phase 1.7 F1)
+ * Mirrors /profile shell: warm cream background, drifting blobs, paper
+ * card. Wider content area to accommodate a 3-column card grid.
+ * ===================================================================== */
+
+.upgrade-shell {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 20px 64px;
+  background: var(--cream);
+  overflow: hidden;
+}
+
+.upgrade-aurora {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.upgrade-aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px) saturate(115%);
+  opacity: 0.5;
+  will-change: transform;
+}
+
+.upgrade-aurora-blob-a {
+  width: 540px;
+  height: 540px;
+  left: -180px;
+  top: -160px;
+  background: radial-gradient(circle, rgba(255, 200, 100, 0.55), rgba(255, 200, 100, 0) 70%);
+  animation: upgradeDrift1 22s ease-in-out infinite alternate;
+}
+
+.upgrade-aurora-blob-b {
+  width: 560px;
+  height: 560px;
+  right: -180px;
+  bottom: -220px;
+  background: radial-gradient(circle, rgba(80, 200, 130, 0.28), rgba(80, 200, 130, 0) 70%);
+  animation: upgradeDrift2 26s ease-in-out infinite alternate;
+}
+
+@keyframes upgradeDrift1 {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(50px, 40px, 0);
+  }
+}
+
+@keyframes upgradeDrift2 {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-40px, -30px, 0);
+  }
+}
+
+.upgrade-content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 820px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: upgradeContentIn 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes upgradeContentIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.upgrade-back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--ink-500);
+  text-decoration: none;
+  transition: color 120ms ease;
+}
+
+.upgrade-back:hover {
+  color: var(--mango-600);
+}
+
+.upgrade-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--ink-900);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.upgrade-balance {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--ink-600, var(--ink-500));
+  line-height: 1.5;
+}
+
+.upgrade-balance-value {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--ink-900);
+  letter-spacing: -0.01em;
+}
+
+/* -----------------------------------------------------------------------
+ * TopupCard grid — 3 columns, collapses to 1 on mobile
+ * ----------------------------------------------------------------------- */
+
+.topup-grid {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.topup-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px 20px 20px;
+  background: var(--paper);
+  border-radius: var(--r-card);
+  border: 1px solid rgba(26, 18, 7, 0.06);
+  box-shadow: var(--shadow-glass);
+  transition: box-shadow 200ms ease, transform 180ms ease;
+}
+
+.topup-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 24px -12px rgba(26, 18, 7, 0.18),
+    0 1px 0 rgba(255, 255, 255, 1) inset;
+}
+
+.topup-card-amount {
+  font-family: var(--font-serif);
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--ink-900);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.topup-card-currency {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--mango-600);
+}
+
+.topup-card-perks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ink-600, var(--ink-500));
+  line-height: 1.4;
+  flex: 1;
+}
+
+.topup-card-perks li::before {
+  content: '✓ ';
+  color: var(--mango-500);
+  font-weight: 600;
+}
+
+.topup-card-button {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 16px;
+  border-radius: var(--r-input);
+  border: 0;
+  background: var(--mango-500);
+  color: var(--paper);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    transform 160ms ease,
+    box-shadow 200ms ease;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 6px 16px -8px rgba(245, 118, 0, 0.55);
+}
+
+.topup-card-button:hover:not(:disabled) {
+  background: var(--mango-600);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.3) inset,
+    0 10px 22px -10px rgba(216, 95, 0, 0.6);
+}
+
+.topup-card-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.topup-card-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.topup-card-button:focus-visible {
+  outline: 2px solid var(--mango-500);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(245, 118, 0, 0.18);
+}
+
+.topup-card-error {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: #b03a2e;
+  background: rgba(176, 58, 46, 0.08);
+  border: 1px solid rgba(176, 58, 46, 0.18);
+  border-radius: var(--r-input);
+  padding: 10px 12px;
+  line-height: 1.45;
+}
+
+.upgrade-disclaimer {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--ink-400, var(--ink-500));
+  line-height: 1.5;
+}
+
+@media (max-width: 540px) {
+  .topup-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .upgrade-title {
+    font-size: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upgrade-aurora-blob {
+    animation: none !important;
+  }
+
+  .upgrade-content {
+    animation: none !important;
+  }
+}
+
+/* =====================================================================
+ * InsufficientBalanceModal — parallel to TierGateModal
+ * Shown when a user tries to generate video/master but has too low a
+ * balance. Primary CTA → /upgrade page to top up.
+ * ===================================================================== */
+
+.ib-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 18, 7, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+  animation: ibBackdropIn 200ms ease both;
+}
+
+@keyframes ibBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.ib-modal {
+  background: var(--paper);
+  border: 1px solid rgba(26, 18, 7, 0.06);
+  border-radius: var(--r-card);
+  padding: 32px 32px 24px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: var(--shadow-glass);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: ibModalIn 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ibModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ib-modal-title {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--ink-900);
+  letter-spacing: -0.01em;
+}
+
+.ib-modal-body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--ink-700);
+  margin: 0 0 6px;
+  line-height: 1.55;
+}
+
+.ib-modal-numbers {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  color: var(--ink-900);
+  letter-spacing: -0.01em;
+}
+
+.ib-modal-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  background: var(--mango-500);
+  color: var(--paper);
+  border-radius: var(--r-input);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  transition:
+    background 160ms ease,
+    transform 120ms ease;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 6px 16px -8px rgba(245, 118, 0, 0.55);
+}
+
+.ib-modal-primary:hover {
+  background: var(--mango-600);
+  transform: translateY(-1px);
+}
+
+.ib-modal-primary:focus-visible {
+  outline: 2px solid var(--mango-500);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(245, 118, 0, 0.18);
+}
+
+.ib-modal-secondary {
+  background: transparent;
+  border: 0;
+  color: var(--ink-500);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  padding: 6px 0;
+  cursor: pointer;
+  align-self: center;
+  transition: color 120ms ease;
+}
+
+.ib-modal-secondary:hover {
+  color: var(--ink-900);
+}
+
+@media (max-width: 480px) {
+  .ib-modal {
+    padding: 24px 20px 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ib-modal,
+  .ib-modal-backdrop {
     animation: none !important;
   }
 }

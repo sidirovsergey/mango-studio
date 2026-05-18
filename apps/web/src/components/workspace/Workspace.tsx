@@ -1,5 +1,6 @@
 'use client';
 
+import { InsufficientBalanceProvider } from '@/components/account/InsufficientBalanceProvider';
 import { TierGateProvider } from '@/components/account/TierGateProvider';
 import { Chat } from '@/components/chat/Chat';
 import type { PersistedScript, Tier } from '@mango/core';
@@ -36,42 +37,44 @@ export function Workspace({
 
   return (
     <TierGateProvider>
-      <div
-        className="app"
-        data-phase="workspace"
-        style={{ opacity: 1, visibility: 'visible' as const }}
-      >
-        <Chat projectId={project.id} initialMessages={initialChatMessages} />
-        <main className="workspace-shell">
-          <TopBar
-            projectId={project.id}
-            autoMode={project.auto_mode}
-            format={project.format as '9:16' | '16:9' | '1:1'}
-            tier={project.tier as Tier}
-            userEmail={userEmail}
-            isAnonymous={isAnonymous}
-          />
-          <WorkspaceScroll>
-            <div className="workspace">
-              <StageIdea project={project} />
-              {charactersSlot}
-              <StageScript project={project} script={script} />
-              <Stage04Provider
-                projectId={project.id}
-                initialScript={(script as unknown as Stage04Script) ?? null}
-              >
-                <StageScenes
+      <InsufficientBalanceProvider>
+        <div
+          className="app"
+          data-phase="workspace"
+          style={{ opacity: 1, visibility: 'visible' as const }}
+        >
+          <Chat projectId={project.id} initialMessages={initialChatMessages} />
+          <main className="workspace-shell">
+            <TopBar
+              projectId={project.id}
+              autoMode={project.auto_mode}
+              format={project.format as '9:16' | '16:9' | '1:1'}
+              tier={project.tier as Tier}
+              userEmail={userEmail}
+              isAnonymous={isAnonymous}
+            />
+            <WorkspaceScroll>
+              <div className="workspace">
+                <StageIdea project={project} />
+                {charactersSlot}
+                <StageScript project={project} script={script} />
+                <Stage04Provider
                   projectId={project.id}
-                  projectStatus={status}
-                  hasReadyCharacter={hasReadyCharacter}
-                  tier={project.tier as Tier}
-                />
-                <StageFinal projectStatus={status} projectId={project.id} />
-              </Stage04Provider>
-            </div>
-          </WorkspaceScroll>
-        </main>
-      </div>
+                  initialScript={(script as unknown as Stage04Script) ?? null}
+                >
+                  <StageScenes
+                    projectId={project.id}
+                    projectStatus={status}
+                    hasReadyCharacter={hasReadyCharacter}
+                    tier={project.tier as Tier}
+                  />
+                  <StageFinal projectStatus={status} projectId={project.id} />
+                </Stage04Provider>
+              </div>
+            </WorkspaceScroll>
+          </main>
+        </div>
+      </InsufficientBalanceProvider>
     </TierGateProvider>
   );
 }
