@@ -21,6 +21,12 @@ const SENSITIVE_PARAMS = new Set([
 ]);
 
 export function redactSensitiveQuery(rawUrl: string): string {
+  // Detect relative input (no scheme://) so we can return relative output.
+  // Codex audit E #4 fix: parsing '/p/abc?nonce=secret' against a base
+  // gave 'http://localhost/p/abc?nonce=...' which broke callers expecting
+  // shape-preserving behavior.
+  const isRelative = !/^[a-z][a-z0-9+.-]*:\/\//i.test(rawUrl);
+
   try {
     const u = new URL(rawUrl, 'http://localhost');
     let changed = false;
@@ -30,7 +36,8 @@ export function redactSensitiveQuery(rawUrl: string): string {
         changed = true;
       }
     }
-    return changed ? u.toString() : rawUrl;
+    if (!changed) return rawUrl;
+    return isRelative ? `${u.pathname}${u.search}${u.hash}` : u.toString();
   } catch {
     // URL parse failed — return the raw input rather than throwing inside
     // a logger call.

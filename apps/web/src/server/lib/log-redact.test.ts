@@ -19,8 +19,18 @@ describe('redactSensitiveQuery', () => {
     expect(redactSensitiveQuery('https://m.ru/p/abc?foo=bar')).toBe('https://m.ru/p/abc?foo=bar');
   });
 
-  it('handles relative paths', () => {
-    expect(redactSensitiveQuery('/p/abc?nonce=secret')).toContain('nonce=%5BREDACTED%5D');
+  it('handles relative paths AND preserves shape (Codex audit E #4)', () => {
+    const r = redactSensitiveQuery('/p/abc?nonce=secret');
+    expect(r).toContain('nonce=%5BREDACTED%5D');
+    expect(r).toBe('/p/abc?nonce=%5BREDACTED%5D');
+    // Specifically: no http://localhost prefix injected.
+    expect(r).not.toContain('http://');
+    expect(r).not.toContain('localhost');
+  });
+
+  it('absolute URL stays absolute', () => {
+    const r = redactSensitiveQuery('https://m.ru/p/abc?nonce=secret');
+    expect(r.startsWith('https://m.ru/')).toBe(true);
   });
 
   it('returns input as-is when URL parse fails', () => {

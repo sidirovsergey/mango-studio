@@ -131,10 +131,11 @@ export async function POST(req: Request): Promise<Response> {
           intentId: paymentRow.intent_id,
           error: settle.error,
         });
-        // Non-fatal: balance is credited, intent stays 'pending'. Cron sweep
-        // will mark it 'expired' after TTL; user can still manually trigger
-        // render from the project page with their now-credited balance.
-        return new Response('ok', { status: 200 });
+        // Codex audit D #3 fix: return 500 so ЮKassa retries with exponential
+        // backoff up to 24h. fn_apply_topup is idempotent (status='pending'
+        // guard) — replay won't double-credit. fn_settle_paid_intent is also
+        // idempotent (consumed_at IS NULL guard). Safe to retry.
+        return new Response('settle failed; retry me', { status: 500 });
       }
       // settle.data === intent_id on first transition, NULL on replay.
       // We don't auto-enqueue here (15s budget concern). The intent flips

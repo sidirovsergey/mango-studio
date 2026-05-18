@@ -259,7 +259,7 @@ describe('POST /api/webhooks/yookassa', () => {
     expect(res.status).toBe(200);
   });
 
-  it('payment.succeeded with intent: fn_settle_paid_intent errors → still 200 (non-fatal)', async () => {
+  it('payment.succeeded with intent: fn_settle_paid_intent errors → 500 (Codex audit D #3: ЮKassa retries)', async () => {
     const sb = makeSupabase({
       rpcByFn: {
         fn_apply_topup: { data: null },
@@ -277,8 +277,9 @@ describe('POST /api/webhooks/yookassa', () => {
       }),
     );
 
-    // Non-fatal: balance is credited; intent settlement is best-effort.
-    expect(res.status).toBe(200);
+    // Codex audit D #3 fix: return 500 so ЮKassa retries with exp backoff;
+    // fn_apply_topup + fn_settle_paid_intent are both idempotent → safe.
+    expect(res.status).toBe(500);
     expect(errSpy).toHaveBeenCalledWith(
       '[yookassa] fn_settle_paid_intent failed',
       expect.objectContaining({ paymentId: 'bp-1', intentId: 'int-1' }),
