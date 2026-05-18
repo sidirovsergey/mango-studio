@@ -17,6 +17,8 @@ export type {
 } from './provider';
 
 export { normalizeScene } from './normalize';
+export { normalizeScript } from './normalize-script';
+export type { NormalizedScript, NormalizedScene, ShotSpec } from './normalize-script';
 export type { Dialogue, FirstFrameSource } from './types';
 
 export { LLMProviderError, classifyLLMError } from './errors';
