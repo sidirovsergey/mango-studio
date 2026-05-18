@@ -157,12 +157,20 @@ export type {
   VisualTheme,
 } from './media/cinematography-schemas';
 
-export type { AccountTier, MediaJobKind, ModelTier, PriceQuote } from './quota';
+export type {
+  AccountTier,
+  MediaJobKind,
+  ModelTier,
+  PriceQuote,
+  PriceQuoteInput,
+  PriceBreakdown,
+} from './quota';
 export {
   TierGateError,
   assertCapability,
   BalanceGateError,
   priceKopeks,
+  priceQuote,
   assertBalance,
 } from './quota';
 

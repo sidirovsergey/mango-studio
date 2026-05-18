@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BalanceGateError, assertBalance, priceKopeks } from './balance';
+import { BalanceGateError, assertBalance, priceKopeks, priceQuote } from './balance';
 import type { MediaJobKind } from './tiers';
 
 describe('priceKopeks', () => {
@@ -47,6 +47,69 @@ describe('priceKopeks', () => {
 
   it('charges 1000 kopeks (10 ₽) for master_clip', () => {
     expect(priceKopeks('master_clip')).toBe(1000);
+  });
+});
+
+describe('priceQuote (Phase 1.7.1 extensible signature)', () => {
+  const ALL_KINDS: MediaJobKind[] = [
+    'character_dossier',
+    'character_avatar',
+    'character_reference',
+    'character_reference_image',
+    'first_frame',
+    'scene_first_frame',
+    'last_frame_extract',
+    'storage_mirror',
+    'voice',
+    'scene_voice',
+    'final_clip',
+    'scene_final_clip',
+    'video',
+    'scene_video',
+    'master_clip',
+  ];
+
+  it('priceQuote.kopeks matches priceKopeks for every (kind, tier) combo', () => {
+    for (const k of ALL_KINDS) {
+      for (const tier of ['economy', 'premium', undefined] as const) {
+        const q = priceQuote({ kind: k, model_tier: tier });
+        expect(q.kopeks).toBe(priceKopeks(k, tier));
+      }
+    }
+  });
+
+  it('returns full PriceQuote shape with breakdown', () => {
+    const q = priceQuote({ kind: 'scene_video', model_tier: 'premium' });
+    expect(q.kopeks).toBe(25000);
+    expect(q.kind).toBe('scene_video');
+    expect(q.model_tier).toBe('premium');
+    expect(q.breakdown.base_kopeks).toBe(25000);
+    expect(q.breakdown.modifiers).toEqual([]);
+  });
+
+  it('model_tier is null when omitted', () => {
+    const q = priceQuote({ kind: 'master_clip' });
+    expect(q.model_tier).toBeNull();
+    expect(q.kopeks).toBe(1000);
+  });
+
+  it('reserved optional fields are accepted but ignored in MVP body', () => {
+    const q = priceQuote({
+      kind: 'scene_video',
+      model_tier: 'economy',
+      duration_sec: 10,
+      character_count: 3,
+      scene_count: 6,
+      resolution: 'hd',
+    });
+    // MVP returns flat economy price; reserved fields had no effect.
+    expect(q.kopeks).toBe(5000);
+    expect(q.breakdown.modifiers).toEqual([]);
+  });
+
+  it('all reserved fields are optional', () => {
+    expect(() => priceQuote({ kind: 'master_clip' })).not.toThrow();
+    expect(() => priceQuote({ kind: 'scene_video', model_tier: 'economy' })).not.toThrow();
   });
 });
 
