@@ -17,6 +17,7 @@
     "./llm/migration-1.4": "./src/llm/migration-1.4.ts",
     "./prompt": "./src/prompt/types.ts",
     "./tier": "./src/tier/types.ts",
+    "./billing": "./src/billing/index.ts",
     "./fixtures": "./src/fixtures/index.ts"
   },
   "scripts": {

@@ -157,14 +157,32 @@ export type {
   VisualTheme,
 } from './media/cinematography-schemas';
 
-export type { AccountTier, MediaJobKind, ModelTier, PriceQuote } from './quota';
+export type {
+  AccountTier,
+  MediaJobKind,
+  ModelTier,
+  PriceQuote,
+  PriceQuoteInput,
+  PriceBreakdown,
+} from './quota';
 export {
   TierGateError,
   assertCapability,
   BalanceGateError,
   priceKopeks,
+  priceQuote,
   assertBalance,
+  aggregateProjectPrice,
 } from './quota';
+export type { AggregateSceneSpec, AggregatePriceInput } from './quota';
+
+export {
+  TOPUP_PACKAGE_KOPEKS,
+  TopupInputSchema,
+  TopupIntentSchema,
+  TopupPackageCodeSchema,
+} from './billing';
+export type { TopupInput, TopupIntent, TopupPackageCode } from './billing';
 
 // NOTE: `ScriptGenSchema`/`ScriptSchema`/`SceneSchema` (from `./llm/schemas`)
 // and `upgradeScene`/`upgradeScript`/`downgradeScript` (from `./llm/migration`)

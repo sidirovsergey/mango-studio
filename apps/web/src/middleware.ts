@@ -31,6 +31,15 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Phase 1.7.1 — Referrer-Policy: no-referrer for /p/* routes. The nonce
+  // is a short-lived bearer token; we don't want it leaking to third-party
+  // sites via the Referer header when the user clicks an outbound link
+  // (e.g. share preview, embedded YouTube iframe). RLS on billing_intents
+  // already enforces user_id match, but defence-in-depth.
+  if (request.nextUrl.pathname.startsWith('/p/')) {
+    response.headers.set('Referrer-Policy', 'no-referrer');
+  }
+
   return response;
 }
 
