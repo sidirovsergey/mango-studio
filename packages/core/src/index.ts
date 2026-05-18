@@ -176,6 +176,14 @@ export {
 } from './quota';
 export type { AggregateSceneSpec, AggregatePriceInput } from './quota';
 
+export {
+  TOPUP_PACKAGE_KOPEKS,
+  TopupInputSchema,
+  TopupIntentSchema,
+  TopupPackageCodeSchema,
+} from './billing';
+export type { TopupInput, TopupIntent, TopupPackageCode } from './billing';
+
 // NOTE: `ScriptGenSchema`/`ScriptSchema`/`SceneSchema` (from `./llm/schemas`)
 // and `upgradeScene`/`upgradeScript`/`downgradeScript` (from `./llm/migration`)
 // are deliberately NOT re-exported here — both files have client-incompatible
