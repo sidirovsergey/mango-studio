@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DialogueSchema, type Dialogue } from '../media/scene-types';
+import { type Dialogue, DialogueSchema } from '../media/scene-types';
 
 /**
  * Phase 1.8.0a — Script schema adapter (reader-only).

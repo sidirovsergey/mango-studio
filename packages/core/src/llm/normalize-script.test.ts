@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import futureV18 from './fixtures/future-v1.8.json';
 import legacyAsymmetric from './fixtures/legacy-asymmetric.json';
 import legacySymmetric from './fixtures/legacy-symmetric.json';
-import futureV18 from './fixtures/future-v1.8.json';
 import { normalizeScript } from './normalize-script';
+import { SceneSchema } from './schemas';
 
 describe('normalizeScript — Phase 1.8.0a adapter (reader-only)', () => {
   // 1. Symmetric legacy projects (description == description_ru) — happy path.
@@ -164,5 +165,20 @@ describe('normalizeScript — Phase 1.8.0a adapter (reader-only)', () => {
     const r = normalizeScript({ scenes: [], characters: [] });
     expect(r.scenes).toEqual([]);
     expect(r.characters).toEqual([]);
+  });
+
+  // 15. CONTRACT — legacy fixture passes the production v1.4 SceneSchema parse.
+  //     (Codex audit A #2 fix.) Proves the adapter still accepts known-valid
+  //     production scene shape rather than only handpicked test shape.
+  it('contract: legacy-symmetric scenes pass production SceneSchema parse', () => {
+    for (const scene of legacySymmetric.scenes) {
+      expect(() => SceneSchema.parse(scene)).not.toThrow();
+    }
+  });
+
+  it('contract: legacy-asymmetric scenes pass production SceneSchema parse', () => {
+    for (const scene of legacyAsymmetric.scenes) {
+      expect(() => SceneSchema.parse(scene)).not.toThrow();
+    }
   });
 });

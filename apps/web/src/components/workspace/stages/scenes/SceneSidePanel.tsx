@@ -243,13 +243,34 @@ export function SceneSidePanel({
             Описание · диалог
           </span>
         </div>
-        <p className="scene-desc">{scene.description}</p>
-        {scene.dialogue && (
-          <p className="scene-dialogue">
-            <em>«{scene.dialogue.text}»</em>
-            <span className="dialogue-speaker">— {speakerLabel(scene.dialogue.speaker)}</span>
-          </p>
-        )}
+        {/* Phase 1.8.0a: prefer description_ru when present (Russian-canonical
+           UI). For symmetric legacy projects (description == description_ru)
+           this is bit-identical. For asymmetric edge case it picks the RU body
+           — see docs/audits/1.8.0a-stage-script-behavior-shift.md. */}
+        <p className="scene-desc">
+          {(scene as { description_ru?: string }).description_ru ?? scene.description}
+        </p>
+        {/* Phase 1.8.0a: future schema may carry dialogue as an array. Wrap
+           the legacy single|null shape in an array view so 1.8.0b's
+           dialogue[] just works without further changes here. */}
+        {(() => {
+          const lines = Array.isArray(scene.dialogue)
+            ? scene.dialogue
+            : scene.dialogue
+              ? [scene.dialogue]
+              : [];
+          if (lines.length === 0) return null;
+          return (
+            <div className="scene-dialogue-list">
+              {lines.map((d, i) => (
+                <p key={`${scene.scene_id}-dlg-${i}-${d.speaker}`} className="scene-dialogue">
+                  <em>«{d.text}»</em>
+                  <span className="dialogue-speaker">— {speakerLabel(d.speaker)}</span>
+                </p>
+              ))}
+            </div>
+          );
+        })()}
       </section>
 
       <PromptSection

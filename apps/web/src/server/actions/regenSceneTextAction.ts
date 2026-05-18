@@ -74,7 +74,12 @@ export async function regenSceneTextAction(
 - text — от 1 до ~30 слов, в стиле и тоне сценария.
 - Никаких пояснений вне JSON.`;
 
-  const userPrompt = `Сцена "${input.scene_id}": ${scene.description}
+  // Phase 1.8.0a: feed the Russian-canonical narrative (description_ru ?? description)
+  // to the LLM rewriter. For symmetric legacy projects (description == description_ru)
+  // identical to before. The LLM tool's `inputSchema` is unchanged — this is the
+  // prompt content, not a new exposed field name.
+  const sceneNarrative = (scene as { description_ru?: string }).description_ru ?? scene.description;
+  const userPrompt = `Сцена "${input.scene_id}": ${sceneNarrative}
 Длительность: ${scene.duration_sec} сек.
 ${charLabels ? `Действующие лица: ${charLabels}` : 'Только окружение, без персонажей в кадре.'}
 Текущая реплика: ${scene.dialogue ? `${scene.dialogue.speaker}: "${scene.dialogue.text}"` : '(нет)'}
