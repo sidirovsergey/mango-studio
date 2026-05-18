@@ -67,6 +67,16 @@ export function AccountMenu({ userEmail, isAnonymous, authEnabled }: Props) {
             {userEmail}
           </div>
           <div role="menu" aria-label="Меню аккаунта">
+            {process.env.NEXT_PUBLIC_PAYMENTS_UI_ENABLED === 'true' && (
+              <Link
+                href="/upgrade"
+                role="menuitem"
+                className="account-dropdown-link"
+                onClick={() => setOpen(false)}
+              >
+                Пополнить
+              </Link>
+            )}
             <Link
               href="/profile"
               role="menuitem"

@@ -11,15 +11,14 @@ export function ClaimWorkBanner({ projectCount }: Props) {
       <div className="claim-banner-meta">
         <span className="claim-banner-eyebrow">Сохранить работу</span>
         <span className="claim-banner-body">
-          У вас{' '}
+          Пополните баланс, чтобы создавать видео из{' '}
           <span className="claim-banner-count">
             {projectCount} {noun}
-          </span>{' '}
-          в этом браузере
+          </span>
         </span>
       </div>
       <Link href="/login" className="claim-banner-cta">
-        Войти и сохранить
+        Войти и пополнить баланс
         <svg
           className="claim-banner-arrow"
           width="14"
