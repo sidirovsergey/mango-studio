@@ -1,31 +1,61 @@
 'use server';
 
+import { randomBytes } from 'node:crypto';
+
 import { createYooKassaPayment } from '@/server/lib/yookassa-client';
+import { TOPUP_PACKAGE_KOPEKS, TopupInputSchema } from '@mango/core/billing';
 import { getServerSupabase } from '@mango/db/server';
 import { redirect } from 'next/navigation';
-import { z } from 'zod';
-
-const InputSchema = z.object({
-  package_code: z.enum(['topup_2000', 'topup_5000', 'topup_10000']),
-});
-
-type PackageCode = z.infer<typeof InputSchema>['package_code'];
-
-const PACKAGE_KOPEKS: Record<PackageCode, number> = {
-  topup_2000: 200_000,
-  topup_5000: 500_000,
-  topup_10000: 1_000_000,
-};
 
 export type CreateTopupResult =
-  | { ok: true; confirmation_url: string; payment_id: string }
+  | { ok: true; confirmation_url: string; payment_id: string; nonce?: string }
   | { ok: false; error: { code: string; message: string } };
 
+/**
+ * 16-char base64url nonce ≈ 95.27 bits of entropy (62^16 — alphanumeric +
+ * url-safe). Used as a bearer token in /p/{slug}?nonce=X during the
+ * post-payment redirect; RLS on billing_intents enforces user_id match so
+ * a stolen nonce cannot be redeemed by another user.
+ */
+function generateNonce(): string {
+  return randomBytes(12).toString('base64url').slice(0, 16);
+}
+
+// Local minimal typings to bypass Supabase generated-types lag on
+// billing_payments + billing_intents (added in Phase 1.7 + 1.7.1 migrations
+// — `supabase gen types` not re-run yet).
+type SbInsert = (
+  row: Record<string, unknown>,
+) => Promise<{ error: { code?: string; message: string } | null }>;
+type SbSelectOne = {
+  select: (cols: string) => {
+    eq: (col: string, val: string) => {
+      single: () => Promise<{
+        data: Record<string, unknown> | null;
+        error: { code?: string; message: string } | null;
+      }>;
+    };
+  };
+};
+type SbFrom = (table: string) => SbSelectOne & { insert: SbInsert };
+type SbRpc<TRow> = (
+  fn: string,
+  args: Record<string, unknown>,
+) => Promise<{ data: TRow | null; error: { code?: string; message: string } | null }>;
+
+type IntentRow = {
+  intent_id: string;
+  out_nonce: string;
+  out_billing_payment_id: string | null;
+  is_new: boolean;
+};
+
 export async function createTopupAction(input: unknown): Promise<CreateTopupResult> {
-  const parsed = InputSchema.safeParse(input);
+  const parsed = TopupInputSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: { code: 'invalid_package', message: 'Неверный пакет.' } };
   }
+  const { package_code, intent } = parsed.data;
 
   const supabase = await getServerSupabase();
   const { data: userData } = await supabase.auth.getUser();
@@ -33,50 +63,144 @@ export async function createTopupAction(input: unknown): Promise<CreateTopupResu
   if (!user || user.is_anonymous || !user.email) {
     redirect('/login');
   }
-  // After redirect(), TypeScript still sees user as possibly anon — narrow:
   const authedUser = user as { id: string; email: string };
 
-  const amount_kopeks = PACKAGE_KOPEKS[parsed.data.package_code];
-  // Deterministic Idempotence-Key (60s window per user+package) — double-click
-  // within 60s collapses to one ЮKassa payment intent.
-  const minute = Math.floor(Date.now() / 60_000);
-  const idempotence_key = `topup:${authedUser.id}:${parsed.data.package_code}:${minute}`;
+  const amount_kopeks = TOPUP_PACKAGE_KOPEKS[package_code];
   const amount_rub = amount_kopeks / 100;
+  const sbFrom = supabase.from as unknown as SbFrom;
+  const sbRpcIntent = supabase.rpc as unknown as SbRpc<IntentRow[]>;
+  const sbRpcVoid = supabase.rpc as unknown as SbRpc<unknown>;
+
+  // ---------------------------------------------------------------------
+  // Intent ledger path (Phase 1.7.1). Skipped entirely for topup_only.
+  // ---------------------------------------------------------------------
+  let intentId: string | null = null;
+  let nonce: string | null = null;
+  if (intent.kind !== 'topup_only') {
+    nonce = generateNonce();
+    const intentResult = await sbRpcIntent('fn_get_or_create_intent', {
+      p_user_id: authedUser.id,
+      p_project_id: intent.project_id,
+      p_kind: intent.kind,
+      p_nonce: nonce,
+      p_return_to: intent.return_to,
+    });
+
+    if (intentResult.error || !intentResult.data || intentResult.data.length === 0) {
+      return {
+        ok: false,
+        error: {
+          code: intentResult.error?.code ?? 'intent_error',
+          message: intentResult.error?.message ?? 'Не удалось создать намерение оплаты.',
+        },
+      };
+    }
+
+    const row = intentResult.data[0] as IntentRow;
+    intentId = row.intent_id;
+    // Reuse the existing nonce if the intent was already pending — both
+    // tabs end up with the same nonce, redirecting to the same checkout.
+    nonce = row.out_nonce;
+
+    // Codex blocker fix #2 — two-tab payment reuse:
+    // If a prior call already bound a billing_payment to this pending intent,
+    // reuse its ЮKassa confirmation_url. DO NOT call ЮKassa.Payment.create
+    // again — that would create a second authorisation on the user's card.
+    if (row.out_billing_payment_id) {
+      const lookup = await sbFrom('billing_payments')
+        .select('id, metadata')
+        .eq('id', row.out_billing_payment_id)
+        .single();
+      if (lookup.error || !lookup.data) {
+        return {
+          ok: false,
+          error: {
+            code: lookup.error?.code ?? 'payment_lookup_error',
+            message: lookup.error?.message ?? 'Не удалось найти существующий платёж.',
+          },
+        };
+      }
+      const meta = lookup.data.metadata as Record<string, unknown> | null;
+      const confirmation = meta?.confirmation as Record<string, unknown> | undefined;
+      const reusedUrl = confirmation?.confirmation_url as string | undefined;
+      if (!reusedUrl) {
+        return {
+          ok: false,
+          error: {
+            code: 'payment_url_missing',
+            message: 'Существующий платёж не содержит URL.',
+          },
+        };
+      }
+      return {
+        ok: true,
+        confirmation_url: reusedUrl,
+        payment_id: row.out_billing_payment_id,
+        nonce,
+      };
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Standard ЮKassa Payment.create path.
+  // ---------------------------------------------------------------------
+  const minute = Math.floor(Date.now() / 60_000);
+  const idempotence_key = `topup:${authedUser.id}:${package_code}:${minute}`;
+  const return_url =
+    intent.kind === 'topup_only'
+      ? 'https://mangopro.ru/profile?topup=pending'
+      : `https://mangopro.ru${intent.return_to}?nonce=${nonce}`;
+
+  const metadata: Record<string, string> = {
+    user_id: authedUser.id,
+    package_code,
+  };
+  if (nonce) metadata.intent_nonce = nonce;
 
   try {
     const payment = await createYooKassaPayment({
       amount_kopeks,
       description: `Mango Studio — пополнение баланса на ${amount_rub} ₽`,
-      return_url: 'https://mangopro.ru/profile?topup=pending',
-      metadata: { user_id: authedUser.id, package_code: parsed.data.package_code },
+      return_url,
+      metadata,
       customer_email: authedUser.email,
       idempotence_key,
     });
 
-    // Record locally for webhook lookup (Codex BLOCKER #4 fix).
-    // billing_payments is not yet in generated Supabase types (migration added in Phase 1.7);
-    // cast through unknown to bypass the overload constraint until `supabase gen types` is re-run.
-    const billingFrom = supabase.from as unknown as (table: string) => {
-      insert: (
-        row: Record<string, unknown>,
-      ) => Promise<{ error: { code: string; message: string } | null }>;
-    };
-    const { error: insertError } = await billingFrom('billing_payments').insert({
+    const { error: insertError } = await sbFrom('billing_payments').insert({
       user_id: authedUser.id,
       provider_payment_id: payment.id,
       amount_kopeks,
       currency: 'RUB',
       status: 'pending',
-      package_code: parsed.data.package_code,
+      package_code,
       metadata: payment as unknown as Record<string, unknown>,
+      intent_id: intentId,
     });
-    if (insertError) {
-      // Idempotent retry: 23505 = UNIQUE violation → payment already recorded.
-      if (insertError.code !== '23505') {
-        return {
-          ok: false,
-          error: { code: insertError.code ?? 'db_error', message: insertError.message },
-        };
+    if (insertError && insertError.code !== '23505') {
+      return {
+        ok: false,
+        error: { code: insertError.code ?? 'db_error', message: insertError.message },
+      };
+    }
+    // 23505 = UNIQUE violation on provider_payment_id → idempotent retry,
+    // payment was already recorded; continue.
+
+    // Link payment to intent (best-effort; webhook lookup uses
+    // provider_payment_id as the join key so missing link doesn't break
+    // settlement, but having the link populated helps debugging + future
+    // intent-aware queries).
+    if (intentId) {
+      const lookup = await sbFrom('billing_payments')
+        .select('id')
+        .eq('provider_payment_id', payment.id)
+        .single();
+      const localId = (lookup.data?.id as string | undefined) ?? null;
+      if (localId) {
+        await sbRpcVoid('fn_link_payment_to_intent', {
+          p_intent_id: intentId,
+          p_billing_payment_id: localId,
+        });
       }
     }
 
@@ -84,6 +208,7 @@ export async function createTopupAction(input: unknown): Promise<CreateTopupResu
       ok: true,
       confirmation_url: payment.confirmation.confirmation_url,
       payment_id: payment.id,
+      ...(nonce ? { nonce } : {}),
     };
   } catch (err) {
     return {
