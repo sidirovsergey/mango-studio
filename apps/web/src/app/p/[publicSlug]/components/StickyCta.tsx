@@ -63,8 +63,8 @@ export function StickyCta({
   return (
     <div className="sticky-cta-bar" role="region" aria-label="Действия с раскадровкой">
       <div className="sticky-cta-info">
-        <span className="sticky-cta-info-line">Бесплатно: сценарий и первые кадры всех сцен.</span>
-        <span className="sticky-cta-info-line dim">Поделитесь раскадровкой по ссылке.</span>
+        <span className="sticky-cta-info-line">Сценарий и первые кадры — бесплатно.</span>
+        <span className="sticky-cta-info-line dim">Готовый ролик собирается из ваших сцен.</span>
       </div>
       <div className="sticky-cta-buttons">
         <button
@@ -74,7 +74,7 @@ export function StickyCta({
           disabled={renderPending || studioPending}
           aria-busy={renderPending}
         >
-          {renderPending ? 'Открываем оплату…' : `Получить готовый ролик — ${priceRub} ₽`}
+          {renderPending ? 'Открываем оплату…' : `Собрать ролик · ${priceRub} ₽`}
         </button>
         <button
           type="button"
@@ -83,17 +83,17 @@ export function StickyCta({
           disabled={renderPending || studioPending}
           aria-busy={studioPending}
         >
-          {studioPending ? 'Открываем оплату…' : 'Открыть в Pro-Студии'}
+          {studioPending ? 'Открываем…' : 'В Pro-Студию'}
         </button>
       </div>
-      {/* Price breakdown — collapsed by default, expandable for advanced users */}
       {renderModifiers.length > 1 && (
         <details className="sticky-cta-breakdown">
-          <summary>Из чего складывается цена</summary>
+          <summary>Как складывается цена</summary>
           <ul>
             {renderModifiers.map((m) => (
               <li key={m.name}>
-                {m.name}: {Math.round(m.kopeks / 100)} ₽
+                <span>{m.name}</span>
+                <span>{Math.round(m.kopeks / 100)} ₽</span>
               </li>
             ))}
           </ul>

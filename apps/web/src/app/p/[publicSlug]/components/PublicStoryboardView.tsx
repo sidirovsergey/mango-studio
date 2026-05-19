@@ -4,12 +4,11 @@ import { StickyCta } from './StickyCta';
 import { StoryboardSceneCard } from './StoryboardSceneCard';
 
 /**
- * Phase 1.8.1 — public storyboard render.
+ * Phase 1.8.1 — public storyboard render. Read-only RSC; security boundary
+ * enforced by toPublicProjectView allowlist.
  *
- * Read-only RSC (no client interactivity except ShareButton + StickyCta).
- * Anyone with the slug URL can see this page; no auth required. The view
- * type is pre-allowlisted by toPublicProjectView — see that module for the
- * security boundary contract.
+ * Phase 1.8.x design pass: editorial-magazine layout. Styles live in
+ * `../storyboard.css`, imported by page.tsx.
  */
 export function PublicStoryboardView({
   project,
@@ -18,39 +17,31 @@ export function PublicStoryboardView({
   project: PublicProjectView;
   hasError?: boolean;
 }) {
+  const sceneWord = scenePluralRu(project.scenes_count);
+
   return (
     <main className="public-storyboard">
       <header className="public-storyboard-header">
+        <p className="public-storyboard-eyebrow">Mango Studio · Раскадровка</p>
         <h1 className="public-storyboard-title">
           {project.title || `Раскадровка ${project.public_slug}`}
         </h1>
         <div className="public-storyboard-meta">
-          <span>
-            Длительность ~{project.target_duration_sec} сек • {project.scenes_count}{' '}
-            {project.scenes_count === 1 ? 'сцена' : project.scenes_count < 5 ? 'сцены' : 'сцен'}
+          <span className="public-storyboard-meta-stats">
+            <span>~{project.target_duration_sec} сек</span>
+            <span className="dot" aria-hidden="true" />
+            <span>
+              {project.scenes_count} {sceneWord}
+            </span>
           </span>
           <ShareButton publicSlug={project.public_slug} />
         </div>
       </header>
 
       {hasError && (
-        <div
-          className="public-storyboard-banner"
-          role="status"
-          aria-live="polite"
-          style={{
-            margin: '16px 0',
-            padding: '12px 16px',
-            borderRadius: 8,
-            background: '#fff4e6',
-            border: '1px solid #f6c789',
-            color: '#7a4b00',
-            fontSize: 14,
-            lineHeight: 1.45,
-          }}
-        >
-          Не удалось подготовить первые кадры. Попробуйте обновить страницу позже или создайте
-          раскадровку заново — текстовая часть готова.
+        <div className="public-storyboard-banner" role="status" aria-live="polite">
+          Первые кадры подготовить не удалось — текст раскадровки готов. Попробуйте обновить
+          страницу позже или создайте раскадровку заново.
         </div>
       )}
 
@@ -65,10 +56,6 @@ export function PublicStoryboardView({
         ))}
       </section>
 
-      {/* Sticky CTA at viewport bottom — render & studio entry points.
-         Anon users see "Войдите" labels; the action wraps createTopupAction
-         with intent.kind='render' or 'studio' so post-payment redirect
-         dispatches the right surface. */}
       <StickyCta
         projectId={project.id}
         publicSlug={project.public_slug}
@@ -76,8 +63,17 @@ export function PublicStoryboardView({
         renderModifiers={project.price.render_modifiers}
       />
 
-      {/* Spacer so sticky-CTA doesn't overlap the last scene card. */}
-      <div className="public-storyboard-spacer" aria-hidden="true" style={{ height: 120 }} />
+      <div className="public-storyboard-spacer" aria-hidden="true" />
     </main>
   );
+}
+
+function scenePluralRu(n: number): string {
+  // Russian plural: 1 сцена, 2-4 сцены, 5+ сцен, 11-14 сцен.
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return 'сцен';
+  if (mod10 === 1) return 'сцена';
+  if (mod10 >= 2 && mod10 <= 4) return 'сцены';
+  return 'сцен';
 }

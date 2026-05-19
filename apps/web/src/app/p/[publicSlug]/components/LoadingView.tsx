@@ -3,28 +3,14 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Phase 1.8.2 — generating-storyboard loading view.
+ * Phase 1.8.2 — generating-storyboard loading view. Polls /api/project-status
+ * with 3s → 5s → 10s backoff until status flips off generating_*; reloads
+ * the page so the RSC renders the appropriate successor view.
  *
- * Polls `/api/project-status?slug=` every 3 s (with linear→5 s→10 s backoff
- * after 1 min) until status flips off `generating_storyboard`. On flip,
- * reloads the page so the RSC re-fetches and renders the appropriate
- * follow-up view (StoryboardView for share-ready, ErrorView for error).
- *
- * Why poll vs Supabase Realtime: 1.8.2 ships pull-based for simplicity;
- * Realtime subscription on `projects` requires a public RLS policy that
- * leaks status to anyone with the slug. Polling via server-side
- * fn_inspect_intent-style RPC was considered; we use a plain GET endpoint
- * here since project status (without script content) is already meant to
- * be publicly visible at this URL.
- *
- * 5-phase progress (per CJM §3 экран 2): MVP shows a generic
- * indeterminate animation. Granular per-phase indicators (analysing /
- * characters / scenes / first frames / dialogue) deferred to a future
- * polish — they require `projects.progress jsonb` infra that is not in
- * 1.8.2 scope.
+ * Phase 1.8.x design pass: editorial loading with five animated phase pills.
  */
 
-const HARD_TIMEOUT_MS = 6 * 60 * 1000; // 6 min — generation usually <90s; 6 min is safety net.
+const HARD_TIMEOUT_MS = 6 * 60 * 1000;
 
 function intervalFor(elapsedMs: number): number {
   if (elapsedMs < 60_000) return 3_000;
@@ -32,9 +18,18 @@ function intervalFor(elapsedMs: number): number {
   return 10_000;
 }
 
+const PHASES = [
+  { glyph: '✦', label: 'Анализирую идею' },
+  { glyph: '☉', label: 'Создаю персонажей' },
+  { glyph: '✂', label: 'Раскладываю на сцены' },
+  { glyph: '◐', label: 'Генерирую первые кадры' },
+  { glyph: '✎', label: 'Пишу сценарий и диалоги' },
+];
+
 export function LoadingView({ publicSlug, title }: { publicSlug: string; title: string | null }) {
   const [elapsedSec, setElapsedSec] = useState(0);
   const [stalled, setStalled] = useState(false);
+  const [activePhase, setActivePhase] = useState(0);
 
   useEffect(() => {
     const startMs = Date.now();
@@ -66,11 +61,8 @@ export function LoadingView({ publicSlug, title }: { publicSlug: string; title: 
             ok: boolean;
             status?: string;
             is_generating?: boolean;
-            is_share_ready?: boolean;
           };
           if (body.ok && body.is_generating === false) {
-            // Status flipped off generating — reload so RSC renders the
-            // correct successor view (storyboard / error / etc).
             window.location.reload();
             return;
           }
@@ -85,51 +77,70 @@ export function LoadingView({ publicSlug, title }: { publicSlug: string; title: 
       if (alive) setElapsedSec(Math.floor((Date.now() - startMs) / 1000));
     }, 1000);
 
+    // Cycle the visual "active phase" pill every ~14 seconds so the user has
+    // a sense of progress even though we don't have real phase telemetry.
+    const phaseId = setInterval(() => {
+      if (alive) setActivePhase((p) => Math.min(p + 1, PHASES.length - 1));
+    }, 14_000);
+
     schedule();
 
     return () => {
       alive = false;
       if (pollTimeoutId) clearTimeout(pollTimeoutId);
       clearInterval(tickerId);
+      clearInterval(phaseId);
     };
   }, [publicSlug]);
 
   if (stalled) {
     return (
-      <main className="loading-stalled" style={{ padding: 24, maxWidth: 640, margin: '0 auto' }}>
-        <h1>Что-то задерживается</h1>
-        <p>
-          Раскадровка генерируется дольше обычного. Откройте ссылку чуть позже — генерация
-          продолжается в фоне.
-        </p>
-        <p>
-          <a href={`/p/${publicSlug}`}>Перезагрузить страницу</a>
-        </p>
+      <main className="loading-stalled">
+        <div className="loading-stalled-inner">
+          <h1>Что-то задерживается</h1>
+          <p>
+            Раскадровка генерируется дольше обычного. Откройте ссылку чуть позже — генерация
+            продолжается в фоне.
+          </p>
+          <p>
+            <a href={`/p/${publicSlug}`}>Перезагрузить страницу</a>
+          </p>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="loading-view" style={{ padding: 24, maxWidth: 720, margin: '0 auto' }}>
-      <header style={{ marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: 28 }}>{title ?? 'Готовим раскадровку'}</h1>
-        <p style={{ marginTop: 8, opacity: 0.7 }}>
-          Mango пишет сценарий и генерирует первые кадры. Это занимает 30–90 секунд.
+    <main className="loading-view">
+      <div className="loading-view-inner">
+        <p className="loading-view-eyebrow">Mango Studio · готовим раскадровку</p>
+        <h1 className="loading-view-title">{title ?? 'Подбираем сценарий и кадры'}</h1>
+        <p className="loading-view-subtitle">
+          Раскадровка собирается прямо сейчас. Обычно это занимает 30–90 секунд. Можно закрыть
+          вкладку — мы сохраним результат по этой ссылке.
         </p>
-      </header>
 
-      <ul className="loading-phases" aria-live="polite">
-        <li className="phase active">🪄 Анализирую идею…</li>
-        <li className="phase active">🎭 Создаю персонажей…</li>
-        <li className="phase active">🎬 Раскладываю на сцены…</li>
-        <li className="phase active">🖼️ Генерирую первые кадры…</li>
-        <li className="phase active">✍️ Пишу сценарий и диалоги…</li>
-      </ul>
+        {/* Codex 2026-05-19: the phase pills rotate every 14s without
+         * real progress telemetry — announcing each rotation as a live
+         * region would be misleading to screen-reader users. Hide the
+         * decorative list from a11y; expose ONE polite status line
+         * (`loading-tick`) reflecting actual elapsed time. */}
+        <ul className="loading-phases" aria-hidden="true">
+          {PHASES.map((phase, idx) => (
+            <li key={phase.label} className={`phase ${idx <= activePhase ? 'active' : ''}`}>
+              <span className="glyph" aria-hidden="true">
+                {phase.glyph}
+              </span>
+              {phase.label}
+              {idx <= activePhase ? '…' : ''}
+            </li>
+          ))}
+        </ul>
 
-      <p style={{ marginTop: 24, fontSize: 12, opacity: 0.5 }}>
-        Прошло: {elapsedSec}s. Можно закрыть вкладку — генерация продолжается в фоне, мы сохраним
-        результат по этой ссылке.
-      </p>
+        <p className="loading-tick" role="status" aria-live="polite">
+          Готовим раскадровку · {elapsedSec}s
+        </p>
+      </div>
     </main>
   );
 }
