@@ -216,14 +216,21 @@ export async function toPublicProjectView(
  * after confirming the storyboard is renderable in that state.
  */
 const SHARE_READY_STATUSES = new Set([
+  // CJM-canonical statuses (Phase 1.8+):
   'storyboard_ready',
   'paywalled',
   'rendering',
   'done',
   'editing',
+  // Defensive: ancient values that ad-hoc fixtures or unconfirmed seed
+  // data might still carry. The 'script_ready' rows were migrated by
+  // 20260519000002 to 'storyboard_ready', so it's no longer in this list.
   'completed',
   'ready',
 ]);
+
+/** Status during script generation — page renders LoadingView. */
+export const GENERATING_STATUSES = new Set(['generating_storyboard', 'generating_script']);
 
 /**
  * Fetch the project row by public_slug via service_role + map to the public
@@ -271,4 +278,58 @@ export async function fetchPublicProjectBySlug(
     return null;
   }
   return toPublicProjectView(data);
+}
+
+/**
+ * Phase 1.8.2 — lightweight status probe for the loading view path.
+ *
+ * Returns minimal info regardless of share-ready state, so the page can
+ * branch between LoadingView (status=generating_*) and StoryboardView
+ * (status=share-ready). Returns null only when the slug doesn't exist
+ * (anti-enumeration parity).
+ *
+ * Why a separate function? `fetchPublicProjectBySlug` runs the full
+ * normaliser + first_frame URL signing chain (~50ms+ on 4-8 scenes). For
+ * a project that's still GENERATING, we don't need any of that — just
+ * the row's status. Splitting keeps the loading-screen render cheap.
+ */
+export interface PublicProjectStatus {
+  id: string;
+  public_slug: string;
+  status: string;
+  title: string | null;
+  is_share_ready: boolean;
+  is_generating: boolean;
+}
+
+export async function fetchPublicProjectStatusBySlug(
+  publicSlug: string,
+): Promise<PublicProjectStatus | null> {
+  const sb = getServiceRoleSupabase();
+  const sbFrom = sb.from as unknown as (table: string) => {
+    select: (cols: string) => {
+      eq: (
+        col: string,
+        val: string,
+      ) => {
+        maybeSingle: () => Promise<{
+          data: { id: string; public_slug: string; status: string; title: string | null } | null;
+          error: { message: string } | null;
+        }>;
+      };
+    };
+  };
+  const { data, error } = await sbFrom('projects')
+    .select('id, public_slug, status, title')
+    .eq('public_slug', publicSlug)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    id: data.id,
+    public_slug: data.public_slug,
+    status: data.status,
+    title: data.title,
+    is_share_ready: SHARE_READY_STATUSES.has(data.status),
+    is_generating: GENERATING_STATUSES.has(data.status),
+  };
 }
