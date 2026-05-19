@@ -203,27 +203,55 @@ export async function generateFirstFrameAction(
   }
 
   if (reservation.mode === 'reserved') {
-    await finalizeMediaJobReservation({
-      job_id: reservation.job_id,
-      model: handle.model_used,
-      fal_request_id: handle.fal_request_id,
-      request_input: handle.request_input,
-    });
+    // Codex blocker fix (2026-05-19): if finalize throws (DB hiccup, RLS
+    // mismatch, etc.) AFTER provider.submitFirstFrame succeeded, the
+    // reserved row stays at status='reserved' forever and dedupes as
+    // "existing" on retry — corrupting the queue. Roll it back so the
+    // next retry can re-submit cleanly. Rethrow for the outer (bulk) catch
+    // to log + skip.
+    try {
+      await finalizeMediaJobReservation({
+        job_id: reservation.job_id,
+        model: handle.model_used,
+        fal_request_id: handle.fal_request_id,
+        request_input: handle.request_input,
+      });
+    } catch (e) {
+      await rollbackMediaJobReservation(reservation.job_id);
+      throw e;
+    }
     return { ok: true, job_id: reservation.job_id, existing: false };
   }
 
   // Bypass mode: metering disabled or RPC degraded — fall back to the legacy
   // insert path so the job is still tracked.
-  const { job_id, existing } = await recordPendingJob({
-    user_id: user.id,
-    project_id: input.project_id,
-    scene_id: input.scene_id,
-    kind: 'first_frame',
-    model: handle.model_used,
-    fal_request_id: handle.fal_request_id,
-    request_input: handle.request_input,
-  });
-  return { ok: true, job_id, existing };
+  //
+  // Codex blocker fix (2026-05-19): if recordPendingJob throws here, the
+  // provider.submitFirstFrame above already fired and there's no reserved
+  // row to roll back — we just have an UNTRACKED in-flight fal handle.
+  // Identify the failure clearly so ops can find lost tracking; the outer
+  // (bulk) catch logs + skips for UI resilience.
+  try {
+    const { job_id, existing } = await recordPendingJob({
+      user_id: user.id,
+      project_id: input.project_id,
+      scene_id: input.scene_id,
+      kind: 'first_frame',
+      model: handle.model_used,
+      fal_request_id: handle.fal_request_id,
+      request_input: handle.request_input,
+    });
+    return { ok: true, job_id, existing };
+  } catch (e) {
+    console.warn('[generateFirstFrame] record_pending_failed', {
+      project_id: input.project_id,
+      scene_id: input.scene_id,
+      fal_request_id: handle.fal_request_id,
+      errName: e instanceof Error ? e.name : 'unknown',
+      errMessage: e instanceof Error ? e.message : String(e),
+    });
+    throw e;
+  }
 }
 
 const BulkInputSchema = z.object({
@@ -302,20 +330,34 @@ export async function generateAllFirstFramesAction(rawInput: unknown): Promise<
   let existing_count = 0;
 
   for (const scene_id of target) {
-    const frameResult = await generateFirstFrameAction({
-      project_id: input.project_id,
-      scene_id,
-      model_override: input.model_override,
-      mode: 'bulk',
-    });
+    let frameResult: Awaited<ReturnType<typeof generateFirstFrameAction>>;
+    try {
+      frameResult = await generateFirstFrameAction({
+        project_id: input.project_id,
+        scene_id,
+        model_override: input.model_override,
+        mode: 'bulk',
+      });
+    } catch (err) {
+      // Codex Layer-1 fix (2026-05-19): inner throws used to propagate out
+      // of bulk → caught by after()-block in createProjectFromIdeaAction →
+      // status='error' → user saw ErrorView instead of the storyboard.
+      // The inner action's own rollback (rollbackMediaJobReservation on
+      // submit/finalize throw) already fired before the throw reached us,
+      // so no orphan media_jobs row remains. Soft-skip the scene; the
+      // storyboard renders with a placeholder thumbnail for it.
+      console.warn('[generateAllFirstFrames] inner threw', {
+        project_id: input.project_id,
+        scene_id,
+        errName: err instanceof Error ? err.name : 'unknown',
+        errMessage: err instanceof Error ? err.message : String(err),
+      });
+      continue;
+    }
 
     if (!frameResult.ok) {
       // Soft errors (F53 precondition pending, reservation rate-limited,
-      // invalid scene_id, etc.) — skip this scene, batch continues. Hard
-      // exceptions inside the inner action (e.g. fal.ai submit throws — see
-      // the rollback at the catch in generateFirstFrameAction) propagate
-      // upward and are caught by the after()-block in createProjectFromIdeaAction,
-      // which flips status to 'error'.
+      // invalid scene_id). Skip; batch continues.
       continue;
     }
 
