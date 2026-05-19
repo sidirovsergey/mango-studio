@@ -1,9 +1,6 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/get-user';
-import { assertCapabilityOrLog } from '@/server/lib/assert-capability-or-log';
-import { getAccountTier } from '@/server/lib/get-account-tier';
-import { getBalance } from '@/server/lib/get-balance';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import {
@@ -19,11 +16,9 @@ import {
   type ModelTier,
   type Style,
   type Tier,
-  TierGateError,
   type VisualTheme,
   buildFirstFramePrompt,
   getDefaultModel,
-  priceKopeks,
 } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 import { z } from 'zod';
@@ -289,62 +284,20 @@ export async function generateAllFirstFramesAction(rawInput: unknown): Promise<
   const script = project.script as unknown as ScriptShape;
   if (!script) return { ok: false, error: 'project has no script' };
 
-  // Account-tier capability gate (Phase 1.6 D2).
-  // Single first-frame is an image kind (open to all tiers). Bulk path
-  // fans out to scene_video chains, so check the scene_video capability instead.
-  // projectTier ('economy' | 'premium') is passed as modelTier so assertCapability
-  // can distinguish free+economy (allowed) vs free+premium (blocked).
-  const projectTier = (project.tier ?? 'economy') as Tier;
-  try {
-    const accountTier = await getAccountTier(sb, user.id);
-    assertCapabilityOrLog(accountTier, 'scene_video', projectTier);
-  } catch (err) {
-    if (err instanceof TierGateError) {
-      return {
-        ok: false,
-        error: 'tier_gate',
-        tier_gate: {
-          required_tier: err.required_tier,
-          kind: err.kind,
-          message: err.message,
-        },
-      } as const;
-    }
-    throw err;
-  }
-
+  // Phase 1.8.x — first-frame previews are FREE (`priceKopeks('first_frame') = 0`)
+  // and gated by the inner `generateFirstFrameAction` only. The scene_video
+  // capability + balance reservation that this action used to do up-front
+  // (Phase 1.7 «submit → render» flow) has moved into `enqueueRenderForProject`
+  // (post-payment path). The workspace can also call `generateSceneVideoAction`
+  // directly (e.g. SceneSidePanel «render scene» button). In both cases,
+  // `generateSceneVideoAction` enforces its own scene_video tier-gate +
+  // atomic `fn_reserve_balance` debit, so doing it again here would
+  // double-reserve AND make the free-preview path unreachable for anon
+  // trial users (balance=0).
   const allSceneIds = script.scenes.map((s) => s.scene_id);
   const total = allSceneIds.length;
   const target = allSceneIds.slice(0, CAP);
 
-  // Phase 1.7 — Balance pre-flight (cheap UX gate before any fan-out).
-  // first_frame images are free (priceKopeks('first_frame') = 0), but each
-  // bulk first-frame kicks off a scene_video chain, so pre-reserve the video
-  // balance for all scenes up-front.
-  const balance = await getBalance(sb, user.id);
-  const priceKop = priceKopeks('scene_video', projectTier as ModelTier);
-  const requiredKop = priceKop * target.length;
-  if (requiredKop > 0 && balance < requiredKop) {
-    return {
-      ok: false,
-      error: 'insufficient_balance',
-      insufficient_balance: {
-        required_kopeks: requiredKop,
-        current_kopeks: balance,
-        kind: 'scene_video',
-        model_tier: (projectTier as ModelTier) ?? null,
-      },
-    } as const;
-  }
-
-  // Phase 1.7 — Sequential fan-out with per-scene atomic balance reservation.
-  // Converted from Promise.all to sequential for-loop so mid-loop drain can
-  // cancel and refund all prior reserved jobs (triggers fn_refund_reservation).
-  const reserveBalanceRpc = sb.rpc.bind(sb) as unknown as (
-    name: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: boolean | null; error: { message: string } | null }>;
-  const submittedJobIds: string[] = [];
   const job_ids: string[] = [];
   let existing_count = 0;
 
@@ -357,51 +310,18 @@ export async function generateAllFirstFramesAction(rawInput: unknown): Promise<
     });
 
     if (!frameResult.ok) {
-      // Non-balance error (e.g. tier_gate from inner action, F53 precondition, etc.).
-      // Skip this scene but continue — partial fan-out is acceptable for non-balance errors.
+      // Soft errors (F53 precondition pending, reservation rate-limited,
+      // invalid scene_id, etc.) — skip this scene, batch continues. Hard
+      // exceptions inside the inner action (e.g. fal.ai submit throws — see
+      // the rollback at the catch in generateFirstFrameAction) propagate
+      // upward and are caught by the after()-block in createProjectFromIdeaAction,
+      // which flips status to 'error'.
       continue;
     }
 
     if (frameResult.existing) {
-      // Dedup: job already exists, no new balance reservation needed.
-      job_ids.push(frameResult.job_id);
       existing_count++;
-      continue;
     }
-
-    // New first_frame job reserved — now atomically reserve scene_video balance
-    // linked to the first_frame media_job row.
-    if (priceKop > 0) {
-      const reserved = await reserveBalanceRpc('fn_reserve_balance', {
-        p_job_id: frameResult.job_id,
-        p_user_id: user.id,
-        p_kopeks: priceKop,
-        p_kind: 'scene_video',
-        p_model_tier: (projectTier as ModelTier) ?? null,
-      });
-      if (reserved.error || reserved.data === false) {
-        // Cancel the just-reserved first_frame job.
-        await sb.from('media_jobs').update({ status: 'canceled' }).eq('id', frameResult.job_id);
-        // Cancel all prior first_frame jobs in this batch — triggers fn_refund_reservation
-        // on each, restoring the reserved scene_video balance for each prior scene.
-        for (const priorJobId of submittedJobIds) {
-          await sb.from('media_jobs').update({ status: 'canceled' }).eq('id', priorJobId);
-        }
-        return {
-          ok: false,
-          error: 'insufficient_balance',
-          insufficient_balance: {
-            required_kopeks: priceKop,
-            current_kopeks: balance - submittedJobIds.length * priceKop,
-            kind: 'scene_video',
-            model_tier: (projectTier as ModelTier) ?? null,
-          },
-        } as const;
-      }
-      // Successfully reserved — track for potential later rollback in this batch.
-      submittedJobIds.push(frameResult.job_id);
-    }
-
     job_ids.push(frameResult.job_id);
   }
 
