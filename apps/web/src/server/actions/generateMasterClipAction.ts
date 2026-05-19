@@ -235,7 +235,7 @@ export async function generateMasterClipAction(rawInput: unknown): Promise<
   // Generated Supabase types don't know about fn_reserve_balance (added in
   // Phase 1.7 migration); cast through unknown, same pattern as D2.
   if (priceKop > 0 && reservation.mode === 'reserved') {
-    const reserveBalanceRpc = sb.rpc as unknown as (
+    const reserveBalanceRpc = sb.rpc.bind(sb) as unknown as (
       name: string,
       args: Record<string, unknown>,
     ) => Promise<{ data: boolean | null; error: { message: string } | null }>;

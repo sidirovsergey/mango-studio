@@ -70,9 +70,9 @@ export async function createTopupAction(input: unknown): Promise<CreateTopupResu
 
   const amount_kopeks = TOPUP_PACKAGE_KOPEKS[package_code];
   const amount_rub = amount_kopeks / 100;
-  const sbFrom = supabase.from as unknown as SbFrom;
-  const sbRpcIntent = supabase.rpc as unknown as SbRpc<IntentRow[]>;
-  const sbRpcVoid = supabase.rpc as unknown as SbRpc<unknown>;
+  const sbFrom = supabase.from.bind(supabase) as unknown as SbFrom;
+  const sbRpcIntent = supabase.rpc.bind(supabase) as unknown as SbRpc<IntentRow[]>;
+  const sbRpcVoid = supabase.rpc.bind(supabase) as unknown as SbRpc<unknown>;
 
   // ---------------------------------------------------------------------
   // Intent ledger path (Phase 1.7.1). Skipped entirely for topup_only.
