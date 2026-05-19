@@ -130,20 +130,47 @@ export async function createProjectFromIdeaAction(input: z.infer<typeof CreateFr
   //    'generating_storyboard' to keep LoadingView active until first_frames
   //    are reserved.
   // 4. After bulk first_frames complete, flip to 'storyboard_ready'.
+  // Helper: update projects.status + surface DB errors. Codex SHOULD-FIX
+  // (2026-05-19 diff audit): the FINAL flip to 'storyboard_ready' must
+  // throw on error so the outer catch can flip to 'error' (where Layer 2
+  // handles recovery). Otherwise LoadingView spins until its 6-min timeout
+  // with no fallback. Intermediate flips and the catch-block's flip to
+  // 'error' stay best-effort.
+  const updateStatus = async (
+    status: string,
+    opts: { throwOnError?: boolean } = {},
+  ): Promise<void> => {
+    const { error: updateErr } = await sbUpdate('projects').update({ status }).eq('id', projectId);
+    if (updateErr) {
+      console.error('[createProjectFromIdea] status update failed', {
+        projectId,
+        target_status: status,
+        errMessage: updateErr.message,
+      });
+      if (opts.throwOnError) {
+        throw new Error(
+          `[createProjectFromIdea] updateStatus(${status}) failed: ${updateErr.message}`,
+        );
+      }
+    }
+  };
+
   after(async () => {
     try {
       await generateScriptAction({ project_id: projectId });
       // persistScript wrote 'script_ready' (legacy literal). Keep LoadingView
       // active until first_frames step completes.
-      await sbUpdate('projects').update({ status: 'generating_storyboard' }).eq('id', projectId);
+      await updateStatus('generating_storyboard');
 
       // First-frame batch fires only after script is persisted (loadProjectForGeneration
-      // depends on a present script). Best-effort: if a single scene's
-      // first_frame fails to reserve, the bulk action returns partial; we
-      // log + continue. The storyboard view tolerates missing first_frames.
+      // depends on a present script). Post Codex 2026-05-19 Layer-1 fix, the
+      // bulk action catches all inner throws internally; we only see
+      // {ok:false} for hard structural cases (project missing, etc.).
+      // Storyboard view renders with placeholder thumbnails for any scene
+      // whose first_frame failed.
       const bulkResult = await generateAllFirstFramesAction({ project_id: projectId });
       if (!bulkResult.ok) {
-        console.warn('[createProjectFromIdea] first-frame batch partial/failed', {
+        console.warn('[createProjectFromIdea] first-frame batch returned ok:false', {
           projectId,
           error: 'error' in bulkResult ? bulkResult.error : 'unknown',
         });
@@ -154,13 +181,14 @@ export async function createProjectFromIdeaAction(input: z.infer<typeof CreateFr
       // be null at this point (fal.ai async callback pending) — the view
       // tolerates that and renders placeholders for ~30-60s until the
       // pollMediaJobsAction picks up the completions.
-      await sbUpdate('projects').update({ status: 'storyboard_ready' }).eq('id', projectId);
+      await updateStatus('storyboard_ready', { throwOnError: true });
     } catch (err) {
       console.error('[createProjectFromIdea] background gen failed', { projectId, err });
-      // Flip status to 'error' so LoadingView surfaces a retry CTA.
-      // Best-effort — if THIS also fails, the project stays stuck at
-      // 'generating_storyboard'; cron sweep (deferred) handles those.
-      await sbUpdate('projects').update({ status: 'error' }).eq('id', projectId);
+      // Flip status to 'error'. With Phase 1.8.x recovery, page.tsx falls
+      // back to PublicStoryboardView (with banner) if the script
+      // generated before the throw — only truly catastrophic (no script)
+      // failures render ErrorView.
+      await updateStatus('error');
     }
   });
 

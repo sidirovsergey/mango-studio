@@ -281,6 +281,52 @@ export async function fetchPublicProjectBySlug(
 }
 
 /**
+ * Phase 1.8.x recovery path — fetch a project that's in `status='error'`
+ * but still has a usable script. Used by page.tsx to render the storyboard
+ * with a warning banner instead of the dead-end ErrorView when the
+ * first-frame batch failed but the script generated successfully.
+ *
+ * SECURITY: Only matches `status='error'` (single explicit literal — NOT
+ * a bypass of the SHARE_READY_STATUSES allowlist for other states). Still
+ * goes through `toPublicProjectView` allowlist mapper, so the same field
+ * exposure boundary applies. Returns null for non-error states; callers
+ * must use `fetchPublicProjectBySlug` for share-ready states first.
+ */
+export async function fetchPublicProjectBySlugIncludingError(
+  publicSlug: string,
+): Promise<PublicProjectView | null> {
+  const sb = getServiceRoleSupabase();
+  const sbFrom = sb.from.bind(sb) as unknown as (table: string) => {
+    select: (cols: string) => {
+      eq: (
+        col: string,
+        val: string,
+      ) => {
+        maybeSingle: () => Promise<{
+          data: ProjectRowSubset | null;
+          error: { message: string } | null;
+        }>;
+      };
+    };
+  };
+  const { data, error } = await sbFrom('projects')
+    .select('id, public_slug, title, status, format, target_duration_sec, created_at, tier, script')
+    .eq('public_slug', publicSlug)
+    .maybeSingle();
+  if (error) {
+    console.error('[public-project-view] fetch-including-error failed', {
+      publicSlug,
+      error: error.message,
+    });
+    return null;
+  }
+  if (!data) return null;
+  if (data.status !== 'error') return null;
+  if (!data.script) return null;
+  return toPublicProjectView(data);
+}
+
+/**
  * Phase 1.8.2 — lightweight status probe for the loading view path.
  *
  * Returns minimal info regardless of share-ready state, so the page can
