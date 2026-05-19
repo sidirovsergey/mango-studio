@@ -11,7 +11,13 @@ import { StoryboardSceneCard } from './StoryboardSceneCard';
  * type is pre-allowlisted by toPublicProjectView — see that module for the
  * security boundary contract.
  */
-export function PublicStoryboardView({ project }: { project: PublicProjectView }) {
+export function PublicStoryboardView({
+  project,
+  hasError = false,
+}: {
+  project: PublicProjectView;
+  hasError?: boolean;
+}) {
   return (
     <main className="public-storyboard">
       <header className="public-storyboard-header">
@@ -26,6 +32,27 @@ export function PublicStoryboardView({ project }: { project: PublicProjectView }
           <ShareButton publicSlug={project.public_slug} />
         </div>
       </header>
+
+      {hasError && (
+        <div
+          className="public-storyboard-banner"
+          role="status"
+          aria-live="polite"
+          style={{
+            margin: '16px 0',
+            padding: '12px 16px',
+            borderRadius: 8,
+            background: '#fff4e6',
+            border: '1px solid #f6c789',
+            color: '#7a4b00',
+            fontSize: 14,
+            lineHeight: 1.45,
+          }}
+        >
+          Не удалось подготовить первые кадры. Попробуйте обновить страницу позже или создайте
+          раскадровку заново — текстовая часть готова.
+        </div>
+      )}
 
       <section className="public-storyboard-scenes">
         {project.scenes.map((scene, idx) => (

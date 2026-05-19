@@ -577,4 +577,148 @@ describe('generateAllFirstFramesAction — Phase 1.8 free-preview behavior', () 
       expect(result.job_ids).toHaveLength(1);
     }
   });
+
+  it('inner submit throws on s1, succeeds on s2 → bulk returns ok with 1 job_id (Codex Layer 1)', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'u1' });
+
+    // First call throws (e.g. fal.ai 5xx), second call succeeds.
+    const submitFirstFrame = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('fal: upstream 503'))
+      .mockResolvedValueOnce({
+        fal_request_id: 'req-s2',
+        model_used: 'fal-ai/nano-banana-2',
+        request_input: { prompt: 'Scene 2' },
+      });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ submitFirstFrame });
+
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: makeBulkProject(), error: null }),
+      })),
+    });
+
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      mode: 'reserved' as const,
+      job_id: 'job-x',
+      used: 1,
+      dedup: false,
+    });
+
+    const result = await generateAllFirstFramesAction({ project_id: PROJECT_ID });
+
+    // Bulk MUST still return ok; failed scene skipped via try/catch.
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.job_ids).toHaveLength(1);
+      expect(result.capped).toBe(false);
+    }
+    expect(submitFirstFrame).toHaveBeenCalledTimes(2);
+  });
+
+  it('every scene submit throws → bulk returns ok with empty job_ids + rollback fires per scene (Codex SHOULD-FIX coverage)', async () => {
+    const { rollbackMediaJobReservation } = await import('@/server/lib/scene-helpers');
+
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'u1' });
+
+    const submitFirstFrame = vi.fn().mockRejectedValue(new Error('fal: upstream 503'));
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ submitFirstFrame });
+
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: makeBulkProject(), error: null }),
+      })),
+    });
+
+    // Distinct job_ids per call so the rollback assertion is target-specific.
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        ok: true,
+        mode: 'reserved' as const,
+        job_id: 'job-submit-fail-s1',
+        used: 1,
+        dedup: false,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        mode: 'reserved' as const,
+        job_id: 'job-submit-fail-s2',
+        used: 2,
+        dedup: false,
+      });
+
+    const result = await generateAllFirstFramesAction({ project_id: PROJECT_ID });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.job_ids).toHaveLength(0);
+      expect(result.existing_count).toBe(0);
+    }
+    expect(submitFirstFrame).toHaveBeenCalledTimes(2);
+    // Inner action's existing submit-throw catch rolls back per scene.
+    expect(rollbackMediaJobReservation).toHaveBeenCalledTimes(2);
+    expect(rollbackMediaJobReservation).toHaveBeenCalledWith('job-submit-fail-s1');
+    expect(rollbackMediaJobReservation).toHaveBeenCalledWith('job-submit-fail-s2');
+  });
+
+  it('finalize throws after successful submit → inner rolls back, bulk catches + continues (Codex BLOCKER #1)', async () => {
+    const { rollbackMediaJobReservation } = await import('@/server/lib/scene-helpers');
+
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'u1' });
+
+    const submitFirstFrame = vi.fn().mockResolvedValue({
+      fal_request_id: 'req-finalize',
+      model_used: 'fal-ai/nano-banana-2',
+      request_input: { prompt: 'Scene' },
+    });
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ submitFirstFrame });
+
+    // finalize throws for BOTH scenes → bulk's outer catch keeps going,
+    // inner's new try/catch around finalize triggers rollbackMediaJobReservation.
+    (finalizeMediaJobReservation as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('DB hiccup: finalize failed'),
+    );
+
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: makeBulkProject(), error: null }),
+      })),
+    });
+
+    // Distinct ids per scene so the rollback assertion catches any future
+    // accidental single-target logic regression (Codex NIT 2026-05-19).
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        ok: true,
+        mode: 'reserved' as const,
+        job_id: 'reserved-finalize-s1',
+        used: 1,
+        dedup: false,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        mode: 'reserved' as const,
+        job_id: 'reserved-finalize-s2',
+        used: 2,
+        dedup: false,
+      });
+
+    const result = await generateAllFirstFramesAction({ project_id: PROJECT_ID });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.job_ids).toHaveLength(0);
+    }
+    // BLOCKER fix verification: rollback fires per-scene with its own id.
+    expect(rollbackMediaJobReservation).toHaveBeenCalledTimes(2);
+    expect(rollbackMediaJobReservation).toHaveBeenCalledWith('reserved-finalize-s1');
+    expect(rollbackMediaJobReservation).toHaveBeenCalledWith('reserved-finalize-s2');
+  });
 });

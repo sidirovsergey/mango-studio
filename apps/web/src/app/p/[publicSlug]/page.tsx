@@ -1,6 +1,7 @@
 import { enqueueRenderForProject } from '@/server/lib/enqueue-render';
 import {
   fetchPublicProjectBySlug,
+  fetchPublicProjectBySlugIncludingError,
   fetchPublicProjectStatusBySlug,
 } from '@/server/lib/public-project-view';
 import { getServerSupabase } from '@mango/db/server';
@@ -53,11 +54,13 @@ export default async function PublicSlugPage(props: {
   const { nonce } = await props.searchParams;
 
   if (!nonce) {
-    // Phase 1.8.2: branch on project status BEFORE the heavyweight mapper.
+    // Phase 1.8.2 + Phase 1.8.x recovery: branch on project status BEFORE
+    // the heavyweight mapper.
     // - not found → 404.
     // - generating_storyboard / generating_script → LoadingView (poll until flip).
     // - share-ready → fetch full view + StoryboardView.
-    // - error → ErrorView.
+    // - error → try recovery storyboard (script may still be usable); fall
+    //   back to ErrorView only if script truly missing.
     // - anything else (draft, etc.) → 404 (same anti-enumeration as
     //   fetchPublicProjectBySlug's status gate).
     const probe = await fetchPublicProjectStatusBySlug(publicSlug);
@@ -68,6 +71,15 @@ export default async function PublicSlugPage(props: {
       return <LoadingView publicSlug={publicSlug} title={probe.title} />;
     }
     if (probe.status === 'error') {
+      // Phase 1.8.x recovery: if the script generated successfully but the
+      // first-frame batch failed (fal.ai blip, DB hiccup), the script is
+      // still usable — show the storyboard with a warning banner and
+      // placeholder thumbnails for missing first_frames. Falls back to
+      // ErrorView only if the script is also missing (truly catastrophic).
+      const recoveryView = await fetchPublicProjectBySlugIncludingError(publicSlug);
+      if (recoveryView) {
+        return <PublicStoryboardView project={recoveryView} hasError />;
+      }
       return <ErrorView publicSlug={publicSlug} />;
     }
     if (!probe.is_share_ready) {
