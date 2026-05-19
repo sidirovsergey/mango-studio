@@ -105,7 +105,7 @@ export async function reserveMediaJob(input: ReserveInput): Promise<ReserveResul
   // and are not caller-controllable (see migration v4). The RPC still accepts
   // tunable args in its signature for backward compat but silently ignores them.
   const rpc = (
-    sb.rpc as unknown as (
+    sb.rpc.bind(sb) as unknown as (
       name: string,
       args: Record<string, unknown>,
     ) => Promise<{

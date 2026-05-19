@@ -9,16 +9,6 @@ import { z } from 'zod';
 import { generateAllFirstFramesAction } from './generateFirstFrameAction';
 import { generateScriptAction } from './scripts';
 
-/** Diagnostic helper for prod 500s in createProjectFromIdeaAction. Detects a
- * Next redirect throw (digest='NEXT_REDIRECT;...') vs a real exception so the
- * outer try/catch can rethrow redirects unchanged. Temporary — remove when the
- * TypeError root cause is identified and fixed. */
-function isRedirectThrow(err: unknown): boolean {
-  if (typeof err !== 'object' || err === null) return false;
-  const digest = (err as { digest?: unknown }).digest;
-  return typeof digest === 'string' && digest.startsWith('NEXT_REDIRECT');
-}
-
 const CreateProjectSchema = z.object({
   idea: z.string().min(1).max(500),
   style: z.enum(['3d_pixar', '2d_drawn', 'clay_art']),
@@ -80,46 +70,20 @@ const CreateFromIdeaSchema = z.object({
 });
 
 export async function createProjectFromIdeaAction(input: z.infer<typeof CreateFromIdeaSchema>) {
-  // Temporary diagnostic instrumentation — prod surface throws a generic
-  // TypeError before reaching the explicit `throw new Error` paths below. The
-  // step-tagged catches let Vercel runtime logs pin the exact line on the
-  // next reproduction. Remove once root cause is identified + fixed.
-  let step = 'parse';
-  let data: z.infer<typeof CreateFromIdeaSchema>;
-  let userId: string;
-  let supabase: Awaited<ReturnType<typeof getServerSupabase>>;
-  try {
-    data = CreateFromIdeaSchema.parse(input);
-    step = 'get-user';
-    userId = await getCurrentUserId();
-    step = 'get-supabase';
-    supabase = await getServerSupabase();
-  } catch (err) {
-    if (isRedirectThrow(err)) throw err;
-    console.error('[createProjectFromIdea] PRE-INSERT FATAL', {
-      step,
-      errName: err instanceof Error ? err.name : 'unknown',
-      errMessage: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined,
-      inputShape: {
-        ideaLen:
-          typeof input === 'object' && input
-            ? (input as Record<string, unknown>).idea?.toString().length
-            : undefined,
-        style:
-          typeof input === 'object' && input ? (input as Record<string, unknown>).style : undefined,
-        format:
-          typeof input === 'object' && input
-            ? (input as Record<string, unknown>).format
-            : undefined,
-      },
-    });
-    throw err;
-  }
+  const data = CreateFromIdeaSchema.parse(input);
+  const userId = await getCurrentUserId();
+  const supabase = await getServerSupabase();
 
   // INSERT with explicit status — public_slug populated by DEFAULT
   // fn_generate_public_slug() (Phase 1.8.1 migration).
-  const sbFrom = supabase.from as unknown as (table: string) => {
+  //
+  // CRITICAL: `.bind(supabase)` preserves `this` inside supabase-js methods.
+  // Without it, supabase-js `from()` (a regular class method) does
+  // `return this.rest.from(table)` and crashes with
+  // `TypeError: Cannot read properties of undefined (reading 'rest')`
+  // because `this` is undefined in 'use server' strict mode when the method
+  // is detached. Regression caught in prod 2026-05-19.
+  const sbFrom = supabase.from.bind(supabase) as unknown as (table: string) => {
     insert: (row: Record<string, unknown>) => {
       select: (cols: string) => {
         single: () => Promise<{
@@ -129,40 +93,25 @@ export async function createProjectFromIdeaAction(input: z.infer<typeof CreateFr
       };
     };
   };
-  let project: { id: string; public_slug: string };
-  try {
-    step = 'insert';
-    const { data: row, error } = await sbFrom('projects')
-      .insert({
-        user_id: userId,
-        idea: data.idea,
-        style: data.style,
-        format: data.format,
-        target_duration_sec: data.target_duration_sec,
-        status: 'generating_storyboard',
-      })
-      .select('id, public_slug')
-      .single();
-    if (error || !row) {
-      throw new Error(`createProjectFromIdea: ${error?.message ?? 'unknown'}`);
-    }
-    project = row;
-  } catch (err) {
-    if (isRedirectThrow(err)) throw err;
-    console.error('[createProjectFromIdea] INSERT FATAL', {
-      step,
-      errName: err instanceof Error ? err.name : 'unknown',
-      errMessage: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined,
-      userId,
-    });
-    throw err;
+  const { data: project, error } = await sbFrom('projects')
+    .insert({
+      user_id: userId,
+      idea: data.idea,
+      style: data.style,
+      format: data.format,
+      target_duration_sec: data.target_duration_sec,
+      status: 'generating_storyboard',
+    })
+    .select('id, public_slug')
+    .single();
+  if (error || !project) {
+    throw new Error(`createProjectFromIdea: ${error?.message ?? 'unknown'}`);
   }
 
   const projectId = project.id;
   const publicSlug = project.public_slug;
 
-  const sbUpdate = supabase.from as unknown as (table: string) => {
+  const sbUpdate = supabase.from.bind(supabase) as unknown as (table: string) => {
     update: (row: Record<string, unknown>) => {
       eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
     };
@@ -215,25 +164,7 @@ export async function createProjectFromIdeaAction(input: z.infer<typeof CreateFr
     }
   });
 
-  try {
-    step = 'redirect';
-    if (!publicSlug) {
-      console.error('[createProjectFromIdea] EMPTY SLUG', { projectId, publicSlugRaw: project });
-      throw new Error('createProjectFromIdea: empty public_slug after insert');
-    }
-    redirect(`/p/${publicSlug}`);
-  } catch (err) {
-    if (isRedirectThrow(err)) throw err;
-    console.error('[createProjectFromIdea] REDIRECT FATAL', {
-      step,
-      errName: err instanceof Error ? err.name : 'unknown',
-      errMessage: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined,
-      projectId,
-      publicSlug,
-    });
-    throw err;
-  }
+  redirect(`/p/${publicSlug}`);
 }
 
 const UpdateMetaSchema = z.object({

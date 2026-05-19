@@ -340,7 +340,7 @@ export async function generateAllFirstFramesAction(rawInput: unknown): Promise<
   // Phase 1.7 — Sequential fan-out with per-scene atomic balance reservation.
   // Converted from Promise.all to sequential for-loop so mid-loop drain can
   // cancel and refund all prior reserved jobs (triggers fn_refund_reservation).
-  const reserveBalanceRpc = sb.rpc as unknown as (
+  const reserveBalanceRpc = sb.rpc.bind(sb) as unknown as (
     name: string,
     args: Record<string, unknown>,
   ) => Promise<{ data: boolean | null; error: { message: string } | null }>;

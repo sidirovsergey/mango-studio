@@ -252,7 +252,7 @@ export async function fetchPublicProjectBySlug(
   publicSlug: string,
 ): Promise<PublicProjectView | null> {
   const sb = getServiceRoleSupabase();
-  const sbFrom = sb.from as unknown as (table: string) => {
+  const sbFrom = sb.from.bind(sb) as unknown as (table: string) => {
     select: (cols: string) => {
       eq: (
         col: string,
@@ -306,7 +306,7 @@ export async function fetchPublicProjectStatusBySlug(
   publicSlug: string,
 ): Promise<PublicProjectStatus | null> {
   const sb = getServiceRoleSupabase();
-  const sbFrom = sb.from as unknown as (table: string) => {
+  const sbFrom = sb.from.bind(sb) as unknown as (table: string) => {
     select: (cols: string) => {
       eq: (
         col: string,

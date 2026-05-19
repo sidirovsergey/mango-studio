@@ -33,7 +33,7 @@ export async function GET(req: Request): Promise<NextResponse> {
   }
 
   const sb = await getServerSupabase();
-  const rpc = sb.rpc as unknown as (
+  const rpc = sb.rpc.bind(sb) as unknown as (
     fn: string,
     args: Record<string, unknown>,
   ) => Promise<{ data: IntentInspectRow[] | null; error: { message: string } | null }>;

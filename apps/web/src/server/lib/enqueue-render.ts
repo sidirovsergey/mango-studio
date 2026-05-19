@@ -59,7 +59,7 @@ export async function enqueueRenderForProject(opts: {
   // generated DB types don't include the new intent_id column on billing_payments
   // (and don't include projects.script in a fully-typed way); narrow locally.
   const { data, error } = await (
-    sb.from as unknown as (table: string) => {
+    sb.from.bind(sb) as unknown as (table: string) => {
       select: (cols: string) => {
         eq: (
           col: string,
