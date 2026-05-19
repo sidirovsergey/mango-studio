@@ -1,0 +1,965 @@
+/* =====================================================================
+ * Public storyboard surface — Editorial Magazine × Pixar warmth.
+ *
+ * Scope: /p/[publicSlug] route. Imported from page.tsx so styles apply
+ * to LoadingView / PublicStoryboardView / ErrorView / StoryboardSceneCard /
+ * StickyCta / ShareButton consistently.
+ *
+ * Design pillars:
+ * - Typography: Fraunces (display + accent italic) + system serif body.
+ *   Project already loads Fraunces in app/layout.tsx; no new fonts.
+ * - Palette: warm cream base, deep espresso ink, single mango-orange accent.
+ * - Layout: asymmetric scene cards alternating L/R on desktop (≥920px);
+ *   stacked on mobile. Large serif scene numerals act as magazine pull-
+ *   quotes overlapping the frame.
+ * - Motion: silent cream→white shimmer for missing thumbnails, NOT
+ *   spinners. Subtle reveal-on-scroll for cards (animation-delay).
+ * - Backgrounds: paper-grain noise overlay at 4% — print-feel.
+ * - Sticky CTA: floating glass card with backdrop blur on desktop; full-
+ *   width bottom bar on mobile.
+ * ===================================================================== */
+
+/* Design tokens — scoped to .public-storyboard so they don't leak. */
+.public-storyboard,
+.loading-view,
+.loading-stalled,
+.error-view {
+  --storyboard-paper: #fbf4e6;
+  --storyboard-paper-warm: #f6ead2;
+  --storyboard-paper-deep: #efe1c6;
+  --storyboard-ink: #1f1a12;
+  --storyboard-ink-soft: #4a3f30;
+  --storyboard-ink-muted: #7a6a52;
+  --storyboard-rule: #d8c8a8;
+  --storyboard-accent: #d77a2c;
+  /* Codex 2026-05-19: deepened from #b85d18 to #8e4710 so white text at
+   * 17px on the gradient sticky CTA hits AA (~5.3:1). */
+  --storyboard-accent-deep: #8e4710;
+  --storyboard-gold: #b88746;
+  --storyboard-card-bg: #fffbf2;
+  --storyboard-card-border: #ead9b3;
+  --storyboard-card-shadow: 0 1px 0 rgba(184, 135, 70, 0.08),
+    0 24px 60px -32px rgba(46, 24, 0, 0.18);
+  --storyboard-banner-bg: #fdf0d8;
+  --storyboard-banner-border: #e8c987;
+  --storyboard-banner-ink: #6a4308;
+  /* Editorial stacks (Codex audit 2026-05-19):
+   * - Display uses Lora (`--font-editorial`) — variable-weight cyrillic
+   *   serif loaded in app/layout.tsx specifically for this surface; falls
+   *   back to Fraunces for Latin display elsewhere, then to system serifs
+   *   that keep the editorial tone on Windows without dropping to Times.
+   * - Body uses Georgia + Palatino Linotype + Book Antiqua — broadly
+   *   available across Windows / iOS / macOS / Android with full cyrillic.
+   * - Mono uses `--font-mono` (Geist Mono, loaded by layout.tsx). */
+  --storyboard-display: var(--font-editorial), var(--font-serif), 'Georgia',
+    'Palatino Linotype', 'Book Antiqua', serif;
+  --storyboard-body: 'Georgia', 'Palatino Linotype', 'Book Antiqua', serif;
+  --storyboard-mono: var(--font-mono), ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+}
+
+/* =========================================================
+ * Page background — paper + grain.
+ * ========================================================= */
+
+.public-storyboard,
+.loading-view,
+.loading-stalled,
+.error-view {
+  position: relative;
+  min-height: 100vh;
+  background: var(--storyboard-paper);
+  color: var(--storyboard-ink);
+  font-family: var(--storyboard-body);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.public-storyboard::before,
+.loading-view::before,
+.loading-stalled::before,
+.error-view::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.12   0 0 0 0 0.10   0 0 0 0 0.07   0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.5'/></svg>");
+  opacity: 0.045;
+  mix-blend-mode: multiply;
+  z-index: 0;
+}
+
+.public-storyboard > *,
+.loading-view > *,
+.loading-stalled > *,
+.error-view > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* =========================================================
+ * Header — magazine masthead.
+ * ========================================================= */
+
+.public-storyboard-header {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 64px 32px 24px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px 32px;
+  align-items: end;
+  border-bottom: 1px solid var(--storyboard-rule);
+}
+
+.public-storyboard-eyebrow {
+  font-family: var(--storyboard-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  /* Codex audit 2026-05-19: accent #D77A2C on cream at 11px hits ~2.86:1
+   * — fails WCAG AA for small text. Use accent-deep (~4.7:1). */
+  color: var(--storyboard-accent-deep);
+  font-weight: 500;
+  grid-column: 1 / -1;
+  margin: 0 0 12px;
+}
+
+.public-storyboard-title {
+  font-family: var(--storyboard-display);
+  font-weight: 500;
+  font-style: italic;
+  font-size: clamp(36px, 5.5vw, 64px);
+  line-height: 1.04;
+  letter-spacing: -0.015em;
+  color: var(--storyboard-ink);
+  margin: 0;
+  font-variation-settings: 'opsz' 144;
+}
+
+.public-storyboard-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-family: var(--storyboard-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--storyboard-ink-soft);
+  white-space: nowrap;
+}
+
+.public-storyboard-meta-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.public-storyboard-meta-stats span {
+  display: inline-block;
+}
+
+.public-storyboard-meta-stats .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--storyboard-gold);
+  display: inline-block;
+}
+
+/* Share button — scoped to .public-storyboard to avoid colliding with the
+ * workspace-final stage's .share-btn rules. Codex audit 2026-05-19. */
+.public-storyboard .share-btn {
+  font-family: var(--storyboard-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--storyboard-ink);
+  color: var(--storyboard-ink);
+  padding: 8px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, transform 200ms ease;
+}
+
+.public-storyboard .share-btn:hover {
+  background: var(--storyboard-ink);
+  color: var(--storyboard-paper);
+  transform: translateY(-1px);
+}
+
+.public-storyboard .share-btn:active {
+  transform: translateY(0);
+}
+
+/* =========================================================
+ * Recovery banner (Task 1).
+ * ========================================================= */
+
+.public-storyboard-banner {
+  max-width: 1180px;
+  margin: 32px auto 0;
+  padding: 16px 24px;
+  background: var(--storyboard-banner-bg);
+  border: 1px solid var(--storyboard-banner-border);
+  border-left: 3px solid var(--storyboard-accent);
+  border-radius: 4px;
+  color: var(--storyboard-banner-ink);
+  font-family: var(--storyboard-body);
+  font-size: 15px;
+  line-height: 1.55;
+  font-style: italic;
+}
+
+.public-storyboard-banner::before {
+  content: '⚠';
+  margin-right: 12px;
+  color: var(--storyboard-accent-deep);
+  font-style: normal;
+  font-size: 18px;
+  vertical-align: -1px;
+}
+
+/* =========================================================
+ * Scenes section — alternating asymmetric grid.
+ * ========================================================= */
+
+.public-storyboard-scenes {
+  max-width: 1180px;
+  margin: 56px auto 0;
+  padding: 0 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 96px;
+}
+
+.storyboard-scene-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 56px;
+  align-items: center;
+  opacity: 0;
+  animation: scene-reveal 700ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+
+.storyboard-scene-card:nth-child(1) {
+  animation-delay: 40ms;
+}
+.storyboard-scene-card:nth-child(2) {
+  animation-delay: 120ms;
+}
+.storyboard-scene-card:nth-child(3) {
+  animation-delay: 200ms;
+}
+.storyboard-scene-card:nth-child(4) {
+  animation-delay: 280ms;
+}
+.storyboard-scene-card:nth-child(5) {
+  animation-delay: 360ms;
+}
+.storyboard-scene-card:nth-child(6) {
+  animation-delay: 440ms;
+}
+
+@keyframes scene-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Codex 2026-05-19: collect ALL motion under one block so users with the
+   * preference set get a calm static surface. */
+  .storyboard-scene-card,
+  .sticky-cta-bar,
+  .loading-view-eyebrow,
+  .scene-frame-placeholder {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+  .sticky-cta-bar {
+    transform: translateX(-50%);
+  }
+}
+
+/* Alternate orientation: even scenes flip image to the right. */
+.storyboard-scene-card:nth-child(even) {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+}
+
+.storyboard-scene-card:nth-child(even) .scene-frame {
+  order: 2;
+}
+
+.storyboard-scene-card:nth-child(even) .scene-text {
+  order: 1;
+}
+
+/* =========================================================
+ * Scene header — eyebrow + numeral pull-quote.
+ * ========================================================= */
+
+.scene-header {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--storyboard-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--storyboard-accent);
+  margin-bottom: 18px;
+}
+
+.scene-number {
+  font-weight: 600;
+}
+
+.scene-arc,
+.scene-duration {
+  color: var(--storyboard-ink-muted);
+}
+
+/* Decorative numeral overlay — big italic serif, sits behind/left of frame. */
+.scene-frame {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--storyboard-paper-warm);
+  box-shadow: var(--storyboard-card-shadow);
+  border: 1px solid var(--storyboard-card-border);
+}
+
+.scene-frame::before {
+  content: attr(data-numeral);
+  position: absolute;
+  top: -36px;
+  left: -16px;
+  font-family: var(--storyboard-display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(80px, 12vw, 156px);
+  line-height: 1;
+  color: var(--storyboard-paper);
+  -webkit-text-stroke: 1.5px var(--storyboard-gold);
+  text-stroke: 1.5px var(--storyboard-gold);
+  z-index: 2;
+  pointer-events: none;
+  font-variation-settings: 'opsz' 144;
+}
+
+.storyboard-scene-card:nth-child(even) .scene-frame::before {
+  left: auto;
+  right: -16px;
+}
+
+.scene-frame.aspect-16-9 {
+  aspect-ratio: 16 / 9;
+}
+
+.scene-frame.aspect-9-16 {
+  aspect-ratio: 9 / 16;
+  max-width: 380px;
+  margin: 0 auto;
+}
+
+.scene-frame.aspect-1-1 {
+  aspect-ratio: 1 / 1;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.scene-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Placeholder shimmer — silent cream→white wave (NOT a spinner). */
+.scene-frame-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    100deg,
+    var(--storyboard-paper-warm) 0%,
+    var(--storyboard-paper-deep) 35%,
+    var(--storyboard-paper-warm) 70%
+  );
+  background-size: 250% 100%;
+  animation: shimmer 2.8s ease-in-out infinite;
+  color: var(--storyboard-ink-muted);
+  font-family: var(--storyboard-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 180% 0;
+  }
+  100% {
+    background-position: -80% 0;
+  }
+}
+
+/* Placeholder gradient flatten under reduced-motion is handled by the
+ * unified block at the top of the scene-card animation section. */
+
+/* =========================================================
+ * Scene text — narrative + dialogue.
+ * ========================================================= */
+
+.scene-text {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.scene-narrative {
+  font-family: var(--storyboard-body);
+  font-size: 18px;
+  line-height: 1.65;
+  color: var(--storyboard-ink);
+  margin: 0;
+  font-feature-settings: 'liga' 1, 'kern' 1;
+}
+
+/* First-letter drop cap on first scene only. */
+.storyboard-scene-card:first-child .scene-narrative::first-letter {
+  font-family: var(--storyboard-display);
+  font-style: italic;
+  font-weight: 500;
+  float: left;
+  font-size: 56px;
+  line-height: 0.85;
+  padding: 6px 10px 0 0;
+  color: var(--storyboard-accent);
+  font-variation-settings: 'opsz' 144;
+}
+
+.public-storyboard .scene-dialogue-list {
+  list-style: none;
+  margin: 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--storyboard-rule);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.public-storyboard .scene-dialogue-line {
+  font-family: var(--storyboard-display);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--storyboard-ink-soft);
+  font-variation-settings: 'opsz' 14;
+}
+
+.public-storyboard .scene-dialogue-line em {
+  font-style: italic;
+  font-weight: 500;
+  color: var(--storyboard-ink);
+}
+
+.public-storyboard .dialogue-speaker {
+  font-family: var(--storyboard-mono);
+  font-style: normal;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--storyboard-ink-muted);
+  margin-left: 4px;
+}
+
+/* =========================================================
+ * Spacer + Sticky CTA.
+ * ========================================================= */
+
+.public-storyboard-spacer {
+  height: 140px;
+}
+
+.sticky-cta-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  width: min(720px, calc(100vw - 32px));
+  background: rgba(255, 251, 242, 0.96);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid var(--storyboard-card-border);
+  border-radius: 24px;
+  box-shadow:
+    0 24px 60px -20px rgba(46, 24, 0, 0.22),
+    0 2px 0 rgba(184, 135, 70, 0.08) inset;
+  padding: 18px 22px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: cta-rise 600ms cubic-bezier(0.2, 0.7, 0.2, 1) 400ms backwards;
+}
+
+@keyframes cta-rise {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.sticky-cta-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--storyboard-body);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--storyboard-ink-soft);
+}
+
+.sticky-cta-info-line.dim {
+  color: var(--storyboard-ink-muted);
+  font-style: italic;
+}
+
+.sticky-cta-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sticky-cta-primary {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--storyboard-display);
+  font-weight: 500;
+  font-style: italic;
+  font-size: 17px;
+  letter-spacing: 0;
+  color: #fffbf2;
+  background: linear-gradient(180deg, var(--storyboard-accent) 0%, var(--storyboard-accent-deep) 100%);
+  border: 0;
+  padding: 14px 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow:
+    0 12px 24px -10px rgba(183, 91, 25, 0.55),
+    0 1px 0 rgba(255, 255, 255, 0.4) inset;
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+  font-variation-settings: 'opsz' 14;
+}
+
+.sticky-cta-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow:
+    0 18px 32px -10px rgba(183, 91, 25, 0.65),
+    0 1px 0 rgba(255, 255, 255, 0.5) inset;
+  filter: brightness(1.04);
+}
+
+.sticky-cta-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.sticky-cta-primary:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.sticky-cta-secondary {
+  font-family: var(--storyboard-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--storyboard-ink);
+  background: transparent;
+  border: 0;
+  padding: 12px 6px;
+  cursor: pointer;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 180ms ease;
+  white-space: nowrap;
+}
+
+.sticky-cta-secondary:hover:not(:disabled) {
+  border-bottom-color: var(--storyboard-ink);
+}
+
+.sticky-cta-secondary:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.sticky-cta-breakdown {
+  margin-top: 4px;
+  font-family: var(--storyboard-body);
+  font-size: 12px;
+  color: var(--storyboard-ink-muted);
+}
+
+.sticky-cta-breakdown summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 4px 0;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sticky-cta-breakdown summary::before {
+  content: '▸';
+  display: inline-block;
+  font-size: 9px;
+  transition: transform 160ms ease;
+  color: var(--storyboard-gold);
+}
+
+.sticky-cta-breakdown[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.sticky-cta-breakdown ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sticky-cta-breakdown li {
+  display: flex;
+  justify-content: space-between;
+}
+
+/* =========================================================
+ * Loading view — silent generative phases.
+ * ========================================================= */
+
+.loading-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 96px 24px;
+}
+
+.loading-view-inner {
+  max-width: 540px;
+  width: 100%;
+}
+
+.loading-view-eyebrow {
+  font-family: var(--storyboard-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--storyboard-accent);
+  margin: 0 0 18px;
+  animation: pulse-soft 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse-soft {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.loading-view-title {
+  font-family: var(--storyboard-display);
+  font-weight: 500;
+  font-style: italic;
+  font-size: clamp(28px, 4.5vw, 44px);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--storyboard-ink);
+  margin: 0 0 16px;
+  font-variation-settings: 'opsz' 144;
+}
+
+.loading-view-subtitle {
+  font-family: var(--storyboard-body);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--storyboard-ink-soft);
+  margin: 0 0 36px;
+}
+
+.loading-phases {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  max-width: 380px;
+}
+
+.loading-phases .phase {
+  font-family: var(--storyboard-body);
+  font-size: 15px;
+  color: var(--storyboard-ink-muted);
+  padding: 8px 14px;
+  background: rgba(255, 251, 242, 0.6);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: color 200ms ease, background 200ms ease, border-color 200ms ease;
+}
+
+.loading-phases .phase.active {
+  color: var(--storyboard-ink);
+  background: var(--storyboard-card-bg);
+  border-color: var(--storyboard-card-border);
+}
+
+.loading-phases .phase .glyph {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--storyboard-paper-deep);
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.loading-phases .phase.active .glyph {
+  background: var(--storyboard-accent);
+  color: #fffbf2;
+}
+
+.loading-tick {
+  margin-top: 28px;
+  font-family: var(--storyboard-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--storyboard-ink-muted);
+}
+
+/* Stalled loading */
+.loading-stalled {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 96px 24px;
+}
+
+.loading-stalled-inner {
+  max-width: 520px;
+}
+
+.loading-stalled h1 {
+  font-family: var(--storyboard-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(26px, 4vw, 36px);
+  line-height: 1.1;
+  margin: 0 0 16px;
+  font-variation-settings: 'opsz' 144;
+}
+
+.loading-stalled p {
+  font-family: var(--storyboard-body);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--storyboard-ink-soft);
+  margin: 0 0 16px;
+}
+
+.loading-stalled a {
+  color: var(--storyboard-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* =========================================================
+ * Error view — friendly dead-end.
+ * ========================================================= */
+
+.error-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 96px 24px;
+}
+
+.error-view-inner {
+  max-width: 540px;
+}
+
+.error-view-eyebrow {
+  font-family: var(--storyboard-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--storyboard-accent);
+  margin: 0 0 18px;
+}
+
+.error-view h1 {
+  font-family: var(--storyboard-display);
+  font-weight: 500;
+  font-style: italic;
+  font-size: clamp(28px, 4.5vw, 44px);
+  line-height: 1.1;
+  margin: 0 0 16px;
+  font-variation-settings: 'opsz' 144;
+}
+
+.error-view p {
+  font-family: var(--storyboard-body);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--storyboard-ink-soft);
+  margin: 0 0 16px;
+}
+
+.error-view-back-link {
+  display: inline-block;
+  margin-top: 24px;
+  font-family: var(--storyboard-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--storyboard-ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--storyboard-ink);
+  padding-bottom: 2px;
+}
+
+.error-view-slug {
+  margin-top: 32px;
+  font-family: var(--storyboard-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--storyboard-ink-muted);
+}
+
+/* =========================================================
+ * Mobile breakpoints.
+ * ========================================================= */
+
+@media (max-width: 920px) {
+  .public-storyboard-header {
+    grid-template-columns: 1fr;
+    padding: 40px 20px 20px;
+    align-items: start;
+  }
+
+  .public-storyboard-meta {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .public-storyboard-scenes {
+    padding: 0 20px;
+    margin-top: 40px;
+    gap: 64px;
+  }
+
+  .storyboard-scene-card,
+  .storyboard-scene-card:nth-child(even) {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .storyboard-scene-card:nth-child(even) .scene-frame {
+    order: 1;
+  }
+
+  .storyboard-scene-card:nth-child(even) .scene-text {
+    order: 2;
+  }
+
+  .storyboard-scene-card:nth-child(even) .scene-frame::before {
+    left: -16px;
+    right: auto;
+  }
+
+  .scene-narrative {
+    font-size: 17px;
+  }
+
+  .public-storyboard-banner {
+    margin: 24px 20px 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .public-storyboard-header {
+    padding: 32px 18px 18px;
+  }
+
+  .public-storyboard-scenes {
+    padding: 0 18px;
+    gap: 48px;
+  }
+
+  .sticky-cta-bar {
+    bottom: 12px;
+    width: calc(100vw - 24px);
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  .sticky-cta-buttons {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .sticky-cta-primary {
+    font-size: 16px;
+    padding: 13px 18px;
+  }
+
+  .sticky-cta-secondary {
+    padding: 10px 6px;
+    text-align: center;
+  }
+
+  .scene-frame::before {
+    font-size: 80px;
+    top: -24px;
+    left: -10px;
+  }
+
+  .storyboard-scene-card:first-child .scene-narrative::first-letter {
+    font-size: 44px;
+  }
+}

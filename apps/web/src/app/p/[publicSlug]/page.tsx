@@ -6,6 +6,7 @@ import {
 } from '@/server/lib/public-project-view';
 import { getServerSupabase } from '@mango/db/server';
 import { notFound } from 'next/navigation';
+import './storyboard.css';
 import { ErrorView } from './components/ErrorView';
 import { IntentCanceledView } from './components/IntentCanceledView';
 import { IntentExpiredView } from './components/IntentExpiredView';

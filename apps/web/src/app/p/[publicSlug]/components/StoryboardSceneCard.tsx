@@ -1,19 +1,10 @@
 import type { PublicScene } from '@/server/lib/public-project-view';
 
 /**
- * Phase 1.8.1 — single scene card on the public storyboard.
- *
- * Layout (from new-CJM spec):
- *   ┌───────────────────────────────────────────────────────┐
- *   │ Сцена N · 0:00–0:10                                   │
- *   │ ┌──────────────┐ Литературный narrative_paragraph     │
- *   │ │ first_frame  │ «Реплика 1» — Cat                    │
- *   │ │ 16:9 jpg     │ «Реплика 2» — Dog                    │
- *   │ └──────────────┘                                      │
- *   └───────────────────────────────────────────────────────┘
- *
- * No edit affordances in 1.8.1 (those live in Pro-Студия). This view is
- * read-only sharing surface.
+ * Phase 1.8.1 — single scene card.
+ * Phase 1.8.x design pass: editorial asymmetric layout with magazine
+ * numerals as decorative pull-quotes (rendered via CSS ::before reading
+ * `data-numeral`). See ../storyboard.css for the design system.
  */
 export function StoryboardSceneCard({
   scene,
@@ -26,44 +17,42 @@ export function StoryboardSceneCard({
 }) {
   const aspectClass =
     format === '9:16' ? 'aspect-9-16' : format === '1:1' ? 'aspect-1-1' : 'aspect-16-9';
+  // Format the numeral with a leading zero for visual rhythm: 01, 02, 03…
+  const numeral = sceneNumber.toString().padStart(2, '0');
+
   return (
     <article className="storyboard-scene-card" data-scene-id={scene.scene_id}>
-      <div className="scene-header">
-        <span className="scene-number">Сцена {sceneNumber}</span>
-        {scene.arc_role && <span className="scene-arc">· {arcLabel(scene.arc_role)}</span>}
-        <span className="scene-duration">· {scene.duration_sec} сек</span>
+      <div className={`scene-frame ${aspectClass}`} data-numeral={numeral}>
+        {scene.first_frame_url ? (
+          <img
+            src={scene.first_frame_url}
+            alt={`Первый кадр сцены ${sceneNumber}`}
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <div className="scene-frame-placeholder" aria-label="Кадр готовится">
+            <span aria-hidden="true">Кадр готовится</span>
+          </div>
+        )}
       </div>
-      <div className="scene-body">
-        <div className={`scene-frame ${aspectClass}`}>
-          {scene.first_frame_url ? (
-            // External CDN URLs from fal.ai/Supabase signed URLs — next/image
-            // optimizer would require remote pattern config we don't pin here.
-            // Using plain <img> for 1.8.1 MVP; eventually 1.8.4 can wrap.
-            <img
-              src={scene.first_frame_url}
-              alt={`Первый кадр сцены ${sceneNumber}`}
-              loading="lazy"
-              decoding="async"
-            />
-          ) : (
-            <div className="scene-frame-placeholder" aria-hidden="true">
-              <span>Кадр готовится…</span>
-            </div>
-          )}
-        </div>
-        <div className="scene-text">
-          <p className="scene-narrative">{scene.narrative_paragraph}</p>
-          {scene.dialogue.length > 0 && (
-            <ul className="scene-dialogue-list">
-              {scene.dialogue.map((d, i) => (
-                <li key={`${scene.scene_id}-dlg-${i}-${d.speaker}`} className="scene-dialogue-line">
-                  <em>«{d.text}»</em>
-                  <span className="dialogue-speaker"> — {speakerLabel(d.speaker)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+      <div className="scene-text">
+        <header className="scene-header">
+          <span className="scene-number">Сцена {numeral}</span>
+          {scene.arc_role && <span className="scene-arc">/ {arcLabel(scene.arc_role)}</span>}
+          <span className="scene-duration">/ {scene.duration_sec} сек</span>
+        </header>
+        <p className="scene-narrative">{scene.narrative_paragraph}</p>
+        {scene.dialogue.length > 0 && (
+          <ul className="scene-dialogue-list">
+            {scene.dialogue.map((d, i) => (
+              <li key={`${scene.scene_id}-dlg-${i}-${d.speaker}`} className="scene-dialogue-line">
+                <em>«{d.text}»</em>
+                <span className="dialogue-speaker"> — {speakerLabel(d.speaker)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </article>
   );
@@ -72,6 +61,7 @@ export function StoryboardSceneCard({
 function arcLabel(arc: string): string {
   const map: Record<string, string> = {
     hook: 'хук',
+    setup: 'завязка',
     rising: 'развитие',
     climax: 'кульминация',
     payoff: 'развязка',
