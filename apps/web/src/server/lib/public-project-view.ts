@@ -216,17 +216,15 @@ export async function toPublicProjectView(
  * after confirming the storyboard is renderable in that state.
  */
 const SHARE_READY_STATUSES = new Set([
-  // CJM-spec'd canonical statuses (Phase 1.8.2+)
+  // CJM-canonical statuses (Phase 1.8+):
   'storyboard_ready',
   'paywalled',
   'rendering',
   'done',
   'editing',
-  // Pre-1.8 / legacy statuses preserved for back-compat:
-  // - `script_ready` is what the v1.4 generator wrote on success; v1.8.1
-  //   originally missed this and 404'd 13/29 prod projects (Phase 1.8.2 hotfix).
-  // - `completed` and `ready` are even older artefacts; kept defensively.
-  'script_ready',
+  // Defensive: ancient values that ad-hoc fixtures or unconfirmed seed
+  // data might still carry. The 'script_ready' rows were migrated by
+  // 20260519000002 to 'storyboard_ready', so it's no longer in this list.
   'completed',
   'ready',
 ]);

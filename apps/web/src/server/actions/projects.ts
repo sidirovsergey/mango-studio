@@ -104,11 +104,32 @@ export async function createProjectFromIdeaAction(input: z.infer<typeof CreateFr
   const projectId = project.id;
   const publicSlug = project.public_slug;
 
+  const sbUpdate = supabase.from as unknown as (table: string) => {
+    update: (row: Record<string, unknown>) => {
+      eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
+    };
+  };
+
   // Schedule background work AFTER response is sent. The user is already
   // navigating to /p/{slug} and seeing LoadingView; we don't need to await.
+  //
+  // Codex pre-PR audit (2026-05-19) fix #2:
+  // generateScriptAction's persistScript sets status='script_ready', which
+  // historically was in SHARE_READY_STATUSES → poller would reload INTO the
+  // storyboard with all first_frame_url=null grey placeholders. We:
+  // 1. Migration 20260519000002 removed 'script_ready' from prod (UPDATE → 'storyboard_ready').
+  // 2. SHARE_READY_STATUSES no longer includes 'script_ready'.
+  // 3. After generateScriptAction, we IMMEDIATELY revert status to
+  //    'generating_storyboard' to keep LoadingView active until first_frames
+  //    are reserved.
+  // 4. After bulk first_frames complete, flip to 'storyboard_ready'.
   after(async () => {
     try {
       await generateScriptAction({ project_id: projectId });
+      // persistScript wrote 'script_ready' (legacy literal). Keep LoadingView
+      // active until first_frames step completes.
+      await sbUpdate('projects').update({ status: 'generating_storyboard' }).eq('id', projectId);
+
       // First-frame batch fires only after script is persisted (loadProjectForGeneration
       // depends on a present script). Best-effort: if a single scene's
       // first_frame fails to reserve, the bulk action returns partial; we
@@ -120,16 +141,18 @@ export async function createProjectFromIdeaAction(input: z.infer<typeof CreateFr
           error: 'error' in bulkResult ? bulkResult.error : 'unknown',
         });
       }
+
+      // Flip to share-ready. LoadingView poller picks this up and reloads
+      // into StoryboardView. Individual scene first_frame URLs may still
+      // be null at this point (fal.ai async callback pending) — the view
+      // tolerates that and renders placeholders for ~30-60s until the
+      // pollMediaJobsAction picks up the completions.
+      await sbUpdate('projects').update({ status: 'storyboard_ready' }).eq('id', projectId);
     } catch (err) {
       console.error('[createProjectFromIdea] background gen failed', { projectId, err });
       // Flip status to 'error' so LoadingView surfaces a retry CTA.
       // Best-effort — if THIS also fails, the project stays stuck at
-      // 'generating_storyboard'; ops can manually fix via SQL.
-      const sbUpdate = supabase.from as unknown as (table: string) => {
-        update: (row: Record<string, unknown>) => {
-          eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
-        };
-      };
+      // 'generating_storyboard'; cron sweep (deferred) handles those.
       await sbUpdate('projects').update({ status: 'error' }).eq('id', projectId);
     }
   });
