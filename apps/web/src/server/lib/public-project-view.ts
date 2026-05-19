@@ -305,6 +305,16 @@ export interface PublicProjectStatus {
 export async function fetchPublicProjectStatusBySlug(
   publicSlug: string,
 ): Promise<PublicProjectStatus | null> {
+  // Temporary diagnostic — 2026-05-19 prod returns 404 silently on
+  // valid storyboard_ready slugs. Identify whether the issue is env config
+  // (service role key wrong/missing), the SQL query (rls/error), or the
+  // status-set filter. Remove after root cause is fixed.
+  const envCheck = {
+    has_url: typeof process.env.NEXT_PUBLIC_SUPABASE_URL,
+    url_prefix: process.env.NEXT_PUBLIC_SUPABASE_URL?.slice(0, 40),
+    has_service_role: typeof process.env.SUPABASE_SERVICE_ROLE_KEY,
+    service_role_len: process.env.SUPABASE_SERVICE_ROLE_KEY?.length,
+  };
   const sb = getServiceRoleSupabase();
   const sbFrom = sb.from.bind(sb) as unknown as (table: string) => {
     select: (cols: string) => {
@@ -323,7 +333,23 @@ export async function fetchPublicProjectStatusBySlug(
     .select('id, public_slug, status, title')
     .eq('public_slug', publicSlug)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error || !data) {
+    console.error('[probe] null result', {
+      publicSlug,
+      hasError: Boolean(error),
+      errorMessage: error?.message,
+      hasData: Boolean(data),
+      env: envCheck,
+    });
+    return null;
+  }
+  console.log('[probe] ok', {
+    publicSlug,
+    id: data.id,
+    status: data.status,
+    is_share_ready: SHARE_READY_STATUSES.has(data.status),
+    is_generating: GENERATING_STATUSES.has(data.status),
+  });
   return {
     id: data.id,
     public_slug: data.public_slug,
