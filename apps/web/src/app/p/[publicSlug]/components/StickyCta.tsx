@@ -4,22 +4,24 @@ import { useTransition } from 'react';
 import { openProStudioAction, requestRenderAction } from '../actions/intent-actions';
 
 /**
- * Phase 1.8.1 — sticky CTA bar at the bottom of /p/[publicSlug].
+ * Phase 1.8.1 / 1.8.3 — sticky CTA bar at the bottom of /p/[publicSlug].
  *
  * Two buttons per CJM spec §3 экран 3:
  *
  *   [Получить готовый ролик — XXX ₽]  [Открыть в Pro-Студии]
  *
- * Each button wraps the corresponding server action which itself calls
- * createTopupAction with intent {kind, project_id, return_to}. On success,
+ * Authed flow: each button calls the corresponding server action which
+ * routes through createTopupAction → createTopupForAuthedUser. On success
  * the action returns a ЮKassa confirmation_url; we redirect the browser
- * there via window.location.replace. After payment, ЮKassa redirects back
- * to /p/[slug]?nonce=X and the 1.7.1 intent resolution flow takes over.
+ * there via window.location.replace. After payment, ЮKassa returns to
+ * /p/[slug]?nonce=X and the 1.7.1 intent resolution flow takes over.
  *
- * Anon callers: createTopupAction internally calls redirect('/login') which
- * Next.js translates to a server-side 307 — the form action completes, the
- * browser navigates. We catch the standard Next redirect from `useTransition`
- * via the action's typed result.
+ * Anon flow (Phase 1.8.3): the server action now arms the pending-intent
+ * cookie and returns a typed `{ok:false, error:{code:'auth_required'}}`
+ * result. The client navigates to /login; verifyOtpAction reads the
+ * cookie after OTP verify and replays the intent directly, returning a
+ * `next_url` that the LoginForm uses to land the user on ЮKassa without
+ * a landing-page roundtrip.
  */
 export function StickyCta({
   projectId,
@@ -37,26 +39,40 @@ export function StickyCta({
 
   const priceRub = Math.round(renderPriceKopeks / 100);
 
+  /**
+   * Phase 1.8.3 Sub-phase D: when the server action reports
+   * `auth_required`, the intent cookie has already been armed server-side
+   * — we just navigate to /login. verifyOtpAction picks up the cookie
+   * after OTP verify and lands the user straight on ЮKassa via next_url.
+   * Other errors fall back to the legacy alert.
+   */
+  function handleResult(result: Awaited<ReturnType<typeof requestRenderAction>>) {
+    if (result.ok && 'confirmation_url' in result) {
+      window.location.replace(result.confirmation_url);
+      return;
+    }
+    if (!result.ok && result.error.code === 'auth_required') {
+      window.location.href = '/login';
+      return;
+    }
+    if (!result.ok) {
+      // Richer error UX (modals) deferred to a follow-up; an alert
+      // surfaces the human-readable message for now.
+      alert(result.error.message);
+    }
+  }
+
   function onRender() {
     startRender(async () => {
       const result = await requestRenderAction({ projectId, publicSlug });
-      if (result.ok && 'confirmation_url' in result) {
-        window.location.replace(result.confirmation_url);
-      } else if (!result.ok) {
-        // Surface a basic alert; richer error UX (modals) deferred to 1.8.3.
-        alert(result.error.message);
-      }
+      handleResult(result);
     });
   }
 
   function onStudio() {
     startStudio(async () => {
       const result = await openProStudioAction({ projectId, publicSlug });
-      if (result.ok && 'confirmation_url' in result) {
-        window.location.replace(result.confirmation_url);
-      } else if (!result.ok) {
-        alert(result.error.message);
-      }
+      handleResult(result);
     });
   }
 
