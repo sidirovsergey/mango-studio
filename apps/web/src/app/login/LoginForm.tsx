@@ -52,6 +52,14 @@ export function LoginForm() {
         setError(r.error.message);
         return;
       }
+      // Phase 1.8.3 Sub-phase D: if verifyOtpAction replayed a pending
+      // intent (cookie set by sticky-CTA pre-detour), it returns a
+      // `next_url` pointing to the ЮKassa confirmation page. Skip the
+      // landing roundtrip and send the user straight to payment.
+      if (r.next_url) {
+        window.location.replace(r.next_url);
+        return;
+      }
       router.push('/');
       router.refresh();
     });

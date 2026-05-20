@@ -46,11 +46,26 @@ async function detectAnonAndSetCookie(args: {
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user;
   if (!user || user.is_anonymous || !user.email) {
-    await setPendingIntent({
-      kind: args.kind,
-      project_id: args.projectId,
-      return_to: `/p/${args.publicSlug}`,
-    });
+    // Codex Sub-phase C+D SHOULD-FIX (2026-05-20): setPendingIntent
+    // throws fail-loud if PENDING_INTENT_SECRET is missing/weak (Sub-
+    // phase A contract). At the action boundary we want to degrade
+    // gracefully: log the config failure and still surface auth_required
+    // so the user hits /login. The detour intent is lost but the user
+    // isn't bricked at the CTA.
+    try {
+      await setPendingIntent({
+        kind: args.kind,
+        project_id: args.projectId,
+        return_to: `/p/${args.publicSlug}`,
+      });
+    } catch (err) {
+      console.error('[intent-actions] setPendingIntent threw — env misconfig?', {
+        event: 'set_pending_intent_threw',
+        kind: args.kind,
+        errName: err instanceof Error ? err.name : 'unknown',
+        errMessage: err instanceof Error ? err.message : String(err),
+      });
+    }
     return true;
   }
   return false;
