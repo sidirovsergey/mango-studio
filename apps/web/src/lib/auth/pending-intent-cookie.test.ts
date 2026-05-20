@@ -89,7 +89,7 @@ describe('pending-intent-cookie — decoder rejects tampered/expired/malformed',
       project_id: PROJECT_ID,
       return_to: RETURN_TO,
     });
-    const [payload, mac] = token.split('.');
+    const [payload, mac] = token.split('.') as [string, string];
     const tamperedMac = `${mac.slice(0, -1)}${mac.endsWith('A') ? 'B' : 'A'}`;
     expect(decodePendingIntent(`${payload}.${tamperedMac}`)).toBeNull();
   });
@@ -100,7 +100,7 @@ describe('pending-intent-cookie — decoder rejects tampered/expired/malformed',
       project_id: PROJECT_ID,
       return_to: RETURN_TO,
     });
-    const [payload, mac] = token.split('.');
+    const [payload, mac] = token.split('.') as [string, string];
     const tamperedPayload = `${payload.slice(0, -1)}${payload.endsWith('A') ? 'B' : 'A'}`;
     expect(decodePendingIntent(`${tamperedPayload}.${mac}`)).toBeNull();
   });
@@ -111,7 +111,7 @@ describe('pending-intent-cookie — decoder rejects tampered/expired/malformed',
       project_id: PROJECT_ID,
       return_to: RETURN_TO,
     });
-    const [payload, mac] = token.split('.');
+    const [payload, mac] = token.split('.') as [string, string];
     // Trim two base64 chars so the decoded mac is shorter than the
     // expected HMAC length. timingSafeEqual would throw on length
     // mismatch; the helper must catch this and return null instead.
