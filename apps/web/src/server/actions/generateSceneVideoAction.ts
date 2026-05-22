@@ -306,8 +306,11 @@ export async function generateSceneVideoAction(rawInput: unknown): Promise<
       p_model_tier: (effectiveTier as ModelTier) ?? null,
     });
     if (reserved.error || reserved.data === false) {
-      // Rollback the media_job (before provider submit, so no external work wasted)
-      await sb.from('media_jobs').update({ status: 'canceled' }).eq('id', reservation.job_id);
+      // Rollback the media_job (before provider submit, so no external work wasted).
+      // Spelling: DB CHECK constraint uses British 'cancelled' (two L's); writing
+      // American 'canceled' silently fails the update with constraint violation,
+      // leaving the row stuck in 'reserved' forever. Found in prod 2026-05-22.
+      await sb.from('media_jobs').update({ status: 'cancelled' }).eq('id', reservation.job_id);
       return {
         ok: false,
         error: 'insufficient_balance',

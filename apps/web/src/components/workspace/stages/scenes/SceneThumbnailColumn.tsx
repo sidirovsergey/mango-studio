@@ -68,7 +68,8 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
   const lastVersion =
     versionsForMode.length > 0 ? versionsForMode[versionsForMode.length - 1] : null;
   const isLatest = !!active && !!lastVersion && lastVersion.version_id === active.version_id;
-  const isActiveJob = !!activeJob && ['pending', 'running'].includes(activeJob.status);
+  // Include 'reserved' — see comment in Stage04Inline jobsByScene derivation.
+  const isActiveJob = !!activeJob && ['reserved', 'pending', 'running'].includes(activeJob.status);
   const _isAudioJob =
     !!activeJob && (activeJob.kind === 'voice' || activeJob.kind === 'final_clip');
 

@@ -565,8 +565,9 @@ describe('generateSceneVideoAction — balance gate', () => {
       scene_id: 's1',
     });
 
-    // Assert: media_job rolled back, insufficient_balance returned, submit NOT called
-    expect(updateChain.update).toHaveBeenCalledWith({ status: 'canceled' });
+    // Assert: media_job rolled back, insufficient_balance returned, submit NOT called.
+    // 'cancelled' (British) matches the DB CHECK constraint — see action comment.
+    expect(updateChain.update).toHaveBeenCalledWith({ status: 'cancelled' });
     expect(updateChain.eq).toHaveBeenCalledWith('id', 'job-1');
     expect(result.ok).toBe(false);
     if (!result.ok) {
