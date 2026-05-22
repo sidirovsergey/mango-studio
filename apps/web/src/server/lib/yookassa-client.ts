@@ -34,6 +34,20 @@ export interface YooKassaPayment {
 export async function createYooKassaPayment(
   input: YooKassaCreatePaymentInput,
 ): Promise<YooKassaPayment> {
+  // MOCK_YOOKASSA toggle (added for ЮKassa acquirer approval review, 2026-05-20).
+  // When set to 'true', the real Payment.create HTTP call is skipped and a
+  // ЮKassa-shaped mock response is returned. confirmation_url points to
+  // our local /mock-checkout page, which renders a payment-page-like UI
+  // and on confirm calls /api/mock-confirm — which uses service_role to
+  // run fn_apply_topup + fn_settle_paid_intent, then redirects to the
+  // real return_url (/p/{slug}?nonce=…). Real webhook handler, intent
+  // ledger, render dispatcher, and auth flow are all unchanged. Remove
+  // the env var (or set to anything other than 'true') to restore the
+  // real ЮKassa branch — single-toggle rollback.
+  if (process.env.MOCK_YOOKASSA === 'true') {
+    return buildMockPayment(input);
+  }
+
   const shopId = process.env.YOOKASSA_SHOP_ID;
   const secret = process.env.YOOKASSA_SECRET_KEY;
   if (!shopId) throw new Error('YOOKASSA_SHOP_ID not configured');
@@ -79,4 +93,35 @@ export async function createYooKassaPayment(
   }
 
   return (await res.json()) as YooKassaPayment;
+}
+
+/**
+ * Build a ЮKassa-shaped response without calling the real API. Used only
+ * when MOCK_YOOKASSA env is set (see top of createYooKassaPayment). The
+ * mock id is prefixed `mock_` so downstream code paths (webhook, mock-
+ * confirm) can distinguish mock from real payments by inspection. The
+ * confirmation_url points at our own /mock-checkout page; the real
+ * return_url is encoded into the query so the mock page can redirect to
+ * it after «оплата» completes.
+ */
+function buildMockPayment(input: YooKassaCreatePaymentInput): YooKassaPayment {
+  const rubValue = (input.amount_kopeks / 100).toFixed(2);
+  // Use APP_URL so the mock page redirects work in any deployment
+  // (preview, prod). Fallback to relative URL — Next.js routes will
+  // resolve from the current origin in the browser.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
+  const mockId = `mock_${input.idempotence_key}`;
+  const confirmation_url =
+    `${appUrl}/mock-checkout` +
+    `?id=${encodeURIComponent(mockId)}` +
+    `&return=${encodeURIComponent(input.return_url)}` +
+    `&amount=${encodeURIComponent(rubValue)}` +
+    `&description=${encodeURIComponent(input.description)}`;
+  return {
+    id: mockId,
+    status: 'pending',
+    amount: { value: rubValue, currency: 'RUB' },
+    confirmation: { type: 'redirect', confirmation_url },
+    metadata: input.metadata,
+  };
 }
