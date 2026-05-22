@@ -1,12 +1,14 @@
 'use server';
 
 import { getCurrentUserId } from '@/lib/auth/get-user';
+import { reconcileFirstFrames } from '@/server/lib/reconcile-first-frames';
 import { getServerSupabase } from '@mango/db/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { z } from 'zod';
 import { generateAllFirstFramesAction } from './generateFirstFrameAction';
+import { pollMediaJobsAction } from './pollMediaJobsAction';
 import { generateScriptAction } from './scripts';
 
 const CreateProjectSchema = z.object({
@@ -166,8 +168,6 @@ export async function createProjectFromIdeaAction(input: z.infer<typeof CreateFr
       // depends on a present script). Post Codex 2026-05-19 Layer-1 fix, the
       // bulk action catches all inner throws internally; we only see
       // {ok:false} for hard structural cases (project missing, etc.).
-      // Storyboard view renders with placeholder thumbnails for any scene
-      // whose first_frame failed.
       const bulkResult = await generateAllFirstFramesAction({ project_id: projectId });
       if (!bulkResult.ok) {
         console.warn('[createProjectFromIdea] first-frame batch returned ok:false', {
@@ -176,12 +176,89 @@ export async function createProjectFromIdeaAction(input: z.infer<typeof CreateFr
         });
       }
 
-      // Flip to share-ready. LoadingView poller picks this up and reloads
-      // into StoryboardView. Individual scene first_frame URLs may still
-      // be null at this point (fal.ai async callback pending) — the view
-      // tolerates that and renders placeholders for ~30-60s until the
-      // pollMediaJobsAction picks up the completions.
-      await updateStatus('storyboard_ready', { throwOnError: true });
+      // Resilience: retry the bulk action once. reserveMediaJob dedupes on
+      // (project_id, scene_id, kind) when an active row already exists, so
+      // successfully-submitted scenes become a no-op (existing_count++). Only
+      // scenes that hit a transient submit failure on the first pass get a
+      // fresh fal call. Observed in prod 2026-05-22 (Дельфин/3KUtmj0UJ5):
+      // bulk submitted only 1 of 4 scenes; cause unclear but a second pass
+      // recovers without operator action.
+      const bulkRetry = await generateAllFirstFramesAction({ project_id: projectId });
+      if (!bulkRetry.ok) {
+        console.warn('[createProjectFromIdea] first-frame batch retry returned ok:false', {
+          projectId,
+          error: 'error' in bulkRetry ? bulkRetry.error : 'unknown',
+        });
+      }
+
+      // Sync-reconcile fal results into script.first_frame_versions BEFORE
+      // flipping to share-ready. Without this, /p/{slug} renders with empty
+      // thumbnails forever: there's no fal webhook and the public page has no
+      // poller (pollMediaJobsAction is auth-gated for the workspace flow).
+      // We're still inside the request context (page.tsx maxDuration=300), so
+      // getCurrentUser() inside pollMediaJobsAction sees the same cookies.
+      const reconcileResult = await reconcileFirstFrames(
+        { project_id: projectId },
+        {
+          poll: (args) =>
+            pollMediaJobsAction({ project_id: args.project_id, skipReferenceRecovery: true }),
+          listInflight: async (project_id) => {
+            const sbInflight = supabase.from.bind(supabase) as unknown as (table: string) => {
+              select: (
+                cols: string,
+                opts: { count: 'exact'; head: true },
+              ) => {
+                eq: (
+                  col: string,
+                  val: string,
+                ) => {
+                  eq: (
+                    col: string,
+                    val: string,
+                  ) => {
+                    in: (
+                      col: string,
+                      vals: string[],
+                    ) => Promise<{
+                      count: number | null;
+                      error: { message: string } | null;
+                    }>;
+                  };
+                };
+              };
+            };
+            const { count, error: queryErr } = await sbInflight('media_jobs')
+              .select('id', { count: 'exact', head: true })
+              .eq('project_id', project_id)
+              .eq('kind', 'first_frame')
+              .in('status', ['pending', 'running']);
+            if (queryErr) return { ok: false, error: queryErr.message };
+            return { ok: true, remaining: count ?? 0 };
+          },
+          sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+          now: () => Date.now(),
+        },
+      );
+
+      if (reconcileResult.status === 'completed') {
+        console.info('[createProjectFromIdea] reconcile complete', {
+          projectId,
+          ticks: reconcileResult.ticks,
+          elapsed_ms: reconcileResult.elapsed_ms,
+        });
+        await updateStatus('storyboard_ready', { throwOnError: true });
+      } else {
+        // budget_exceeded / poll_failed / query_failed → flip to `error`.
+        // PublicSlugPage detects status='error' and renders the recovery
+        // storyboard view (with banner) so the user sees the script + any
+        // completed thumbnails instead of being trapped on a forever-blank
+        // `storyboard_ready` page (Codex SHOULD-FIX #1 on PR #51).
+        console.warn('[createProjectFromIdea] reconcile non-terminal', {
+          projectId,
+          ...reconcileResult,
+        });
+        await updateStatus('error');
+      }
     } catch (err) {
       console.error('[createProjectFromIdea] background gen failed', { projectId, err });
       // Flip status to 'error'. With Phase 1.8.x recovery, page.tsx falls

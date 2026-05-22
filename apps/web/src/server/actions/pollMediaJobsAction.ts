@@ -57,9 +57,22 @@ function extOf(stored: StoredAsset, fallback: string): string {
   return m?.[1]?.toLowerCase() ?? fallback;
 }
 
-export async function pollMediaJobsAction(input: { project_id: string }): Promise<
-  { ok: true } | { ok: false; error: string }
-> {
+export async function pollMediaJobsAction(input: {
+  project_id: string;
+  /**
+   * When true, skip `triggerMissingReferenceImageJobs`. Used by the CJM
+   * sync-reconcile loop in `createProjectFromIdeaAction.after()` — that loop
+   * ticks every 4s for up to 90s while waiting for first_frame jobs to land.
+   * The F53 reference-image recovery dispatches `generateReferenceImageAction`
+   * which dedupes pending/running jobs but DOES re-fire on terminal-error
+   * rows. Across ~20 ticks that risks retry storms unrelated to the
+   * first_frame work the reconcile loop actually waits for.
+   *
+   * Workspace polling (use-poll-jobs hook) leaves this undefined/false to
+   * preserve the existing F53 retroactive recovery behavior.
+   */
+  skipReferenceRecovery?: boolean;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
   let user: { id: string };
   try {
     user = await getCurrentUser();
@@ -89,7 +102,9 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
   // Awaited (not fire-and-forget) so the serverless function doesn't exit
   // before the chained submit completes — a poll tick is cheap enough to
   // hold one extra promise.
-  await triggerMissingReferenceImageJobs(input.project_id, project.script);
+  if (!input.skipReferenceRecovery) {
+    await triggerMissingReferenceImageJobs(input.project_id, project.script);
+  }
 
   const provider = getMediaProvider();
   const storage = getStorageProvider();

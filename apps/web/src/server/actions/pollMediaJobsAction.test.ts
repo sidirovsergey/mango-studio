@@ -641,3 +641,93 @@ describe('pollMediaJobsAction — dossier→reference_image chain (F53)', () => 
     expect(generateReferenceImageAction).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// skipReferenceRecovery option (added 2026-05-22 for CJM reconcile loop;
+// see Codex audit on PR #51, SHOULD-FIX #2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Script with one character that has a dossier but no reference_image —
+ * exactly the shape `triggerMissingReferenceImageJobs` filters for. When the
+ * pre-tick recovery is NOT skipped, this should dispatch generateReferenceImageAction.
+ */
+const SCRIPT_NEEDING_RETROACTIVE_REF: Record<string, unknown> = {
+  scenes: [],
+  characters: [
+    {
+      id: CHARACTER_ID,
+      name: 'Дэнни',
+      description: 'test',
+      dossier: {
+        storage: DOSSIER_STORAGE,
+        reference_image: null,
+        model: 'fal-ai/nano-banana-pro',
+        format: '16:9',
+        quality: '1080p',
+        generated_at: '2026-01-01T00:00:00Z',
+      },
+      reference_images: [],
+      voice: {},
+    },
+  ],
+};
+
+describe('pollMediaJobsAction — skipReferenceRecovery option', () => {
+  it('skips triggerMissingReferenceImageJobs when skipReferenceRecovery=true', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    const projectQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: { user_id: 'u1', script: SCRIPT_NEEDING_RETROACTIVE_REF },
+        error: null,
+      }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => projectQuery),
+    });
+    (runPollTick as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+
+    const result = await pollMediaJobsAction({
+      project_id: PROJECT_ID,
+      skipReferenceRecovery: true,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(runPollTick).toHaveBeenCalled();
+    // The retroactive recovery branch never fires when the flag is true,
+    // even though the character has dossier && !reference_image.
+    expect(generateReferenceImageAction).not.toHaveBeenCalled();
+  });
+
+  it('fires triggerMissingReferenceImageJobs by default (skipReferenceRecovery undefined)', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    const projectQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: { user_id: 'u1', script: SCRIPT_NEEDING_RETROACTIVE_REF },
+        error: null,
+      }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => projectQuery),
+    });
+    (runPollTick as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+    (generateReferenceImageAction as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      status: 'pending',
+      job: { kind: 'character_reference_image', request_id: 'req-ref-default' },
+    });
+
+    const result = await pollMediaJobsAction({ project_id: PROJECT_ID });
+
+    expect(result.ok).toBe(true);
+    // Default workspace polling path: F53 retroactive recovery DOES fire.
+    expect(generateReferenceImageAction).toHaveBeenCalledWith({
+      project_id: PROJECT_ID,
+      character_id: CHARACTER_ID,
+    });
+  });
+});
