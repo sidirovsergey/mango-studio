@@ -1,0 +1,194 @@
+/* Mock-checkout surface — gated by MOCK_YOOKASSA env. Looks like a generic
+ * bank-gateway page so the ЮKassa acquirer reviewer sees the same shape as
+ * a real payment redirect. Inline-class scoped: no global overlap. */
+
+.mock-checkout-page {
+  min-height: 100vh;
+  background: #f3f4f6;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 16px 96px;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  color: #1f2937;
+}
+
+.mock-checkout-card {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow:
+    0 1px 0 rgba(15, 23, 42, 0.04),
+    0 24px 56px -28px rgba(15, 23, 42, 0.18);
+  padding: 28px 28px 24px;
+}
+
+.mock-checkout-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.mock-checkout-brand {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #111827;
+}
+
+.mock-checkout-badge {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.mock-checkout-amount {
+  padding: 20px 0 12px;
+  text-align: center;
+}
+
+.mock-checkout-amount-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  margin: 0 0 6px;
+}
+
+.mock-checkout-amount-value {
+  font-size: 38px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: #111827;
+}
+
+.mock-checkout-amount-value span {
+  font-size: 22px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-left: 4px;
+}
+
+.mock-checkout-amount-description {
+  margin: 8px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.mock-checkout-form-block {
+  padding-top: 16px;
+}
+
+.mock-checkout-form-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  margin: 0 0 12px;
+}
+
+.mock-checkout-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mock-checkout-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mock-checkout-field span {
+  font-size: 11px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.mock-checkout-field input {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-family: 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace;
+  background: #f9fafb;
+  color: #111827;
+}
+
+.mock-checkout-field input:focus {
+  outline: none;
+  border-color: #6366f1;
+  background: #fff;
+}
+
+.mock-checkout-row {
+  display: flex;
+  gap: 12px;
+}
+
+.mock-checkout-field-half {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.mock-checkout-pay {
+  margin-top: 8px;
+  background: #4f46e5;
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.mock-checkout-pay:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.mock-checkout-pay:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.mock-checkout-pay:disabled {
+  background: #818cf8;
+  cursor: progress;
+}
+
+.mock-checkout-error {
+  margin: 4px 0 0;
+  color: #b91c1c;
+  font-size: 13px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.mock-checkout-footer {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.mock-checkout-footer p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6b7280;
+  text-align: center;
+}
