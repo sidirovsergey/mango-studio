@@ -328,6 +328,11 @@ export async function generateAllFirstFramesAction(rawInput: unknown): Promise<
 
   const job_ids: string[] = [];
   let existing_count = 0;
+  // Per-scene outcome ledger surfaces WHY a bulk submit doesn't cover all
+  // scenes. Without this, prod investigations have to infer the gap from
+  // counting media_jobs rows. Observed 2026-05-22 (Дельфин/3KUtmj0UJ5):
+  // 1 of 4 scenes submitted, no log told us which fork the other 3 took.
+  const outcomes: Array<{ scene_id: string; status: string; detail?: string }> = [];
 
   for (const scene_id of target) {
     let frameResult: Awaited<ReturnType<typeof generateFirstFrameAction>>;
@@ -346,26 +351,44 @@ export async function generateAllFirstFramesAction(rawInput: unknown): Promise<
       // submit/finalize throw) already fired before the throw reached us,
       // so no orphan media_jobs row remains. Soft-skip the scene; the
       // storyboard renders with a placeholder thumbnail for it.
+      const errMessage = err instanceof Error ? err.message : String(err);
       console.warn('[generateAllFirstFrames] inner threw', {
         project_id: input.project_id,
         scene_id,
         errName: err instanceof Error ? err.name : 'unknown',
-        errMessage: err instanceof Error ? err.message : String(err),
+        errMessage,
       });
+      outcomes.push({ scene_id, status: 'threw', detail: errMessage });
       continue;
     }
 
     if (!frameResult.ok) {
       // Soft errors (F53 precondition pending, reservation rate-limited,
       // invalid scene_id). Skip; batch continues.
+      outcomes.push({ scene_id, status: 'soft_skip', detail: frameResult.error });
       continue;
     }
 
     if (frameResult.existing) {
       existing_count++;
+      outcomes.push({ scene_id, status: 'existing', detail: frameResult.job_id });
+    } else {
+      outcomes.push({ scene_id, status: 'submitted', detail: frameResult.job_id });
     }
     job_ids.push(frameResult.job_id);
   }
+
+  // Single structured summary log per batch. Useful for `grep` in Vercel
+  // logs when a project's storyboard renders fewer thumbnails than scenes.
+  console.info('[generateAllFirstFrames] batch summary', {
+    project_id: input.project_id,
+    user_id: user.id,
+    total_scenes: total,
+    submitted: job_ids.length - existing_count,
+    existing_dedup: existing_count,
+    failed: outcomes.filter((o) => o.status === 'threw' || o.status === 'soft_skip').length,
+    outcomes,
+  });
 
   return {
     ok: true,

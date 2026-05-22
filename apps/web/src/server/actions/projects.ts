@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { z } from 'zod';
 import { generateAllFirstFramesAction } from './generateFirstFrameAction';
+import { pollMediaJobsAction } from './pollMediaJobsAction';
 import { generateScriptAction } from './scripts';
 
 const CreateProjectSchema = z.object({
@@ -166,8 +167,6 @@ export async function createProjectFromIdeaAction(input: z.infer<typeof CreateFr
       // depends on a present script). Post Codex 2026-05-19 Layer-1 fix, the
       // bulk action catches all inner throws internally; we only see
       // {ok:false} for hard structural cases (project missing, etc.).
-      // Storyboard view renders with placeholder thumbnails for any scene
-      // whose first_frame failed.
       const bulkResult = await generateAllFirstFramesAction({ project_id: projectId });
       if (!bulkResult.ok) {
         console.warn('[createProjectFromIdea] first-frame batch returned ok:false', {
@@ -176,11 +175,32 @@ export async function createProjectFromIdeaAction(input: z.infer<typeof CreateFr
         });
       }
 
-      // Flip to share-ready. LoadingView poller picks this up and reloads
-      // into StoryboardView. Individual scene first_frame URLs may still
-      // be null at this point (fal.ai async callback pending) — the view
-      // tolerates that and renders placeholders for ~30-60s until the
-      // pollMediaJobsAction picks up the completions.
+      // Resilience: retry the bulk action once. reserveMediaJob dedupes on
+      // (project_id, scene_id, kind) when an active row already exists, so
+      // successfully-submitted scenes become a no-op (existing_count++). Only
+      // scenes that hit a transient submit failure on the first pass get a
+      // fresh fal call. Observed in prod 2026-05-22 (Дельфин/3KUtmj0UJ5):
+      // bulk submitted only 1 of 4 scenes; cause unclear but a second pass
+      // recovers without operator action.
+      const bulkRetry = await generateAllFirstFramesAction({ project_id: projectId });
+      if (!bulkRetry.ok) {
+        console.warn('[createProjectFromIdea] first-frame batch retry returned ok:false', {
+          projectId,
+          error: 'error' in bulkRetry ? bulkRetry.error : 'unknown',
+        });
+      }
+
+      // Sync-reconcile fal results into script.first_frame_versions BEFORE
+      // flipping to share-ready. Without this, /p/{slug} renders with empty
+      // thumbnails forever: there's no fal webhook and the public page has no
+      // poller (pollMediaJobsAction is auth-gated for the workspace flow).
+      // We're still inside the request context (page.tsx maxDuration=300), so
+      // getCurrentUser() inside pollMediaJobsAction sees the same cookies.
+      await reconcileFirstFramesUntilDone(projectId);
+
+      // Flip to share-ready. By now all first_frame jobs are either completed
+      // (results in script.first_frame_versions) or hit the reconcile budget
+      // — the storyboard view renders placeholders for any still-missing scene.
       await updateStatus('storyboard_ready', { throwOnError: true });
     } catch (err) {
       console.error('[createProjectFromIdea] background gen failed', { projectId, err });
@@ -193,6 +213,131 @@ export async function createProjectFromIdeaAction(input: z.infer<typeof CreateFr
   });
 
   redirect(`/p/${publicSlug}`);
+}
+
+/**
+ * Sync-reconcile loop for the CJM after()-flow. Calls `pollMediaJobsAction`
+ * (which is auth-gated and pulls fal results into `script.first_frame_versions`)
+ * on a fixed cadence until either no first_frame jobs remain in pending/running
+ * OR the budget runs out.
+ *
+ * Why this exists: there is no fal webhook and the public storyboard page
+ * (`/p/[publicSlug]`) does NOT poll. Without sync-reconcile in the after()
+ * block, the user lands on /p/{slug} after status flips to `storyboard_ready`
+ * but `first_frame_versions` is still `[]` for every scene — the page renders
+ * placeholders forever. Sync-reconcile costs us ~30-60s of background time
+ * inside Vercel's 300s function budget (page.tsx maxDuration=300), which is
+ * cheap given the user is already on LoadingView for that whole window.
+ *
+ * Auth: pollMediaJobsAction calls getCurrentUser() and checks project
+ * ownership. We're inside the same request context as the create call, so
+ * the cookies authenticate this poll correctly.
+ *
+ * Module-level (not closure-scoped) so generateScriptAction's failure path
+ * doesn't accidentally reference an unbound symbol — tested in isolation.
+ */
+async function reconcileFirstFramesUntilDone(projectId: string): Promise<void> {
+  const INITIAL_DELAY_MS = 2_000;
+  const POLL_INTERVAL_MS = 4_000;
+  const BUDGET_MS = 90_000;
+
+  // Give fal a beat to begin processing before the first poll tick. fal
+  // returns request_id immediately on submit; results land 15-40s later.
+  await sleep(INITIAL_DELAY_MS);
+
+  const supabase = await getServerSupabase();
+  const sbFrom = supabase.from.bind(supabase) as unknown as (table: string) => {
+    select: (cols: string) => {
+      eq: (
+        col: string,
+        val: string,
+      ) => {
+        eq: (
+          col: string,
+          val: string,
+        ) => {
+          in: (
+            col: string,
+            vals: string[],
+          ) => {
+            limit: (n: number) => Promise<{
+              data: Array<{ id: string }> | null;
+              error: { message: string } | null;
+            }>;
+          };
+        };
+      };
+    };
+  };
+
+  const start = Date.now();
+  let tickCount = 0;
+  while (Date.now() - start < BUDGET_MS) {
+    tickCount++;
+    try {
+      const tickResult = await pollMediaJobsAction({ project_id: projectId });
+      if (!tickResult.ok) {
+        // pollMediaJobsAction returns ok:false on auth/permission failures —
+        // there's no recovery path for those inside this loop, abandon.
+        console.warn('[createProjectFromIdea] reconcile pollTick returned ok:false', {
+          projectId,
+          tickCount,
+          error: tickResult.error,
+        });
+        return;
+      }
+    } catch (e) {
+      console.warn('[createProjectFromIdea] reconcile pollTick threw', {
+        projectId,
+        tickCount,
+        errMessage: e instanceof Error ? e.message : String(e),
+      });
+      // Continue ticking — single tick failures are typically transient
+      // (fal API blip, db read timeout). Budget cap eventually exits.
+    }
+
+    const { data: stillInflight, error: queryErr } = await sbFrom('media_jobs')
+      .select('id')
+      .eq('project_id', projectId)
+      .eq('kind', 'first_frame')
+      .in('status', ['pending', 'running'])
+      .limit(1);
+
+    if (queryErr) {
+      console.warn('[createProjectFromIdea] reconcile inflight-query failed', {
+        projectId,
+        tickCount,
+        errMessage: queryErr.message,
+      });
+      return;
+    }
+
+    if (!stillInflight || stillInflight.length === 0) {
+      // All first_frame jobs reached a terminal state (completed/error).
+      // Storyboard view will render with whatever versions were written.
+      console.info('[createProjectFromIdea] reconcile complete', {
+        projectId,
+        tickCount,
+        elapsed_ms: Date.now() - start,
+      });
+      return;
+    }
+
+    await sleep(POLL_INTERVAL_MS);
+  }
+
+  console.warn(
+    '[createProjectFromIdea] reconcile budget exceeded — flipping to storyboard_ready with possible missing thumbnails',
+    {
+      projectId,
+      budget_ms: BUDGET_MS,
+      ticks: tickCount,
+    },
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 const UpdateMetaSchema = z.object({
