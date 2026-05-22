@@ -106,9 +106,14 @@ export {
   buildDirectorSystemPrompt,
   buildScriptPrompt,
   applyCharacterActions,
+  linkSceneCharacterIds,
   CharacterSchema,
   AppearanceSchema,
   detectSyncHint,
+} from './llm';
+export type {
+  LinkSceneCharacterIdsResult,
+  LinkSceneCharacterIdsWarning,
 } from './llm';
 export type {
   LLMTask,

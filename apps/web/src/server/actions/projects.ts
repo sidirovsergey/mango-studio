@@ -1,12 +1,15 @@
 'use server';
 
 import { getCurrentUserId } from '@/lib/auth/get-user';
+import { reconcileCharacterPreflight } from '@/server/lib/reconcile-character-preflight';
 import { reconcileFirstFrames } from '@/server/lib/reconcile-first-frames';
+import type { Character } from '@mango/core';
 import { getServerSupabase } from '@mango/db/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { z } from 'zod';
+import { generateCharacterDossierAction } from './generateCharacterDossierAction';
 import { generateAllFirstFramesAction } from './generateFirstFrameAction';
 import { pollMediaJobsAction } from './pollMediaJobsAction';
 import { generateScriptAction } from './scripts';
@@ -163,6 +166,72 @@ export async function createProjectFromIdeaAction(input: z.infer<typeof CreateFr
       // persistScript wrote 'script_ready' (legacy literal). Keep LoadingView
       // active until first_frames step completes.
       await updateStatus('generating_storyboard');
+
+      // Character preflight — generate dossier + reference_image for every
+      // character BEFORE bulk first_frames. Without this, the first_frame
+      // submits go to fal with empty `image_refs` and nano-banana renders
+      // visually-different versions of "the same" character per scene
+      // (root cause of user's 2026-05-22 "разный персонаж в каждой сцене"
+      // report). Uses `skipReferenceRecovery: false` so the F53 chain in
+      // pollMediaJobsAction.finalizeCompleted auto-fires reference_image
+      // after each dossier completes. On budget_exceeded: log and proceed
+      // — partial consistency is better than a stuck flow (per Codex
+      // round-2 audit Q3 answer).
+      const preflightResult = await reconcileCharacterPreflight(
+        { project_id: projectId },
+        {
+          readCharacters: async (project_id) => {
+            const sbRead = supabase.from.bind(supabase) as unknown as (table: string) => {
+              select: (cols: string) => {
+                eq: (
+                  col: string,
+                  val: string,
+                ) => {
+                  single: () => Promise<{
+                    data: { script: { characters?: Character[] } | null } | null;
+                    error: { message: string } | null;
+                  }>;
+                };
+              };
+            };
+            const { data, error: readErr } = await sbRead('projects')
+              .select('script')
+              .eq('id', project_id)
+              .single();
+            if (readErr || !data) return { ok: false, error: readErr?.message ?? 'not found' };
+            const characters = (data.script?.characters ?? []).filter((c) => !c.archived);
+            return { ok: true, characters };
+          },
+          submitDossier: (args) => generateCharacterDossierAction(args),
+          poll: (args) => pollMediaJobsAction(args),
+          sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+          now: () => Date.now(),
+        },
+      );
+
+      if (preflightResult.status === 'completed') {
+        console.info('[createProjectFromIdea] preflight complete', {
+          projectId,
+          ticks: preflightResult.ticks,
+          elapsed_ms: preflightResult.elapsed_ms,
+          submitted: preflightResult.submitted_character_ids.length,
+          ready: preflightResult.ready_count,
+        });
+      } else if (preflightResult.status === 'no_op') {
+        console.info('[createProjectFromIdea] preflight no_op', {
+          projectId,
+          reason: preflightResult.reason,
+        });
+      } else {
+        // budget_exceeded / poll_failed / script_unavailable — proceed
+        // anyway. Bulk first_frames will run without image_refs for the
+        // affected characters; their scenes will be visually inconsistent
+        // but the storyboard still ships.
+        console.warn('[createProjectFromIdea] preflight non-terminal, proceeding anyway', {
+          projectId,
+          ...preflightResult,
+        });
+      }
 
       // First-frame batch fires only after script is persisted (loadProjectForGeneration
       // depends on a present script). Post Codex 2026-05-19 Layer-1 fix, the
