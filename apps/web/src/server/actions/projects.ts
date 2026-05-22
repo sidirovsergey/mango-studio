@@ -1,6 +1,7 @@
 'use server';
 
 import { getCurrentUserId } from '@/lib/auth/get-user';
+import { reconcileFirstFrames } from '@/server/lib/reconcile-first-frames';
 import { getServerSupabase } from '@mango/db/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -196,12 +197,68 @@ export async function createProjectFromIdeaAction(input: z.infer<typeof CreateFr
       // poller (pollMediaJobsAction is auth-gated for the workspace flow).
       // We're still inside the request context (page.tsx maxDuration=300), so
       // getCurrentUser() inside pollMediaJobsAction sees the same cookies.
-      await reconcileFirstFramesUntilDone(projectId);
+      const reconcileResult = await reconcileFirstFrames(
+        { project_id: projectId },
+        {
+          poll: (args) =>
+            pollMediaJobsAction({ project_id: args.project_id, skipReferenceRecovery: true }),
+          listInflight: async (project_id) => {
+            const sbInflight = supabase.from.bind(supabase) as unknown as (table: string) => {
+              select: (
+                cols: string,
+                opts: { count: 'exact'; head: true },
+              ) => {
+                eq: (
+                  col: string,
+                  val: string,
+                ) => {
+                  eq: (
+                    col: string,
+                    val: string,
+                  ) => {
+                    in: (
+                      col: string,
+                      vals: string[],
+                    ) => Promise<{
+                      count: number | null;
+                      error: { message: string } | null;
+                    }>;
+                  };
+                };
+              };
+            };
+            const { count, error: queryErr } = await sbInflight('media_jobs')
+              .select('id', { count: 'exact', head: true })
+              .eq('project_id', project_id)
+              .eq('kind', 'first_frame')
+              .in('status', ['pending', 'running']);
+            if (queryErr) return { ok: false, error: queryErr.message };
+            return { ok: true, remaining: count ?? 0 };
+          },
+          sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+          now: () => Date.now(),
+        },
+      );
 
-      // Flip to share-ready. By now all first_frame jobs are either completed
-      // (results in script.first_frame_versions) or hit the reconcile budget
-      // — the storyboard view renders placeholders for any still-missing scene.
-      await updateStatus('storyboard_ready', { throwOnError: true });
+      if (reconcileResult.status === 'completed') {
+        console.info('[createProjectFromIdea] reconcile complete', {
+          projectId,
+          ticks: reconcileResult.ticks,
+          elapsed_ms: reconcileResult.elapsed_ms,
+        });
+        await updateStatus('storyboard_ready', { throwOnError: true });
+      } else {
+        // budget_exceeded / poll_failed / query_failed → flip to `error`.
+        // PublicSlugPage detects status='error' and renders the recovery
+        // storyboard view (with banner) so the user sees the script + any
+        // completed thumbnails instead of being trapped on a forever-blank
+        // `storyboard_ready` page (Codex SHOULD-FIX #1 on PR #51).
+        console.warn('[createProjectFromIdea] reconcile non-terminal', {
+          projectId,
+          ...reconcileResult,
+        });
+        await updateStatus('error');
+      }
     } catch (err) {
       console.error('[createProjectFromIdea] background gen failed', { projectId, err });
       // Flip status to 'error'. With Phase 1.8.x recovery, page.tsx falls
@@ -213,131 +270,6 @@ export async function createProjectFromIdeaAction(input: z.infer<typeof CreateFr
   });
 
   redirect(`/p/${publicSlug}`);
-}
-
-/**
- * Sync-reconcile loop for the CJM after()-flow. Calls `pollMediaJobsAction`
- * (which is auth-gated and pulls fal results into `script.first_frame_versions`)
- * on a fixed cadence until either no first_frame jobs remain in pending/running
- * OR the budget runs out.
- *
- * Why this exists: there is no fal webhook and the public storyboard page
- * (`/p/[publicSlug]`) does NOT poll. Without sync-reconcile in the after()
- * block, the user lands on /p/{slug} after status flips to `storyboard_ready`
- * but `first_frame_versions` is still `[]` for every scene — the page renders
- * placeholders forever. Sync-reconcile costs us ~30-60s of background time
- * inside Vercel's 300s function budget (page.tsx maxDuration=300), which is
- * cheap given the user is already on LoadingView for that whole window.
- *
- * Auth: pollMediaJobsAction calls getCurrentUser() and checks project
- * ownership. We're inside the same request context as the create call, so
- * the cookies authenticate this poll correctly.
- *
- * Module-level (not closure-scoped) so generateScriptAction's failure path
- * doesn't accidentally reference an unbound symbol — tested in isolation.
- */
-async function reconcileFirstFramesUntilDone(projectId: string): Promise<void> {
-  const INITIAL_DELAY_MS = 2_000;
-  const POLL_INTERVAL_MS = 4_000;
-  const BUDGET_MS = 90_000;
-
-  // Give fal a beat to begin processing before the first poll tick. fal
-  // returns request_id immediately on submit; results land 15-40s later.
-  await sleep(INITIAL_DELAY_MS);
-
-  const supabase = await getServerSupabase();
-  const sbFrom = supabase.from.bind(supabase) as unknown as (table: string) => {
-    select: (cols: string) => {
-      eq: (
-        col: string,
-        val: string,
-      ) => {
-        eq: (
-          col: string,
-          val: string,
-        ) => {
-          in: (
-            col: string,
-            vals: string[],
-          ) => {
-            limit: (n: number) => Promise<{
-              data: Array<{ id: string }> | null;
-              error: { message: string } | null;
-            }>;
-          };
-        };
-      };
-    };
-  };
-
-  const start = Date.now();
-  let tickCount = 0;
-  while (Date.now() - start < BUDGET_MS) {
-    tickCount++;
-    try {
-      const tickResult = await pollMediaJobsAction({ project_id: projectId });
-      if (!tickResult.ok) {
-        // pollMediaJobsAction returns ok:false on auth/permission failures —
-        // there's no recovery path for those inside this loop, abandon.
-        console.warn('[createProjectFromIdea] reconcile pollTick returned ok:false', {
-          projectId,
-          tickCount,
-          error: tickResult.error,
-        });
-        return;
-      }
-    } catch (e) {
-      console.warn('[createProjectFromIdea] reconcile pollTick threw', {
-        projectId,
-        tickCount,
-        errMessage: e instanceof Error ? e.message : String(e),
-      });
-      // Continue ticking — single tick failures are typically transient
-      // (fal API blip, db read timeout). Budget cap eventually exits.
-    }
-
-    const { data: stillInflight, error: queryErr } = await sbFrom('media_jobs')
-      .select('id')
-      .eq('project_id', projectId)
-      .eq('kind', 'first_frame')
-      .in('status', ['pending', 'running'])
-      .limit(1);
-
-    if (queryErr) {
-      console.warn('[createProjectFromIdea] reconcile inflight-query failed', {
-        projectId,
-        tickCount,
-        errMessage: queryErr.message,
-      });
-      return;
-    }
-
-    if (!stillInflight || stillInflight.length === 0) {
-      // All first_frame jobs reached a terminal state (completed/error).
-      // Storyboard view will render with whatever versions were written.
-      console.info('[createProjectFromIdea] reconcile complete', {
-        projectId,
-        tickCount,
-        elapsed_ms: Date.now() - start,
-      });
-      return;
-    }
-
-    await sleep(POLL_INTERVAL_MS);
-  }
-
-  console.warn(
-    '[createProjectFromIdea] reconcile budget exceeded — flipping to storyboard_ready with possible missing thumbnails',
-    {
-      projectId,
-      budget_ms: BUDGET_MS,
-      ticks: tickCount,
-    },
-  );
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 const UpdateMetaSchema = z.object({
