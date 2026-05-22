@@ -19,11 +19,12 @@
  *   width bottom bar on mobile.
  * ===================================================================== */
 
-/* Design tokens — scoped to .public-storyboard so they don't leak. */
+/* Design tokens — scoped to public-storyboard surfaces so they don't leak. */
 .public-storyboard,
 .loading-view,
 .loading-stalled,
-.error-view {
+.error-view,
+.render-progress-page {
   --storyboard-paper: #fbf4e6;
   --storyboard-paper-warm: #f6ead2;
   --storyboard-paper-deep: #efe1c6;
@@ -962,4 +963,172 @@
   .storyboard-scene-card:first-child .scene-narrative::first-letter {
     font-size: 44px;
   }
+}
+
+/* =========================================================
+ * Render progress view (Phase 1.7.1 + 1.8.x soft messaging).
+ * ========================================================= */
+
+.render-progress-page {
+  position: relative;
+  min-height: 100vh;
+  background: var(--storyboard-paper);
+  color: var(--storyboard-ink);
+  font-family: var(--storyboard-body);
+  font-size: 16px;
+  line-height: 1.6;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 64px 24px 96px;
+  box-sizing: border-box;
+}
+
+.render-progress-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.12   0 0 0 0 0.10   0 0 0 0 0.07   0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.5'/></svg>");
+  opacity: 0.045;
+  mix-blend-mode: multiply;
+  z-index: 0;
+}
+
+.render-progress-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 560px;
+  background: var(--storyboard-card-bg);
+  border: 1px solid var(--storyboard-card-border);
+  border-radius: 20px;
+  box-shadow: var(--storyboard-card-shadow);
+  padding: 40px 36px 32px;
+}
+
+.render-progress-eyebrow {
+  font-family: var(--storyboard-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--storyboard-accent-deep);
+  margin: 0 0 12px;
+}
+
+.render-progress-title {
+  font-family: var(--storyboard-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(28px, 4vw, 38px);
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  margin: 0 0 12px;
+  color: var(--storyboard-ink);
+}
+
+.render-progress-lead {
+  font-family: var(--storyboard-body);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--storyboard-ink-soft);
+  margin: 0 0 24px;
+}
+
+.render-progress-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 24px 0 8px;
+}
+
+.render-progress-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--storyboard-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 17px;
+  color: #fffbf2;
+  background: linear-gradient(180deg, var(--storyboard-accent) 0%, var(--storyboard-accent-deep) 100%);
+  border: 0;
+  padding: 14px 22px;
+  border-radius: 999px;
+  text-decoration: none;
+  box-shadow:
+    0 12px 24px -10px rgba(183, 91, 25, 0.55),
+    0 1px 0 rgba(255, 255, 255, 0.4) inset;
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.render-progress-cta:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.04);
+}
+
+.render-progress-reassure {
+  font-family: var(--storyboard-body);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--storyboard-ink-muted);
+  text-align: center;
+  margin: 12px 0 0;
+}
+
+.render-progress-details {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--storyboard-rule);
+  font-family: var(--storyboard-mono);
+  font-size: 11px;
+  color: var(--storyboard-ink-muted);
+}
+
+.render-progress-details summary {
+  cursor: pointer;
+  list-style: none;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 0;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.render-progress-details summary::before {
+  content: '▸';
+  font-size: 9px;
+  transition: transform 160ms ease;
+  color: var(--storyboard-gold);
+}
+
+.render-progress-details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.render-progress-details ul {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.render-progress-details li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: baseline;
+}
+
+.render-progress-details li code {
+  font-family: var(--storyboard-mono);
+  color: var(--storyboard-ink-soft);
+  word-break: break-all;
+  text-align: right;
+  text-transform: none;
+  letter-spacing: 0;
 }
