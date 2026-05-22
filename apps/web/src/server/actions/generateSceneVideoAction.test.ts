@@ -2,7 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/auth/get-user', () => ({ getCurrentUser: vi.fn() }));
 vi.mock('@/server/lib/media-provider-factory', () => ({ getMediaProvider: vi.fn() }));
-vi.mock('@mango/db/server', () => ({ getServerSupabase: vi.fn() }));
+// Phase 1.7 balance reservation calls fn_reserve_balance via service_role
+// (sandboxed from user-session for SECURITY DEFINER safety — see action
+// docstring). Tests mock both clients so the rpc-chain reads from the
+// service-role mock. Default: service-role .rpc returns success; tests can
+// override with mockReturnValueOnce as needed.
+vi.mock('@mango/db/server', () => ({
+  getServerSupabase: vi.fn(),
+  getServiceRoleSupabase: vi.fn(() => ({
+    rpc: vi.fn(() => Promise.resolve({ data: true, error: null })),
+  })),
+}));
 vi.mock('@/server/lib/scene-helpers', () => ({
   recordPendingJob: vi.fn(),
   finalizeMediaJobReservation: vi.fn().mockResolvedValue(undefined),
@@ -27,7 +37,7 @@ import { getBalance } from '@/server/lib/get-balance';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
 import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
-import { getServerSupabase } from '@mango/db/server';
+import { getServerSupabase, getServiceRoleSupabase } from '@mango/db/server';
 import { generateSceneVideoAction } from './generateSceneVideoAction';
 
 beforeEach(() => {
@@ -506,6 +516,11 @@ describe('generateSceneVideoAction — balance gate', () => {
 
     const { sb } = makeSupabaseMock({ rpcData: true });
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sb);
+    // Phase 1.7 balance reservation now runs against the service-role client
+    // (SECURITY DEFINER sandboxing). Route the rpc through the same `sb` mock
+    // so existing `sb.rpc` assertions still work — service-role and user-session
+    // share the test double here.
+    (getServiceRoleSupabase as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(sb);
 
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
@@ -547,6 +562,7 @@ describe('generateSceneVideoAction — balance gate', () => {
 
     const { sb, updateChain } = makeSupabaseMock({ rpcData: false });
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sb);
+    (getServiceRoleSupabase as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(sb);
 
     (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,

@@ -1,25 +1,33 @@
--- 2026-05-22 — Phase 1.7 fn_reserve_balance was created with only postgres +
--- service_role EXECUTE grants. Server actions run under the user session
--- (authenticated / anon role), so every call hit:
+-- 2026-05-22 — HISTORICAL NOTE.
 --
---   ERROR: permission denied for function fn_reserve_balance
+-- The ORIGINAL content of this migration granted EXECUTE on `fn_reserve_balance`
+-- and `fn_settle_paid_intent` to `authenticated, anon` in an attempt to fix a
+-- "permission denied for function fn_reserve_balance" error reported in prod.
 --
--- Discovered after PR #52 deploy via Postgres logs: user clicked
--- «Сгенерировать видео», `reserveMediaJob` created a row at status='reserved',
--- the RPC failed with permission denied, the catch block tried to flip
--- status='canceled' which ALSO failed (separate spelling-mismatch bug;
--- CHECK constraint expects British 'cancelled'). Action returned
--- `{ok:false, error:'insufficient_balance'}` to the UI but the row stayed
--- in 'reserved' forever and fal was never called.
+-- That grant was a LIVE SECURITY HOLE: both functions are SECURITY DEFINER
+-- and trust caller-supplied `p_user_id` without any auth.uid() check, so any
+-- authenticated user could call the RPC directly and debit/refund ANY user's
+-- balance by passing someone else's UUID. Caught by Codex post-merge audit
+-- the same day; revoked via Supabase MCP within ~30 minutes of being granted.
 --
--- Pairs with PR-side code fixes: 'canceled' → 'cancelled' in
--- generateSceneVideoAction.ts and generateMasterClipAction.ts.
+-- The REAL fix is `20260522000004_revoke_unsafe_user_session_grants.sql`
+-- (which REVOKEs the grants from this file). Server actions now call these
+-- functions via the service_role client — the user-session client never
+-- reaches the function, so the SECURITY DEFINER's trust of `p_user_id` is
+-- only ever invoked with a value the server itself just read from
+-- authenticated cookies.
 --
--- Same pattern as `reserve_media_job` which already has these grants.
-GRANT EXECUTE ON FUNCTION public.fn_reserve_balance(uuid, uuid, bigint, text, text)
-  TO authenticated, anon;
+-- This file is left in place (as a no-op grant-then-revoke would be confusing
+-- and the revoke migration is the operational source of truth) but its body
+-- is replaced with a comment so re-applying the migration set on a fresh
+-- database does NOT recreate the hole. The revoke migration runs
+-- immediately after this one in lexical order regardless.
+--
+-- See:
+--   - 20260522000004_revoke_unsafe_user_session_grants.sql — the corrective REVOKE
+--   - apps/web/src/server/actions/generateSceneVideoAction.ts (service_role swap)
+--   - apps/web/src/server/actions/generateMasterClipAction.ts (same)
+--   - Codex audit log on PR #53 (BLOCKER #1)
 
--- fn_settle_paid_intent is called from /p/[publicSlug]/page.tsx (user-session
--- path, post-payment redirect). Same risk profile.
-GRANT EXECUTE ON FUNCTION public.fn_settle_paid_intent(uuid)
-  TO authenticated, anon;
+-- (Intentionally empty: see the historical note above.)
+SELECT 1;
