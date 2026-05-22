@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { linkSceneCharacterIds } from './link-scene-character-ids';
-import type { Character, Scene } from './provider';
+import type { Scene } from './provider';
+import type { Character } from './types';
 
 // crypto.randomUUID()-style UUIDs (lowercase v4) so isUuid() accepts them.
 const UUID_FINN = '7c7c5f3a-1234-4abc-9def-abcdef012345';
@@ -35,6 +36,7 @@ function mkCharacter(id: string, name: string): Character {
     voice: {},
     reference_images: [],
     archived: false,
+    dossier: null,
   } as Character;
 }
 
