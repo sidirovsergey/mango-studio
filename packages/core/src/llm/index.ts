@@ -41,6 +41,11 @@ export type {
 export { detectSyncHint } from './sync-hint';
 export type { SyncHintKind, SyncHintScene } from './sync-hint';
 export { applyCharacterActions } from './character-diff-merge';
+export { linkSceneCharacterIds } from './link-scene-character-ids';
+export type {
+  LinkSceneCharacterIdsResult,
+  LinkSceneCharacterIdsWarning,
+} from './link-scene-character-ids';
 export { CharacterSchema, AppearanceSchema } from './types';
 export type {
   Character,

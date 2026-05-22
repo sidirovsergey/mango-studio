@@ -11,11 +11,13 @@ import { getCurrentUserId } from '@/lib/auth/get-user';
 import { logLLMCall } from '@/server/lib/log-llm-call';
 import {
   type Character,
+  type LinkSceneCharacterIdsWarning,
   type PersistedScript,
   type Scene,
   applyCharacterActions,
   classifyLLMError,
   getModelParams,
+  linkSceneCharacterIds,
   normalizeScene,
 } from '@mango/core';
 import { getLLMProvider } from '@mango/core/llm/factory';
@@ -53,6 +55,23 @@ async function loadProjectForGeneration(projectId: string) {
     .single();
   if (error || !data) throw new Error(`loadProjectForGeneration: ${error?.message ?? 'not found'}`);
   return data;
+}
+
+/**
+ * Log structured warnings from `linkSceneCharacterIds`. Core helper returns
+ * `{scenes, warnings}` so it stays pure (per Codex audit round-1 NIT); this
+ * caller-side logger attaches project_id context for ops triage.
+ */
+function logLinkSceneCharacterIdsWarnings(
+  projectId: string,
+  warnings: LinkSceneCharacterIdsWarning[],
+): void {
+  if (warnings.length === 0) return;
+  console.warn('[scripts] linkSceneCharacterIds dropped entries', {
+    project_id: projectId,
+    count: warnings.length,
+    warnings,
+  });
 }
 
 async function persistScript(projectId: string, script: PersistedScript) {
@@ -95,9 +114,20 @@ export async function generateScriptAction(
     });
     // Apply diff-merge: all actions are 'add' on first gen
     const mergedCharacters = applyCharacterActions([], result.output.characters);
+    // Swap LLM-emitted character NAMES in scenes[*].character_ids[] → UUIDs.
+    // The script-author prompt explicitly tells the LLM to use names until
+    // the server assigns ids. Without this swap, downstream readers
+    // (generateFirstFrameAction's character filter, F53 ref-image gate,
+    // buildFirstFramePrompt's image_refs) silently see empty character
+    // sets per scene and render generic, inconsistent characters.
+    const { scenes: linkedScenes, warnings: linkWarnings } = linkSceneCharacterIds(
+      result.output.scenes,
+      mergedCharacters,
+    );
+    logLinkSceneCharacterIdsWarnings(project_id, linkWarnings);
     const newScript: PersistedScript = {
       title: result.output.title,
-      scenes: result.output.scenes,
+      scenes: linkedScenes,
       characters: mergedCharacters,
       master_clip: null,
       // Codex audit P1.1 + P2: persist visual_theme + tier. Grok authors
@@ -169,9 +199,14 @@ export async function regenScriptAction(
       existingCharacters: existingForPrompt,
     });
     const mergedCharacters = applyCharacterActions(existingCharacters, result.output.characters);
+    const { scenes: linkedScenes, warnings: linkWarnings } = linkSceneCharacterIds(
+      result.output.scenes,
+      mergedCharacters,
+    );
+    logLinkSceneCharacterIdsWarnings(project_id, linkWarnings);
     const newScript: PersistedScript = {
       title: result.output.title,
-      scenes: result.output.scenes,
+      scenes: linkedScenes,
       characters: mergedCharacters,
       master_clip: null,
       // Codex audit P1.1 + P2: persist visual_theme + tier. Grok authors
@@ -266,9 +301,14 @@ export async function refineScriptAction(
       existing_visual_theme: existingVisualTheme,
     });
     const mergedCharacters = applyCharacterActions(existingCharacters, result.output.characters);
+    const { scenes: linkedScenes, warnings: linkWarnings } = linkSceneCharacterIds(
+      result.output.scenes,
+      mergedCharacters,
+    );
+    logLinkSceneCharacterIdsWarnings(project_id, linkWarnings);
     const newScript: PersistedScript = {
       title: result.output.title,
-      scenes: result.output.scenes,
+      scenes: linkedScenes,
       characters: mergedCharacters,
       master_clip: null,
       // Codex audit P1.1 + P2: persist visual_theme + tier. Grok authors

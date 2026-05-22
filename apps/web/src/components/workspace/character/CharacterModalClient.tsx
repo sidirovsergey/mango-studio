@@ -4,7 +4,7 @@ import { generateCharacterDossierAction } from '@/server/actions/generateCharact
 import { updateCharacterFieldAction } from '@/server/actions/updateCharacterFieldAction';
 import { type Character, buildDossierPrompt } from '@mango/core';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { ReferenceImagesPanel } from './ReferenceImagesPanel';
 
 // VoicePicker + setCharacterVoiceAction + VOICE_POOL removed 2026-05-13.
@@ -57,6 +57,53 @@ export function CharacterModalClient({
   const [regenSuggested, setRegenSuggested] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   // ttsProvider state removed 2026-05-13 with the audio rip-out.
+
+  /**
+   * Дополнительный «жду fal» индикатор поверх useTransition's isPending.
+   *
+   * Проблема: `generateCharacterDossierAction` отправляет fal-задачу и
+   * возвращается через ~2-3 секунды. `isPending` сразу сбрасывается, но
+   * сам результат досье ещё ~15-20 секунд варится у fal и приходит в
+   * `character.dossier` позже через `ProjectJobsPoller.router.refresh()`.
+   * Юзер видит «кнопка не грузится → закрываю модалку», и пропускает
+   * момент когда досье реально появилось.
+   *
+   * `pendingDossierBaseline` = snapshot `character.dossier?.generated_at`
+   * на момент клика:
+   *   - `undefined` → не ждём.
+   *   - `null` → ждём первой генерации (досье ещё не было).
+   *   - `string` → ждём regen'а (старая метка времени).
+   *
+   * `useEffect` снимает флаг, когда `generated_at` сменился относительно
+   * baseline'а (значит ProjectJobsPoller'ом прилетел новый dossier).
+   */
+  const [pendingDossierBaseline, setPendingDossierBaseline] = useState<string | null | undefined>(
+    undefined,
+  );
+  const currentGeneratedAt = character.dossier?.generated_at ?? null;
+  const isWaitingForDossier = pendingDossierBaseline !== undefined;
+
+  useEffect(() => {
+    if (pendingDossierBaseline === undefined) return;
+    if (currentGeneratedAt !== pendingDossierBaseline) {
+      setPendingDossierBaseline(undefined);
+    }
+  }, [currentGeneratedAt, pendingDossierBaseline]);
+
+  // Safety timeout (Codex pre-PR audit SHOULD-FIX #2). If fal submission
+  // succeeds but the media job later errors, `generated_at` never moves
+  // past the baseline and the button would stay "Генерирую…" forever —
+  // until the user closes + reopens the modal. Cap the wait at 60s
+  // (well beyond the typical fal completion of 15-20s) so the button
+  // recovers without requiring close/reopen. The card-level error badge
+  // from `generationError` still surfaces the actual failure cause.
+  useEffect(() => {
+    if (pendingDossierBaseline === undefined) return;
+    const timeout = setTimeout(() => {
+      setPendingDossierBaseline(undefined);
+    }, 60_000);
+    return () => clearTimeout(timeout);
+  }, [pendingDossierBaseline]);
 
   const close = () => {
     const next = new URLSearchParams(params.toString());
@@ -116,6 +163,11 @@ export function CharacterModalClient({
 
   const handleGenerate = () => {
     setGenError(null);
+    // Capture the current dossier timestamp BEFORE submitting so we can
+    // detect when ProjectJobsPoller lands the freshly-generated dossier.
+    // First-gen case: null baseline → cleared when generated_at becomes truthy.
+    // Regen case: old timestamp → cleared when generated_at changes.
+    setPendingDossierBaseline(currentGeneratedAt);
     startTransition(async () => {
       const r = await generateCharacterDossierAction({
         project_id: projectId,
@@ -124,6 +176,9 @@ export function CharacterModalClient({
       });
       if (!r.ok) {
         setGenError(r.error);
+        // Action errored before fal even started — drop the waiting flag so
+        // the user can retry without a stuck "Генерирую…" button.
+        setPendingDossierBaseline(undefined);
         console.error('[generateDossier]', r.error, r);
         return;
       }
@@ -177,24 +232,33 @@ export function CharacterModalClient({
               Промпт изменён. Перегенерировать досье с учётом правок?
             </span>
             <div className="regen-suggest-actions">
-              <button type="button" onClick={() => setRegenSuggested(false)} disabled={isPending}>
+              <button
+                type="button"
+                onClick={() => setRegenSuggested(false)}
+                disabled={isPending || isWaitingForDossier}
+              >
                 Не сейчас
               </button>
               <button
                 type="button"
                 onClick={handleGenerate}
-                disabled={isPending}
+                disabled={isPending || isWaitingForDossier}
                 className="primary"
               >
-                {isPending ? 'Генерирую...' : 'Перегенерировать'}
+                {isPending || isWaitingForDossier ? 'Генерирую…' : 'Перегенерировать'}
               </button>
             </div>
           </div>
         )}
         <div className="char-modal-section-actions">
-          <button type="button" onClick={handleGenerate} disabled={isPending} className="primary">
-            {isPending
-              ? 'Генерирую...'
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={isPending || isWaitingForDossier}
+            className="primary"
+          >
+            {isPending || isWaitingForDossier
+              ? 'Генерирую… ~20с'
               : character.dossier
                 ? 'Перегенерировать досье'
                 : 'Сгенерировать досье'}
