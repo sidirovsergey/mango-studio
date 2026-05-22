@@ -1,9 +1,15 @@
 /**
- * Phase 1.7.1 — minimal render-in-progress view.
+ * Phase 1.7.1 / 1.8.x — render-in-progress view.
  *
- * Lists the enqueued job IDs. Polling of media_jobs.status for actual
- * scene-by-scene progress visualisation is Phase 1.8.4 work. Here we
- * just confirm to the user that the render has started.
+ * Shown when the user returns from ЮKassa (or mock checkout) and the
+ * intent ledger flips to `paid` → `enqueueRenderForProject` runs.
+ *
+ * Two flavours:
+ * - All scenes reserved cleanly → friendly «render running» state.
+ * - Partial — some scenes couldn't reserve (e.g. first_frame still in
+ *   flight from the bulk batch). We avoid showing internal error codes
+ *   and steer the user into the Studio where they can manually retry
+ *   the affected scenes when the first_frame catches up.
  */
 export function RenderProgressView(props: {
   projectId: string;
@@ -14,47 +20,91 @@ export function RenderProgressView(props: {
     masterError: string | undefined;
   } | null;
 }) {
+  const hasPartial = Boolean(props.partialError);
+  const reservedCount = props.sceneJobIds.length;
+  const failedCount = props.partialError?.sceneErrors.length ?? 0;
+  const totalCount = reservedCount + failedCount;
+
   return (
-    <main style={{ padding: 24, maxWidth: 640, margin: '0 auto' }}>
-      <h1>Рендер запущен</h1>
+    <main className="render-progress-page">
+      <div className="render-progress-card">
+        <p className="render-progress-eyebrow">Mango Studio</p>
 
-      {props.partialError ? (
-        <section style={{ background: '#fff3cd', padding: 16, borderRadius: 8, marginTop: 16 }}>
-          <h2 style={{ marginTop: 0 }}>Не все сцены удалось зарезервировать</h2>
-          {props.partialError.sceneErrors.length > 0 && (
-            <ul>
-              {props.partialError.sceneErrors.map((e) => (
-                <li key={e.scene_id}>
-                  {e.scene_id}: {e.error}
-                </li>
-              ))}
-            </ul>
-          )}
-          {props.partialError.masterError && (
-            <p>Финальный клип: {props.partialError.masterError}</p>
-          )}
-          <p>Откройте проект в Студии, чтобы запустить повторно.</p>
-        </section>
-      ) : (
-        <p>Сцены сабмитнуты на рендер. Это занимает 30–90 секунд.</p>
-      )}
-
-      <p style={{ marginTop: 24 }}>
-        <a href={`/workspace/${props.projectId}`}>Открыть проект в Студии</a>
-      </p>
-
-      <details style={{ marginTop: 32, fontSize: 12, opacity: 0.6 }}>
-        <summary>Детали (для отладки)</summary>
-        <p>Проект: {props.projectId}</p>
-        {props.sceneJobIds.length > 0 && (
-          <ul>
-            {props.sceneJobIds.map((id) => (
-              <li key={id}>scene: {id}</li>
-            ))}
-          </ul>
+        {!hasPartial ? (
+          <>
+            <h1 className="render-progress-title">Собираем ваш ролик</h1>
+            <p className="render-progress-lead">
+              {reservedCount > 0
+                ? `Готовим ${reservedCount} ${pluralRu(reservedCount, 'сцена', 'сцены', 'сцен')} — это занимает 1–3 минуты.`
+                : 'Готовим финальный клип — это занимает 1–3 минуты.'}{' '}
+              Можно закрыть вкладку, вы получите готовый ролик по той же ссылке.
+            </p>
+            <div className="render-progress-actions">
+              <a className="render-progress-cta" href={`/projects/${props.projectId}`}>
+                Открыть в Студии
+              </a>
+            </div>
+          </>
+        ) : (
+          <>
+            <h1 className="render-progress-title">Почти готово</h1>
+            <p className="render-progress-lead">
+              {reservedCount > 0
+                ? `Уже собираем ${reservedCount} из ${totalCount} ${pluralRu(totalCount, 'сцены', 'сцен', 'сцен')}. Остальные кадры ещё подрисовываются — закончите сборку в Студии, когда они будут готовы.`
+                : 'Первые кадры ещё подрисовываются — обычно это занимает 30–60 секунд. Откройте проект в Студии и запустите сборку ещё раз через минуту.'}
+            </p>
+            <div className="render-progress-actions">
+              <a className="render-progress-cta" href={`/projects/${props.projectId}`}>
+                Открыть в Студии
+              </a>
+            </div>
+            <p className="render-progress-reassure">Оплата зафиксирована, ничего не потеряется.</p>
+          </>
         )}
-        {props.masterJobId && <p>master: {props.masterJobId}</p>}
-      </details>
+
+        <details className="render-progress-details">
+          <summary>Детали (для службы поддержки)</summary>
+          <ul>
+            <li>
+              <span>Проект</span>
+              <code>{props.projectId}</code>
+            </li>
+            {props.sceneJobIds.length > 0 && (
+              <li>
+                <span>Сцены в работе</span>
+                <code>{props.sceneJobIds.length}</code>
+              </li>
+            )}
+            {props.masterJobId && (
+              <li>
+                <span>Финальный клип</span>
+                <code>{props.masterJobId}</code>
+              </li>
+            )}
+            {props.partialError?.sceneErrors.map((e) => (
+              <li key={e.scene_id}>
+                <span>{e.scene_id}</span>
+                <code>{e.error}</code>
+              </li>
+            ))}
+            {props.partialError?.masterError && (
+              <li>
+                <span>Финальный клип</span>
+                <code>{props.partialError.masterError}</code>
+              </li>
+            )}
+          </ul>
+        </details>
+      </div>
     </main>
   );
+}
+
+function pluralRu(n: number, one: string, few: string, many: string): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return many;
+  if (mod10 === 1) return one;
+  if (mod10 >= 2 && mod10 <= 4) return few;
+  return many;
 }
