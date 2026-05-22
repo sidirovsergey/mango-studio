@@ -247,7 +247,9 @@ export async function generateMasterClipAction(rawInput: unknown): Promise<
       p_model_tier: null, // master_clip has no tier
     });
     if (reserved.error || reserved.data === false) {
-      await sb.from('media_jobs').update({ status: 'canceled' }).eq('id', reservation.job_id);
+      // British 'cancelled' to match the DB CHECK constraint; American 'canceled'
+      // silently fails (same bug as generateSceneVideoAction, 2026-05-22).
+      await sb.from('media_jobs').update({ status: 'cancelled' }).eq('id', reservation.job_id);
       return {
         ok: false,
         error: 'insufficient_balance',

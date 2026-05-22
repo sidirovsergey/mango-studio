@@ -56,7 +56,13 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
 
   const jobsByScene: Record<string, MediaJobRow> = {};
   for (const job of jobs) {
-    if (job.scene_id && ['pending', 'running'].includes(job.status)) {
+    // Include 'reserved' alongside pending/running so the UI shows "генерация
+    // начата" for the brief window between reserveMediaJob (writes
+    // status='reserved') and finalizeMediaJobReservation (writes 'pending'
+    // after fal submit). Without 'reserved' here, users on slow connections
+    // saw "кнопка вернулась в норму но прогресса не видно" while fal's
+    // submit was in flight — discovered 2026-05-22.
+    if (job.scene_id && ['reserved', 'pending', 'running'].includes(job.status)) {
       const existing = jobsByScene[job.scene_id];
       if (!existing || (job.created_at ?? '') > (existing.created_at ?? '')) {
         jobsByScene[job.scene_id] = job;

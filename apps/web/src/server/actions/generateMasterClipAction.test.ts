@@ -370,7 +370,7 @@ describe('generateMasterClipAction — balance gate (Phase 1.7)', () => {
 
     const result = await generateMasterClipAction({ project_id: PROJECT_ID });
 
-    expect(updateChain.update).toHaveBeenCalledWith({ status: 'canceled' });
+    expect(updateChain.update).toHaveBeenCalledWith({ status: 'cancelled' });
     expect(updateChain.eq).toHaveBeenCalledWith('id', 'job-drain');
 
     expect(result.ok).toBe(false);
