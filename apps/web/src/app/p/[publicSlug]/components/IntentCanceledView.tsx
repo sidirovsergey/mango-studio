@@ -11,7 +11,7 @@ export function IntentCanceledView(props: { projectId: string }) {
       <h1>Заказ отменён</h1>
       <p>Эта оплата была отменена. Если это ошибка, напишите в поддержку.</p>
       <p style={{ marginTop: 24 }}>
-        <a href={`/workspace/${props.projectId}`}>Открыть проект в Студии</a>
+        <a href={`/projects/${props.projectId}`}>Открыть проект в Студии</a>
       </p>
     </main>
   );

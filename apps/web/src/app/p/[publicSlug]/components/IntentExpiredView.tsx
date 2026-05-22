@@ -15,7 +15,7 @@ export function IntentExpiredView(props: { projectId: string }) {
         рендер вручную из проекта.
       </p>
       <p style={{ marginTop: 24 }}>
-        <a href={`/workspace/${props.projectId}`}>Открыть проект в Студии</a>
+        <a href={`/projects/${props.projectId}`}>Открыть проект в Студии</a>
       </p>
     </main>
   );
