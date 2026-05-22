@@ -104,8 +104,10 @@ export async function GET(req: Request): Promise<NextResponse | Response> {
 
   if (error || !data?.signedUrl) {
     // RLS denial, missing object, network blip — all look the same from
-    // the client side. Log for ops without leaking the path internals
-    // beyond the bucket name.
+    // the client side. Log path + bucket + user for ops triage; the
+    // signed URL itself is NEVER logged (it's a short-lived credential).
+    // Path leaks bucket folder structure but no actual content; acceptable
+    // given the prefix already encodes user_id (which we also log here).
     console.warn('[api/scene-asset] sign failed', {
       bucket: SCENE_ASSETS_BUCKET,
       path,

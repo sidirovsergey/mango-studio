@@ -115,6 +115,18 @@ describe('linkSceneCharacterIds', () => {
     expect(original.character_ids).toEqual(['Финн']);
   });
 
+  it('matches upper-case UUID entries against lowercase character ids', () => {
+    // The randomUUID() output is lowercase but a future LLM/refine path
+    // may upper-case a hex digit. Helper normalizes for lookup and echoes
+    // the canonical (lowercase) form back into the linked scene.
+    const upper = UUID_FINN.toUpperCase();
+    const scenes = [mkScene('s1', [upper])];
+    const chars = [mkCharacter(UUID_FINN, 'Финн')];
+    const { scenes: linked, warnings } = linkSceneCharacterIds(scenes, chars);
+    expect(linked[0]?.character_ids).toEqual([UUID_FINN]);
+    expect(warnings).toEqual([]);
+  });
+
   it('reports warnings with the correct scene_id when entries fail per-scene', () => {
     const scenes = [mkScene('s1', ['Ghost']), mkScene('s2', ['Финн', 'Phantom'])];
     const chars = [mkCharacter(UUID_FINN, 'Финн')];

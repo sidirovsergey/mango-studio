@@ -27,7 +27,7 @@ vi.mock('@mango/core', async () => {
 
 import { getCurrentUserId } from '@/lib/auth/get-user';
 import { getServerSupabase } from '@mango/db/server';
-import { generateScriptClientAction, refineScriptAction } from './scripts';
+import { generateScriptAction, generateScriptClientAction, refineScriptAction } from './scripts';
 
 const mockGetCurrentUserId = vi.mocked(getCurrentUserId);
 const mockGetServerSupabase = vi.mocked(getServerSupabase);
@@ -193,6 +193,153 @@ describe('script-gen actions persist visual_theme + tier (Codex audit P2)', () =
     };
     expect(updateArg.script.visual_theme).toEqual(SAMPLE_VISUAL_THEME);
     expect(updateArg.script.tier).toBe('economy');
+  });
+});
+
+// ─── 2026-05-22 fix: scene.character_ids name → UUID linkage (Codex audit) ───
+
+describe('script-gen actions persist UUIDs in scene.character_ids[]', () => {
+  // The LLM is instructed to emit character NAMES in scene.character_ids[]
+  // (see packages/core/src/llm/prompts.ts:156) "until ids are assigned by
+  // server". Without `linkSceneCharacterIds` running on persist, downstream
+  // first_frame/F53/character-anchoring code paths silently see an empty
+  // character set per scene and render visually inconsistent characters
+  // across scenes. This integration test pins the post-persist invariant:
+  // every entry in scenes[*].character_ids must be a UUID present in
+  // characters[*].id.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  const SCRIPT_WITH_NAMED_CHARS = {
+    output: {
+      title: 'История Финна',
+      tier: 'economy',
+      visual_theme: SAMPLE_VISUAL_THEME,
+      scenes: [
+        {
+          scene_id: 's1',
+          description: 'Финн плывёт',
+          duration_sec: 10,
+          dialogue: null,
+          // LLM-style name reference (not UUID).
+          character_ids: ['Финн'],
+          first_frame_versions: [],
+          first_frame_active_version_id: null,
+          video_versions: [],
+          video_active_version_id: null,
+          voice_audio_versions: [],
+          voice_audio_active_version_id: null,
+          last_frame: null,
+          final_clip: null,
+        },
+        {
+          scene_id: 's2',
+          description: 'Финн нервничает',
+          duration_sec: 8,
+          dialogue: null,
+          character_ids: ['Финн'],
+          first_frame_versions: [],
+          first_frame_active_version_id: null,
+          video_versions: [],
+          video_active_version_id: null,
+          voice_audio_versions: [],
+          voice_audio_active_version_id: null,
+          last_frame: null,
+          final_clip: null,
+        },
+      ],
+      // applyCharacterActions accepts script-character actions; 'add' is
+      // the default for first-gen and the server assigns the UUID.
+      characters: [
+        {
+          action: 'add' as const,
+          name: 'Финн',
+          description: 'нервный дельфин в галстуке',
+          appearance: { palette: ['blue'], distinguishing_features: ['tiny tie'] },
+          personality: 'нервный, добрый',
+          voice: { description: 'мягкий тенор' },
+        },
+      ],
+      master_clip_versions: [],
+      master_clip_active_version_id: null,
+    },
+    usage: {
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      cost_usd: 0.001,
+      model: 'x-ai/grok-4.1-fast',
+      latency_ms: 200,
+    },
+  };
+
+  it('generateScriptAction swaps LLM-emitted names → character UUIDs in scenes', async () => {
+    const project = makeProjectWithTheme(SAMPLE_VISUAL_THEME);
+    const updateChain = { eq: vi.fn().mockResolvedValue({ error: null }) };
+    const update = vi.fn(() => updateChain);
+    const supabase = {
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: project, error: null }),
+        update,
+      })),
+    };
+    mockGetServerSupabase.mockResolvedValue(supabase as never);
+    mockGenerateScript.mockResolvedValueOnce(SCRIPT_WITH_NAMED_CHARS);
+
+    await generateScriptAction({ project_id: PROJECT_ID });
+
+    // The first `update` call carries the persisted script jsonb. Its
+    // characters[] must have UUIDs assigned by applyCharacterActions, and
+    // scenes[*].character_ids[] entries must be those UUIDs (not the LLM
+    // names 'Финн').
+    expect(update).toHaveBeenCalled();
+    const firstCall = (update as ReturnType<typeof vi.fn>).mock.calls[0] as unknown[];
+    const persisted = firstCall[0] as {
+      script: {
+        characters: Array<{ id: string; name: string }>;
+        scenes: Array<{ scene_id: string; character_ids: string[] }>;
+      };
+    };
+    expect(persisted.script.characters).toHaveLength(1);
+    const finnId = persisted.script.characters[0]?.id ?? '';
+    expect(finnId).toMatch(UUID_RE);
+    expect(persisted.script.scenes[0]?.character_ids).toEqual([finnId]);
+    expect(persisted.script.scenes[1]?.character_ids).toEqual([finnId]);
+    // Crucially: no scene still carries the raw LLM name.
+    for (const s of persisted.script.scenes) {
+      expect(s.character_ids).not.toContain('Финн');
+    }
+  });
+
+  it('refineScriptAction also swaps names → UUIDs on re-persist', async () => {
+    const project = makeProjectWithTheme(SAMPLE_VISUAL_THEME);
+    const updateChain = { eq: vi.fn().mockResolvedValue({ error: null }) };
+    const update = vi.fn(() => updateChain);
+    const supabase = {
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: project, error: null }),
+        update,
+      })),
+    };
+    mockGetServerSupabase.mockResolvedValue(supabase as never);
+    mockGenerateScript.mockResolvedValueOnce(SCRIPT_WITH_NAMED_CHARS);
+
+    await refineScriptAction({ project_id: PROJECT_ID, instruction: 'сделай ярче' });
+
+    expect(update).toHaveBeenCalled();
+    const firstCall = (update as ReturnType<typeof vi.fn>).mock.calls[0] as unknown[];
+    const persisted = firstCall[0] as {
+      script: {
+        characters: Array<{ id: string }>;
+        scenes: Array<{ character_ids: string[] }>;
+      };
+    };
+    const finnId = persisted.script.characters[0]?.id ?? '';
+    expect(finnId).toMatch(UUID_RE);
+    expect(persisted.script.scenes[0]?.character_ids).toEqual([finnId]);
+    expect(persisted.script.scenes[1]?.character_ids).toEqual([finnId]);
   });
 });
 

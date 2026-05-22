@@ -67,11 +67,13 @@ export function linkSceneCharacterIds(
 ): LinkSceneCharacterIdsResult {
   const warnings: LinkSceneCharacterIdsWarning[] = [];
 
-  // Pre-build lookup tables once for the whole pass.
+  // Pre-build lookup tables once for the whole pass. UUID keys lowercased
+  // so the case-insensitive contract holds even if a future LLM/refine
+  // path emits upper-case hex.
   const byId = new Map<string, Character>();
   const byNameCi = new Map<string, Character>();
   for (const c of characters) {
-    byId.set(c.id, c);
+    byId.set(c.id.toLowerCase(), c);
     // First wins on duplicate-name collisions. Rare but possible after
     // refine; logging the dupe is left to the caller if it cares.
     const key = c.name.trim().toLowerCase();
@@ -84,8 +86,14 @@ export function linkSceneCharacterIds(
       if (typeof entry !== 'string' || entry.length === 0) continue;
 
       if (isUuid(entry)) {
-        if (byId.has(entry)) {
-          linkedIds.push(entry);
+        const lc = entry.toLowerCase();
+        const matched = byId.get(lc);
+        if (matched) {
+          // Echo the canonical (lowercase) form so downstream readers see
+          // exactly what `characters[i].id` carries — avoids surprise
+          // mismatches if scenes round-tripped through an upper-case
+          // serializer somewhere.
+          linkedIds.push(matched.id);
         } else {
           warnings.push({ scene_id: scene.scene_id, entry, reason: 'orphan_uuid' });
         }

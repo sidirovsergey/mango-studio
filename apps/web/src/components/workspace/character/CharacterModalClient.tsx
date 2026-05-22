@@ -90,6 +90,21 @@ export function CharacterModalClient({
     }
   }, [currentGeneratedAt, pendingDossierBaseline]);
 
+  // Safety timeout (Codex pre-PR audit SHOULD-FIX #2). If fal submission
+  // succeeds but the media job later errors, `generated_at` never moves
+  // past the baseline and the button would stay "Генерирую…" forever —
+  // until the user closes + reopens the modal. Cap the wait at 60s
+  // (well beyond the typical fal completion of 15-20s) so the button
+  // recovers without requiring close/reopen. The card-level error badge
+  // from `generationError` still surfaces the actual failure cause.
+  useEffect(() => {
+    if (pendingDossierBaseline === undefined) return;
+    const timeout = setTimeout(() => {
+      setPendingDossierBaseline(undefined);
+    }, 60_000);
+    return () => clearTimeout(timeout);
+  }, [pendingDossierBaseline]);
+
   const close = () => {
     const next = new URLSearchParams(params.toString());
     next.delete('char');
