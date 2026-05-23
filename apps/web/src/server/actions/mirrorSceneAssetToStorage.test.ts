@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockSb = {
   from: vi.fn(),
   storage: { from: vi.fn() },
+  // Atomic jsonb write moved to fn_mirror_version_storage RPC (2026-05-23
+  // data-loss race fix). Default mock returns success; per-test overrides.
+  rpc: vi.fn(async () => ({ data: true, error: null })),
 };
 vi.mock('@mango/db/server', () => ({
   getServiceRoleSupabase: () => mockSb,
@@ -54,8 +57,10 @@ describe('mirrorSceneAssetToStorage', () => {
         }),
       })),
     }));
-    const update = vi.fn(() => ({ eq: async () => ({ error: null }) }));
-    mockSb.from = vi.fn(() => ({ select, update }));
+    mockSb.from = vi.fn(() => ({ select }));
+    // The atomic jsonb write goes through fn_mirror_version_storage RPC.
+    const rpc = vi.fn(async () => ({ data: true, error: null }));
+    mockSb.rpc = rpc;
 
     const r = await mirrorSceneAssetToStorage({
       project_id: 'p1',
@@ -70,6 +75,15 @@ describe('mirrorSceneAssetToStorage', () => {
       expect.any(Object),
       expect.objectContaining({ contentType: 'image/jpeg' }),
     );
+    // Verify the RPC payload — atomic single-statement jsonb update,
+    // no read-modify-write race possible (2026-05-23 BLOCKER fix).
+    expect(rpc).toHaveBeenCalledWith('fn_mirror_version_storage', {
+      p_project_id: 'p1',
+      p_kind: 'first_frame',
+      p_scene_id: 's1',
+      p_version_id: 'v1',
+      p_new_storage: { kind: 'supabase', bucket: 'scene-assets', path: 'u1/p1/s1/v1-frame.jpg' },
+    });
   });
 
   it('returns ok:false on fetch failure (does not throw)', async () => {
