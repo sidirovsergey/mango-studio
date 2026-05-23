@@ -128,16 +128,45 @@ export async function finalizeMediaJobReservation(params: {
 }
 
 /**
- * Drop a `status='reserved'` row when provider.submit fails. Frees the user's
- * quota slot so a failed fal call doesn't burn against their daily count.
+ * Roll back a `status='reserved'` row when provider.submit fails.
+ *
+ * # Refund safety (Codex BLOCKER on PR #54 audit)
+ *
+ * Originally this did `DELETE FROM media_jobs`. But for charged kinds
+ * (scene_video, master_clip) the action calls `fn_reserve_balance`
+ * BEFORE provider.submit, creating a `billing_charges` row. DELETE
+ * triggers `billing_charges.media_job_id ON DELETE CASCADE` which
+ * wipes the charge row without ever firing `fn_refund_reservation` →
+ * user's balance debited but never credited back. Same class of bug as
+ * the one fixed in `cancelMediaJobAction` earlier in this PR.
+ *
+ * Fix: `UPDATE status='cancelled'` instead. The
+ * `tg_billing_settle_on_terminal` trigger then fires
+ * `fn_refund_reservation` which credits the user account if a charge
+ * row exists, and no-ops if it doesn't (per Codex confirmation of the
+ * refund function's behavior). Free kinds (first_frame,
+ * character_dossier — priceKopeks=0, no balance reservation) leave a
+ * harmless `status='cancelled'` row in media_jobs as a historical record;
+ * `reserveMediaJob`'s dedup ignores non-active statuses so retries still
+ * work cleanly.
+ *
+ * The `eq('status', 'reserved')` guard prevents racing a concurrent
+ * `finalizeMediaJobReservation` that may have flipped the row to
+ * 'pending' in the tiny window between the submit-throw catch and this
+ * call — we don't want to overwrite an in-flight job with 'cancelled'.
+ *
  * Best-effort: errors are logged but not thrown — the underlying submit
- * failure is what the caller cares about. Stale orphans (e.g., process crash
- * mid-rollback) are reaped by `cleanup_stale_media_reservations` RPC.
+ * failure is what the caller cares about. Stale orphans (e.g., process
+ * crash mid-rollback) are reaped by `cleanup_stale_media_reservations` RPC.
  */
 export async function rollbackMediaJobReservation(job_id: string): Promise<void> {
   if (!job_id) return;
   const sb = await getServerSupabase();
-  const { error } = await sb.from('media_jobs').delete().eq('id', job_id).eq('status', 'reserved');
+  const { error } = await sb
+    .from('media_jobs')
+    .update({ status: 'cancelled' })
+    .eq('id', job_id)
+    .eq('status', 'reserved');
   if (error) {
     console.warn('[rollbackMediaJobReservation] cleanup failed', {
       job_id,

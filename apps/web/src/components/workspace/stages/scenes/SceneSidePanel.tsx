@@ -134,7 +134,12 @@ export function SceneSidePanel({
   const frameProspective = sceneProspective?.first_frame?.prompt ?? null;
   const videoProspective = sceneProspective?.video?.prompt ?? null;
 
-  const isGenerating = !!activeJob && ['pending', 'running'].includes(activeJob.status);
+  // Include 'reserved' (the brief window between reserveMediaJob writing the
+  // row and finalize flipping it to 'pending' after fal submit) so the side
+  // panel locks controls immediately on click. Without this the user could
+  // double-click "Сгенерировать видео" mid-submit. Matches the inflight set
+  // in Stage04Inline jobsByScene and SceneThumbnailColumn isActiveJob.
+  const isGenerating = !!activeJob && ['reserved', 'pending', 'running'].includes(activeJob.status);
   const genKindLabel = activeJob ? (JOB_KIND_LABEL[activeJob.kind] ?? activeJob.kind) : null;
   const lockedByGen = isGenerating;
 

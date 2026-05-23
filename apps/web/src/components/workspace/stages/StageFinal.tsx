@@ -54,7 +54,9 @@ function StageFinalBody() {
   }
 
   const masterJob = jobs
-    .filter((j) => j.kind === 'master_clip' && ['pending', 'running'].includes(j.status))
+    .filter(
+      (j) => j.kind === 'master_clip' && ['reserved', 'pending', 'running'].includes(j.status),
+    )
     .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))[0];
 
   // Stale-check: any scene's active video changed since the master was composed.

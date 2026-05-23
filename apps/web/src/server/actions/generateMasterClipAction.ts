@@ -20,7 +20,7 @@ import {
   getVideoModelMeta,
   priceKopeks,
 } from '@mango/core';
-import { getServerSupabase } from '@mango/db/server';
+import { getServerSupabase, getServiceRoleSupabase } from '@mango/db/server';
 import { z } from 'zod';
 
 const InputSchema = z.object({
@@ -232,16 +232,21 @@ export async function generateMasterClipAction(rawInput: unknown): Promise<
 
   // Phase 1.7 — Atomic balance reservation (race-safe authority).
   // Only runs in 'reserved' mode (bypass has no media_jobs row to link).
-  // Generated Supabase types don't know about fn_reserve_balance (added in
-  // Phase 1.7 migration); cast through unknown, same pattern as D2.
+  //
+  // SECURITY: fn_reserve_balance is SECURITY DEFINER and trusts the
+  // caller-supplied p_user_id. We call via service_role (no PUBLIC grant)
+  // so a malicious authenticated user cannot reach the RPC directly and
+  // debit someone else's balance. Codex post-merge audit on PR #53 flagged
+  // the original user-session grant; this is the corrected sandboxing.
   if (priceKop > 0 && reservation.mode === 'reserved') {
-    const reserveBalanceRpc = sb.rpc.bind(sb) as unknown as (
+    const adminSb = getServiceRoleSupabase();
+    const reserveBalanceRpc = adminSb.rpc.bind(adminSb) as unknown as (
       name: string,
       args: Record<string, unknown>,
     ) => Promise<{ data: boolean | null; error: { message: string } | null }>;
     const reserved = await reserveBalanceRpc('fn_reserve_balance', {
       p_job_id: reservation.job_id,
-      p_user_id: user.id,
+      p_user_id: user.id, // trusted: from authed cookies above
       p_kopeks: priceKop,
       p_kind: 'master_clip',
       p_model_tier: null, // master_clip has no tier

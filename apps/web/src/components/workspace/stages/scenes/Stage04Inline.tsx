@@ -97,7 +97,7 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
   const allVideosReady = scenes.length > 0 && readySceneCount === scenes.length;
   const allScenesReady = allVideosReady; // legacy alias for button-label code below
   const masterInFlight = jobs.some(
-    (j) => j.kind === 'master_clip' && ['pending', 'running'].includes(j.status),
+    (j) => j.kind === 'master_clip' && ['reserved', 'pending', 'running'].includes(j.status),
   );
 
   const handleMasterClick = () => {

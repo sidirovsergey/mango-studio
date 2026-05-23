@@ -38,7 +38,7 @@ import {
 // Legacy scenes with audio_mode='silent_tts' on the jsonb still serialize fine
 // but the dispatcher no longer honours them — we always send native.
 const RESOLVED_AUDIO_MODE = 'native' as const;
-import { getServerSupabase } from '@mango/db/server';
+import { getServerSupabase, getServiceRoleSupabase } from '@mango/db/server';
 import { z } from 'zod';
 
 const InputSchema = z.object({
@@ -291,16 +291,23 @@ export async function generateSceneVideoAction(rawInput: unknown): Promise<
   // Only runs in 'reserved' mode (bypass has no media_jobs row to link).
   // Even if pre-flight passed, a concurrent submit could have drained the
   // balance between read and now. fn_reserve_balance is the actual authority.
-  // Generated Supabase types don't know about fn_reserve_balance (added in
-  // Phase 1.7 migration); cast through unknown, same pattern as rate-limit.ts.
+  //
+  // SECURITY: fn_reserve_balance is SECURITY DEFINER and trusts the
+  // caller-supplied p_user_id. We MUST call it via service_role (no PUBLIC
+  // grant) so a user cannot reach the RPC directly and debit someone else's
+  // balance by passing a stolen UUID. The 2026-05-22 PR #53 mistakenly
+  // granted EXECUTE to authenticated/anon to fix a permission_denied — that
+  // grant was revoked post-Codex audit; this swap to service_role is the
+  // correct sandboxing.
   if (priceKop > 0 && reservation.mode === 'reserved') {
-    const reserveBalanceRpc = sb.rpc.bind(sb) as unknown as (
+    const adminSb = getServiceRoleSupabase();
+    const reserveBalanceRpc = adminSb.rpc.bind(adminSb) as unknown as (
       name: string,
       args: Record<string, unknown>,
     ) => Promise<{ data: boolean | null; error: { message: string } | null }>;
     const reserved = await reserveBalanceRpc('fn_reserve_balance', {
       p_job_id: reservation.job_id,
-      p_user_id: user.id,
+      p_user_id: user.id, // trusted: we read user.id from authed cookies above
       p_kopeks: priceKop,
       p_kind: 'scene_video',
       p_model_tier: (effectiveTier as ModelTier) ?? null,
