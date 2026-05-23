@@ -70,10 +70,16 @@ export async function cancelMediaJobAction(input: { job_id: string }): Promise<
     }
   }
 
+  // Status guard on the UPDATE prevents racing a concurrent finalize /
+  // poll-tick completion: between our SELECT above and this UPDATE the job
+  // could have flipped to 'completed' (fal returned mid-cancel). Without
+  // the `.in(...)` we'd overwrite a finished result with 'cancelled',
+  // losing the asset AND firing a wrongful refund. Codex PR #54 SHOULD-FIX.
   const { error: updateErr } = await sb
     .from('media_jobs')
     .update({ status: 'cancelled' })
-    .eq('id', input.job_id);
+    .eq('id', input.job_id)
+    .in('status', ['reserved', 'pending', 'running']);
   if (updateErr) {
     return { ok: false, error: `cancel failed: ${updateErr.message}` };
   }

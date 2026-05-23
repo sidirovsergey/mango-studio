@@ -20,7 +20,10 @@ beforeEach(() => {
  *     and returns success.
  */
 function makeSb(jobRow: Record<string, unknown>) {
-  const updateEq = vi.fn().mockResolvedValue({ error: null });
+  // Mirror the action's update chain: .update(...).eq('id', ...).in('status', [...]).
+  // `inGuard` is the terminal awaitable returning { error }.
+  const inGuard = vi.fn().mockResolvedValue({ error: null });
+  const updateEq = vi.fn(() => ({ in: inGuard }));
   const update = vi.fn(() => ({ eq: updateEq }));
   let selectCallCount = 0;
   const sb = {
@@ -35,7 +38,7 @@ function makeSb(jobRow: Record<string, unknown>) {
       update,
     })),
   };
-  return { sb, update, updateEq, selectCallCount: () => selectCallCount };
+  return { sb, update, updateEq, inGuard, selectCallCount: () => selectCallCount };
 }
 
 describe('cancelMediaJobAction', () => {
@@ -118,6 +121,31 @@ describe('cancelMediaJobAction', () => {
     const r = await cancelMediaJobAction({ job_id: 'j1' });
     expect(r.ok).toBe(false);
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it('UPDATE includes status guard so a racing finalize cannot overwrite completed → cancelled', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    const cancelJob = vi.fn().mockResolvedValue(undefined);
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({ cancelJob });
+
+    const { sb, update, updateEq, inGuard } = makeSb({
+      id: 'j-race',
+      user_id: 'u1',
+      fal_request_id: 'req-race',
+      model: 'm',
+      status: 'pending',
+    });
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sb);
+
+    await cancelMediaJobAction({ job_id: 'j-race' });
+
+    expect(update).toHaveBeenCalledWith({ status: 'cancelled' });
+    expect(updateEq).toHaveBeenCalledWith('id', 'j-race');
+    // The `.in('status', [...])` guard is the real defense — Codex PR #54
+    // SHOULD-FIX. Without it, a racing finalize that flipped the row to
+    // 'completed' would get overwritten back to 'cancelled', losing the
+    // asset and firing a wrongful refund.
+    expect(inGuard).toHaveBeenCalledWith('status', ['reserved', 'pending', 'running']);
   });
 
   it('rejects terminal-status jobs (completed/cancelled/error) — no double-refund', async () => {

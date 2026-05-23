@@ -36,7 +36,10 @@ import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getBalance } from '@/server/lib/get-balance';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
-import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
+import {
+  finalizeMediaJobReservation,
+  rollbackMediaJobReservation,
+} from '@/server/lib/scene-helpers';
 import { getServerSupabase, getServiceRoleSupabase } from '@mango/db/server';
 import { generateSceneVideoAction } from './generateSceneVideoAction';
 
@@ -590,6 +593,41 @@ describe('generateSceneVideoAction — balance gate', () => {
       expect(result.error).toBe('insufficient_balance');
     }
     expect(submitSceneVideo).not.toHaveBeenCalled();
+  });
+
+  // Codex PR #54 SHOULD-FIX coverage gap: balance was debited via
+  // fn_reserve_balance, then provider.submit threw. The action must call
+  // rollbackMediaJobReservation so the trigger fires fn_refund_reservation
+  // and the user is made whole. Without the rollback-via-UPDATE fix in
+  // scene-helpers.ts, this path silently kept the charge.
+  it('balance reserved, provider.submitSceneVideo throws → rollback reservation (refund-safe)', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(5000);
+
+    const { sb } = makeSupabaseMock({ rpcData: true });
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(sb);
+    (getServiceRoleSupabase as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(sb);
+
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
+      job_id: 'job-fail',
+      used: 1,
+      dedup: false,
+    });
+
+    const submitSceneVideo = vi.fn().mockRejectedValue(new Error('fal 500 boom'));
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ submitSceneVideo });
+
+    await expect(
+      generateSceneVideoAction({ project_id: PROJECT_ID, scene_id: 's1' }),
+    ).rejects.toThrow('fal 500 boom');
+
+    // The critical assertion: rollback was called with the reserved job id.
+    // Inside scene-helpers, rollback now UPDATEs status='cancelled' (not
+    // DELETE), letting tg_billing_settle_on_terminal fire fn_refund_reservation.
+    expect(rollbackMediaJobReservation).toHaveBeenCalledWith('job-fail');
   });
 });
 

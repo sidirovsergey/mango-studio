@@ -33,7 +33,10 @@ import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getBalance } from '@/server/lib/get-balance';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
-import { finalizeMediaJobReservation } from '@/server/lib/scene-helpers';
+import {
+  finalizeMediaJobReservation,
+  rollbackMediaJobReservation,
+} from '@/server/lib/scene-helpers';
 import { getServerSupabase, getServiceRoleSupabase } from '@mango/db/server';
 import { generateMasterClipAction } from './generateMasterClipAction';
 
@@ -407,5 +410,43 @@ describe('generateMasterClipAction — balance gate (Phase 1.7)', () => {
       expect(r.insufficient_balance.kind).toBe('master_clip');
       expect(r.insufficient_balance.model_tier).toBeNull();
     }
+  });
+
+  // Codex PR #54 SHOULD-FIX coverage gap: balance was debited via
+  // fn_reserve_balance, then provider.submitMasterConcat threw. The
+  // action MUST call rollbackMediaJobReservation; scene-helpers' rollback
+  // now UPDATEs status='cancelled' (not DELETE), letting the billing
+  // trigger fire fn_refund_reservation. Without this the user's balance
+  // would be debited but never credited back.
+  it('balance reserved, provider.submitMasterConcat throws → rollback reservation (refund-safe)', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
+    (getAccountTier as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce('free');
+    (getBalance as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(1000);
+
+    const submitMasterConcat = vi.fn().mockRejectedValue(new Error('fal 500 boom'));
+    (getMediaProvider as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      submitMasterConcat,
+    });
+
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => makeProjectBuilder()),
+      rpc,
+    });
+    (getServiceRoleSupabase as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({ rpc });
+
+    (reserveMediaJob as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      mode: 'reserved' as const,
+      job_id: 'job-master-fail',
+      used: 1,
+      dedup: false,
+    });
+
+    await expect(generateMasterClipAction({ project_id: PROJECT_ID })).rejects.toThrow(
+      'fal 500 boom',
+    );
+
+    expect(rollbackMediaJobReservation).toHaveBeenCalledWith('job-master-fail');
   });
 });
