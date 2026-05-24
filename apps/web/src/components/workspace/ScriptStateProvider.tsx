@@ -1,5 +1,6 @@
 'use client';
 
+import type { MediaJobUiRow } from '@/lib/pickJobUiFields';
 import type { ProspectivePromptMap } from '@/server/actions/buildProspectivePromptAction';
 import type {
   AudioMode,
@@ -10,7 +11,6 @@ import type {
   SceneAssetVersion,
   StoredAsset,
 } from '@mango/core';
-import { type MediaJobUiRow } from '@/lib/pickJobUiFields';
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
 export type { MediaJobUiRow };

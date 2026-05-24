@@ -1,11 +1,11 @@
 'use client';
 
 import { useScriptState } from '@/components/workspace/ScriptStateProvider';
+import { type MediaJobUiRow, pickJobUiFields } from '@/lib/pickJobUiFields';
 import { subscribeMediaJobs } from '@/lib/realtime-publication';
 import { buildAllProspectivePromptsAction } from '@/server/actions/buildProspectivePromptAction';
 import { fetchProjectScriptAction } from '@/server/actions/fetchProjectScriptAction';
 import { pollMediaJobsAction } from '@/server/actions/pollMediaJobsAction';
-import { pickJobUiFields, type MediaJobUiRow } from '@/lib/pickJobUiFields';
 import { useEffect, useRef } from 'react';
 
 const POLL_INTERVAL_MS = 5000;

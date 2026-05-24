@@ -1,6 +1,6 @@
 'use client';
 
-import { type MediaJobUiRow } from '@/components/workspace/ScriptStateProvider';
+import type { MediaJobUiRow } from '@/components/workspace/ScriptStateProvider';
 import { getProjectCostAction } from '@/server/actions/getProjectCostAction';
 import { useEffect, useRef, useState } from 'react';
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { type MediaJobUiRow, type SceneView } from '@/components/workspace/ScriptStateProvider';
+import type { MediaJobUiRow, SceneView } from '@/components/workspace/ScriptStateProvider';
 import { cancelMediaJobAction } from '@/server/actions/cancelMediaJobAction';
 import { rollbackVersionAction } from '@/server/actions/rollbackVersionAction';
 import { setActiveVersionAction } from '@/server/actions/setActiveVersionAction';

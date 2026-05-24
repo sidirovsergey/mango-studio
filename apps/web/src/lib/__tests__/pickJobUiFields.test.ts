@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pickJobUiFields, type MediaJobUiRow } from '../pickJobUiFields';
+import { type MediaJobUiRow, pickJobUiFields } from '../pickJobUiFields';
 
 describe('pickJobUiFields', () => {
   it('strips internal fields and keeps UI fields', () => {

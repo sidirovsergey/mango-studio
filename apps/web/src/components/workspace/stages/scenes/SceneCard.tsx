@@ -1,6 +1,6 @@
 'use client';
 
-import { type MediaJobUiRow, type SceneView } from '@/components/workspace/ScriptStateProvider';
+import type { MediaJobUiRow, SceneView } from '@/components/workspace/ScriptStateProvider';
 import type { Character } from '@mango/core';
 import { SceneSidePanel } from './SceneSidePanel';
 import { SceneThumbnailColumn } from './SceneThumbnailColumn';

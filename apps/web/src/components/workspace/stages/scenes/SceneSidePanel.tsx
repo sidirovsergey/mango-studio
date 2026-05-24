@@ -2,7 +2,11 @@
 
 import { useInsufficientBalance } from '@/components/account/InsufficientBalanceProvider';
 import { useTierGate } from '@/components/account/TierGateProvider';
-import { type MediaJobUiRow, type SceneView, useScriptState } from '@/components/workspace/ScriptStateProvider';
+import {
+  type MediaJobUiRow,
+  type SceneView,
+  useScriptState,
+} from '@/components/workspace/ScriptStateProvider';
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
 import { regenSceneTextAction } from '@/server/actions/regenSceneTextAction';
