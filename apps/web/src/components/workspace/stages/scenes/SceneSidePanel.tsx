@@ -2,7 +2,7 @@
 
 import { useInsufficientBalance } from '@/components/account/InsufficientBalanceProvider';
 import { useTierGate } from '@/components/account/TierGateProvider';
-import { type SceneView, useScriptState } from '@/components/workspace/ScriptStateProvider';
+import { type MediaJobUiRow, type SceneView, useScriptState } from '@/components/workspace/ScriptStateProvider';
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
 import { regenSceneTextAction } from '@/server/actions/regenSceneTextAction';
@@ -12,12 +12,9 @@ import { setSceneTierAction } from '@/server/actions/setSceneTierAction';
 import { toggleSceneContinuityAction } from '@/server/actions/toggleSceneContinuityAction';
 import { uploadSceneAssetAction } from '@/server/actions/uploadSceneAssetAction';
 import { type Character, getActiveVideoModels, getVideoModelMeta } from '@mango/core';
-import type { Database } from '@mango/db';
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { PromptEditorModal } from './PromptEditorModal';
 import { IconClapper, IconFrame, IconNote, IconPencil, IconPlay, IconRefresh } from './icons';
-
-type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 
 interface Props {
   projectId: string;
@@ -25,7 +22,7 @@ interface Props {
   index: number;
   sceneNum?: string;
   characters: Character[];
-  activeJob: MediaJobRow | null;
+  activeJob: MediaJobUiRow | null;
   tier: 'economy' | 'premium';
 }
 

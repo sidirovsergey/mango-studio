@@ -1,14 +1,12 @@
 'use client';
 
+import { type MediaJobUiRow } from '@/components/workspace/ScriptStateProvider';
 import { getProjectCostAction } from '@/server/actions/getProjectCostAction';
-import type { Database } from '@mango/db';
 import { useEffect, useState } from 'react';
-
-type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 
 interface Props {
   projectId: string;
-  jobs: MediaJobRow[];
+  jobs: MediaJobUiRow[];
 }
 
 const THRESHOLD_USD = Number(process.env.NEXT_PUBLIC_COST_WARN_THRESHOLD_USD ?? '10');

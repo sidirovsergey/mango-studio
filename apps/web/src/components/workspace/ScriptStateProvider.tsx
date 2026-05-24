@@ -10,10 +10,10 @@ import type {
   SceneAssetVersion,
   StoredAsset,
 } from '@mango/core';
-import type { Database } from '@mango/db';
+import { type MediaJobUiRow } from '@/lib/pickJobUiFields';
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
-type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
+export type { MediaJobUiRow };
 
 /**
  * Client-side mirror of the persisted Scene shape (Phase 1.3.5).
@@ -64,7 +64,7 @@ export interface Stage04Script {
 interface ScriptState {
   projectId: string;
   script: Stage04Script | null;
-  jobs: MediaJobRow[];
+  jobs: MediaJobUiRow[];
   /**
    * Per-scene byte-for-byte preview of the prompt that would be sent to fal
    * on the next "Create frame" / "Create video" click. Populated by
@@ -75,7 +75,7 @@ interface ScriptState {
   prospectivePrompts: ProspectivePromptMap | null;
   setScript: (script: Stage04Script | null) => void;
   setProspectivePrompts: (prompts: ProspectivePromptMap | null) => void;
-  upsertJob: (job: MediaJobRow) => void;
+  upsertJob: (job: MediaJobUiRow) => void;
   removeJob: (jobId: string) => void;
 }
 
@@ -84,7 +84,7 @@ const ScriptStateContext = createContext<ScriptState | null>(null);
 interface Props {
   projectId: string;
   initialScript?: Stage04Script | null;
-  initialJobs?: MediaJobRow[];
+  initialJobs?: MediaJobUiRow[];
   children: React.ReactNode;
 }
 
@@ -95,10 +95,10 @@ export function ScriptStateProvider({
   children,
 }: Props) {
   const [script, setScript] = useState<Stage04Script | null>(initialScript);
-  const [jobs, setJobs] = useState<MediaJobRow[]>(initialJobs);
+  const [jobs, setJobs] = useState<MediaJobUiRow[]>(initialJobs);
   const [prospectivePrompts, setProspectivePrompts] = useState<ProspectivePromptMap | null>(null);
 
-  const upsertJob = useCallback((job: MediaJobRow) => {
+  const upsertJob = useCallback((job: MediaJobUiRow) => {
     setJobs((prev) => {
       const idx = prev.findIndex((j) => j.id === job.id);
       if (idx === -1) return [...prev, job];

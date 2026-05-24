@@ -1,22 +1,20 @@
 'use client';
 
-import type { SceneView } from '@/components/workspace/ScriptStateProvider';
+import { type MediaJobUiRow, type SceneView } from '@/components/workspace/ScriptStateProvider';
 import { cancelMediaJobAction } from '@/server/actions/cancelMediaJobAction';
 import { rollbackVersionAction } from '@/server/actions/rollbackVersionAction';
 import { setActiveVersionAction } from '@/server/actions/setActiveVersionAction';
 import type { SceneAssetVersion, StoredAsset } from '@mango/core';
-import type { Database } from '@mango/db';
 import { useState, useTransition } from 'react';
 
-type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 type Mode = 'first_frame' | 'video' | 'final';
 
 interface Props {
   projectId: string;
   scene: SceneView;
   index: number;
-  activeJob: MediaJobRow | null;
-  failedAudioJob: MediaJobRow | null;
+  activeJob: MediaJobUiRow | null;
+  failedAudioJob: MediaJobUiRow | null;
 }
 
 function getActiveVersion(

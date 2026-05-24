@@ -1,10 +1,8 @@
 'use client';
 
+import { type MediaJobUiRow } from '@/components/workspace/ScriptStateProvider';
 import { getProjectCostAction } from '@/server/actions/getProjectCostAction';
-import type { Database } from '@mango/db';
 import { useEffect, useRef, useState } from 'react';
-
-type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 
 interface Props {
   projectId: string;
@@ -13,7 +11,7 @@ interface Props {
    * to its `.length` and to the count of completed entries — both signals
    * for "something finished, re-fetch the sum".
    */
-  jobs: MediaJobRow[];
+  jobs: MediaJobUiRow[];
 }
 
 export function CostMeter({ projectId, jobs }: Props) {
