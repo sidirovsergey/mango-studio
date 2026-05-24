@@ -6,6 +6,7 @@ import { usePollJobs } from '@/hooks/use-poll-jobs';
 import { generateMasterClipAction } from '@/server/actions/generateMasterClipAction';
 import '@/styles/storyboard-inline.css';
 import '@/styles/audio-pipeline.css';
+import { useScriptState } from '@/components/workspace/ScriptStateProvider';
 import type { Database } from '@mango/db';
 import { useEffect, useState, useTransition } from 'react';
 import { CostMeter } from './CostMeter';
@@ -13,7 +14,6 @@ import { CostWarningToast } from './CostWarningToast';
 // FinalizeConfirmDialog import dropped 2026-05-13 — the dialog only existed to
 // gate on missing voice / final_clip, which no longer happens.
 import { SceneCard } from './SceneCard';
-import { useStage04 } from './Stage04Provider';
 
 type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 
@@ -34,7 +34,7 @@ function scrollToFinal() {
 }
 
 export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
-  const { script, jobs } = useStage04();
+  const { script, jobs } = useScriptState();
   const [masterError, setMasterError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const { open: openTierGate } = useTierGate();

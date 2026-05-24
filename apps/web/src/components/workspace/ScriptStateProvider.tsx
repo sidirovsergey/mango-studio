@@ -61,7 +61,7 @@ export interface Stage04Script {
   master_clip_active_version_id?: string | null;
 }
 
-interface Stage04State {
+interface ScriptState {
   projectId: string;
   script: Stage04Script | null;
   jobs: MediaJobRow[];
@@ -79,7 +79,7 @@ interface Stage04State {
   removeJob: (jobId: string) => void;
 }
 
-const Stage04Context = createContext<Stage04State | null>(null);
+const ScriptStateContext = createContext<ScriptState | null>(null);
 
 interface Props {
   projectId: string;
@@ -88,7 +88,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-export function Stage04Provider({
+export function ScriptStateProvider({
   projectId,
   initialScript = null,
   initialJobs = [],
@@ -126,11 +126,11 @@ export function Stage04Provider({
     [projectId, script, jobs, prospectivePrompts, upsertJob, removeJob],
   );
 
-  return <Stage04Context.Provider value={value}>{children}</Stage04Context.Provider>;
+  return <ScriptStateContext.Provider value={value}>{children}</ScriptStateContext.Provider>;
 }
 
-export function useStage04(): Stage04State {
-  const ctx = useContext(Stage04Context);
-  if (!ctx) throw new Error('useStage04 must be used inside Stage04Provider');
+export function useScriptState(): ScriptState {
+  const ctx = useContext(ScriptStateContext);
+  if (!ctx) throw new Error('useScriptState must be used inside ScriptStateProvider');
   return ctx;
 }

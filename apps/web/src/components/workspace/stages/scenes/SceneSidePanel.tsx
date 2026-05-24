@@ -2,6 +2,7 @@
 
 import { useInsufficientBalance } from '@/components/account/InsufficientBalanceProvider';
 import { useTierGate } from '@/components/account/TierGateProvider';
+import { type SceneView, useScriptState } from '@/components/workspace/ScriptStateProvider';
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
 import { regenSceneTextAction } from '@/server/actions/regenSceneTextAction';
@@ -14,7 +15,6 @@ import { type Character, getActiveVideoModels, getVideoModelMeta } from '@mango/
 import type { Database } from '@mango/db';
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { PromptEditorModal } from './PromptEditorModal';
-import { type SceneView, useStage04 } from './Stage04Provider';
 import { IconClapper, IconFrame, IconNote, IconPencil, IconPlay, IconRefresh } from './icons';
 
 type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
@@ -103,7 +103,7 @@ export function SceneSidePanel({
   const [error, setError] = useState<string | null>(null);
   const [promptModal, setPromptModal] = useState<'first_frame' | 'video' | null>(null);
   const [activeAction, setActiveAction] = useState<ActionId | null>(null);
-  const { prospectivePrompts } = useStage04();
+  const { prospectivePrompts } = useScriptState();
   const { open: openTierGate } = useTierGate();
   const { open: openInsufficientBalance } = useInsufficientBalance();
 
@@ -552,7 +552,7 @@ function ModelControl({
   const [pending, startT] = useTransition();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const { script, setScript } = useStage04();
+  const { script, setScript } = useScriptState();
 
   const models = getActiveVideoModels(tier);
   const currentLabel = currentModel

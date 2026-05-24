@@ -2,13 +2,13 @@
 
 import { useInsufficientBalance } from '@/components/account/InsufficientBalanceProvider';
 import { useTierGate } from '@/components/account/TierGateProvider';
+import { useScriptState } from '@/components/workspace/ScriptStateProvider';
 import { buildProspectivePromptAction } from '@/server/actions/buildProspectivePromptAction';
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
 import type { AccountTier, MediaJobKind } from '@mango/core';
 import { useEffect, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
-import { useStage04 } from './Stage04Provider';
 
 type TierGatePayload = { required_tier: AccountTier; kind: MediaJobKind; message: string };
 type InsufficientBalancePayload = {
@@ -27,7 +27,7 @@ interface Props {
 }
 
 export function PromptEditorModal({ projectId, sceneId, kind, onClose }: Props) {
-  const { script } = useStage04();
+  const { script } = useScriptState();
   const { open: openTierGate } = useTierGate();
   const { open: openInsufficientBalance } = useInsufficientBalance();
   const scene = script?.scenes.find((s) => s.scene_id === sceneId);

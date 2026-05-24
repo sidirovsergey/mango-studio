@@ -5,13 +5,13 @@ import { TierGateProvider } from '@/components/account/TierGateProvider';
 import { Chat } from '@/components/chat/Chat';
 import type { PersistedScript, Tier } from '@mango/core';
 import type { Database } from '@mango/db/types';
+import { ScriptStateProvider, type Stage04Script } from './ScriptStateProvider';
 import { TopBar } from './TopBar';
 import { WorkspaceScroll } from './WorkspaceScroll';
 import { StageFinal } from './stages/StageFinal';
 import { StageIdea } from './stages/StageIdea';
 import { StageScenes } from './stages/StageScenes';
 import { StageScript } from './stages/StageScript';
-import { Stage04Provider, type Stage04Script } from './stages/scenes/Stage04Provider';
 
 type ProjectRow = Database['public']['Tables']['projects']['Row'];
 type ChatMessageRow = Database['public']['Tables']['chat_messages']['Row'];
@@ -58,7 +58,7 @@ export function Workspace({
                 <StageIdea project={project} />
                 {charactersSlot}
                 <StageScript project={project} script={script} />
-                <Stage04Provider
+                <ScriptStateProvider
                   projectId={project.id}
                   initialScript={(script as unknown as Stage04Script) ?? null}
                 >
@@ -69,7 +69,7 @@ export function Workspace({
                     tier={project.tier as Tier}
                   />
                   <StageFinal projectStatus={status} projectId={project.id} />
-                </Stage04Provider>
+                </ScriptStateProvider>
               </div>
             </WorkspaceScroll>
           </main>

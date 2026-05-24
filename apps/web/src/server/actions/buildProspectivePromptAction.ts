@@ -24,7 +24,7 @@
  *   - buildProspectivePromptAction(project_id, scene_id, kind)
  *     → single scene, single kind. Used by PromptEditorModal on open.
  *   - buildAllProspectivePromptsAction(project_id)
- *     → batch across all scenes for both kinds. Used by Stage04Provider on
+ *     → batch across all scenes for both kinds. Used by ScriptStateProvider on
  *       mount + after every poll-driven setScript, so the SceneSidePanel
  *       can render the prompt inline (not just inside the modal).
  */

@@ -1,6 +1,6 @@
 'use client';
 
-import { useStage04 } from '@/components/workspace/stages/scenes/Stage04Provider';
+import { useScriptState } from '@/components/workspace/ScriptStateProvider';
 import { subscribeMediaJobs } from '@/lib/realtime-publication';
 import { buildAllProspectivePromptsAction } from '@/server/actions/buildProspectivePromptAction';
 import { fetchProjectScriptAction } from '@/server/actions/fetchProjectScriptAction';
@@ -15,7 +15,7 @@ const POLL_INTERVAL_MS = 5000;
 const TERMINAL_STATUSES = new Set(['completed', 'error', 'cancelled', 'superseded']);
 
 export function usePollJobs(projectId: string) {
-  const { setScript, setProspectivePrompts, upsertJob, removeJob } = useStage04();
+  const { setScript, setProspectivePrompts, upsertJob, removeJob } = useScriptState();
   const tickInProgress = useRef(false);
 
   useEffect(() => {
