@@ -127,7 +127,7 @@ export function SceneSidePanel({
   const activeVideo =
     scene.video_versions.find((v) => v.version_id === scene.video_active_version_id) ?? null;
 
-  // Pre-built (prospective) prompts come from the Stage04Provider batch cache;
+  // Pre-built (prospective) prompts come from the ScriptStateProvider batch cache;
   // they refresh on every poll-tick alongside the script. When no version is
   // generated yet, surface this draft so the user can read + edit it inline.
   const sceneProspective = prospectivePrompts?.[scene.scene_id] ?? null;
