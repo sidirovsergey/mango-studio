@@ -11,7 +11,7 @@ import type {
   SceneAssetVersion,
   StoredAsset,
 } from '@mango/core';
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 export type { MediaJobUiRow };
 
@@ -81,6 +81,29 @@ interface ScriptState {
 
 const ScriptStateContext = createContext<ScriptState | null>(null);
 
+const REALTIME_GRACE_MS = 5_000;
+
+/**
+ * True when the fresh script proves the inflight row is obsolete. Used by
+ * the jobs sync effect to prune stale realtime rows that the terminal-status
+ * callback failed to clean up.
+ */
+function isContradictedByScript(job: MediaJobUiRow, script: Stage04Script | null): boolean {
+  if (!script || !job.scene_id) return false;
+  const scene = script.scenes.find((s) => s.scene_id === job.scene_id);
+  if (!scene) return true;
+  if (job.kind === 'video' && scene.video_active_version_id) return true;
+  if (
+    (job.kind === 'first_frame' || job.kind === 'scene_first_frame') &&
+    scene.first_frame_active_version_id
+  )
+    return true;
+  if (job.kind === 'voice' && scene.voice_audio_active_version_id) return true;
+  if (job.kind === 'final_clip' && scene.final_clip) return true;
+  if (job.kind === 'master_clip' && script.master_clip_active_version_id) return true;
+  return false;
+}
+
 interface Props {
   projectId: string;
   initialScript?: Stage04Script | null;
@@ -97,6 +120,31 @@ export function ScriptStateProvider({
   const [script, setScript] = useState<Stage04Script | null>(initialScript);
   const [jobs, setJobs] = useState<MediaJobUiRow[]>(initialJobs);
   const [prospectivePrompts, setProspectivePrompts] = useState<ProspectivePromptMap | null>(null);
+
+  // Bug 1: re-sync script when ProjectJobsPoller triggers router.refresh()
+  // and page.tsx re-passes the prop with the latest DB snapshot.
+  useEffect(() => {
+    setScript(initialScript);
+  }, [initialScript]);
+
+  // Bug 1: jobs sync — RSC-authoritative, with a brief grace window for
+  // realtime-only rows that haven't yet propagated to the RSC fetch, and
+  // script-driven pruning to defend against missed terminal callbacks.
+  useEffect(() => {
+    setJobs((prev) => {
+      const now = Date.now();
+      const byId = new Map<string, MediaJobUiRow>();
+      for (const j of initialJobs) byId.set(j.id, j);
+      for (const j of prev) {
+        if (byId.has(j.id)) continue;
+        const createdMs = j.created_at ? new Date(j.created_at).getTime() : 0;
+        if (now - createdMs > REALTIME_GRACE_MS) continue;
+        if (isContradictedByScript(j, initialScript)) continue;
+        byId.set(j.id, j);
+      }
+      return Array.from(byId.values());
+    });
+  }, [initialJobs, initialScript]);
 
   const upsertJob = useCallback((job: MediaJobUiRow) => {
     setJobs((prev) => {
