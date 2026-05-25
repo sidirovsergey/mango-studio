@@ -1,4 +1,15 @@
 import type { JobResult, MediaProvider } from '../media/provider';
+import type { MediaJobKind } from '../quota/tiers';
+
+const MINUTE_MS = 60_000;
+const DEFAULT_STALE_THRESHOLD_MS = 5 * MINUTE_MS;
+const POLL_UNRECOVERABLE_AFTER_ERRORS = 5;
+
+export const DEFAULT_STALE_THRESHOLD_MS_BY_KIND: Partial<Record<MediaJobKind, number>> = {
+  character_dossier: 3 * MINUTE_MS,
+  video: 10 * MINUTE_MS,
+  scene_video: 10 * MINUTE_MS,
+};
 
 export interface InflightJob {
   id: string;
@@ -6,22 +17,17 @@ export interface InflightJob {
   project_id: string;
   scene_id: string | null;
   character_id: string | null;
-  kind:
-    | 'character_dossier'
-    | 'character_reference'
-    | 'character_reference_image'
-    | 'character_avatar'
-    | 'first_frame'
-    | 'video'
-    | 'last_frame_extract'
-    | 'voice'
-    | 'final_clip'
-    | 'master_clip';
+  kind: MediaJobKind;
   model: string;
   fal_request_id: string;
   status: 'pending' | 'running';
   request_input: Record<string, unknown>;
-  /** Phase 1.4.1 — number of times the underlying op has been retried (cap=1). */
+  created_at?: string | null;
+  poll_count?: number;
+  last_polled_at?: string | null;
+  poll_error_count?: number;
+  last_poll_error_at?: string | null;
+  /** Phase 1.4.1 - number of times the underlying op has been retried (cap=1). */
   retry_count?: number;
 }
 
@@ -49,6 +55,23 @@ export interface PollDeps {
     latency_ms: number;
   }): Promise<MirrorHint | undefined>;
   finalizeError(args: { job: InflightJob; error_code: string }): Promise<void>;
+  recordPollAttempt?(args: {
+    job: InflightJob;
+    status: 'pending' | 'running';
+    polled_at: string;
+  }): Promise<void>;
+  recordPollError?(args: {
+    job: InflightJob;
+    poll_error_count: number;
+    last_poll_error_at: string;
+    error_message: string;
+  }): Promise<void>;
+  markPollUnrecoverable?(args: {
+    job: InflightJob;
+    poll_error_count: number;
+    last_poll_error_at: string;
+    error_message: string;
+  }): Promise<void>;
   recordPendingJob(args: {
     user_id: string;
     project_id: string;
@@ -61,8 +84,11 @@ export interface PollDeps {
   }): Promise<{ job_id: string; existing: boolean }>;
   persistAsset(url: string, ctx: { user_id: string; project_id: string }): Promise<unknown>;
   provider: Pick<MediaProvider, 'getJobStatus' | 'getJobResult' | 'submitLastFrameExtract'>;
+  staleThresholdMsByKind?: Partial<Record<MediaJobKind, number>>;
+  now?: () => Date;
+  warn?: (message: string, meta: Record<string, unknown>) => void;
   /**
-   * Fire-and-forget: download fal CDN URL → upload to Supabase Storage →
+   * Fire-and-forget: download fal CDN URL -> upload to Supabase Storage ->
    * update jsonb storage descriptor. Failures are silently retried by Phase 1.4 cron.
    */
   mirror?: (args: {
@@ -85,20 +111,113 @@ export interface PollContext {
 }
 
 /**
- * Один tick опроса всех inflight jobs для проекта.
- * Идемпотентен: повторный вызов на завершённых rows — no-op (deps.listInflight их не возвращает).
+ * One polling tick for all inflight jobs in a project.
+ * Idempotent: completed rows are not returned by `deps.listInflight`.
  */
 export async function runPollTick(ctx: PollContext, deps: PollDeps): Promise<void> {
   const inflight = await deps.listInflight(ctx.project_id);
   for (const job of inflight) {
-    const status = await deps.provider.getJobStatus(job.fal_request_id, job.model);
-    if (status.status === 'completed') {
-      await onComplete(job, ctx, deps);
-    } else if (status.status === 'error') {
-      await deps.finalizeError({ job, error_code: status.error_code ?? 'unknown' });
+    try {
+      await pollOneJob(job, ctx, deps);
+    } catch (err) {
+      const warn = deps.warn ?? console.warn;
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      warn('[poll-orchestrator] job poll failed', {
+        job_id: job.id,
+        project_id: job.project_id,
+        kind: job.kind,
+        fal_request_id: job.fal_request_id,
+        error: errorMessage,
+      });
+      await recordPollFailure(job, errorMessage, deps, warn);
     }
-    // pending/running — leave for next tick
   }
+}
+
+async function pollOneJob(job: InflightJob, ctx: PollContext, deps: PollDeps): Promise<void> {
+  const status = await deps.provider.getJobStatus(job.fal_request_id, job.model);
+  if (status.status === 'completed') {
+    await onComplete(job, ctx, deps);
+  } else if (status.status === 'error') {
+    await deps.finalizeError({ job, error_code: status.error_code ?? 'unknown' });
+  } else {
+    const polledAt = deps.now?.() ?? new Date();
+    try {
+      await deps.recordPollAttempt?.({
+        job,
+        status: status.status,
+        polled_at: polledAt.toISOString(),
+      });
+    } catch (err) {
+      const warn = deps.warn ?? console.warn;
+      warn('[poll-orchestrator] heartbeat write failed; continuing to stale eval', {
+        job_id: job.id,
+        project_id: job.project_id,
+        kind: job.kind,
+        fal_request_id: job.fal_request_id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    if (
+      job.status === 'pending' &&
+      status.status === 'pending' &&
+      isStuckInQueue(job, polledAt, deps)
+    ) {
+      await deps.finalizeError({ job, error_code: 'stuck_in_queue' });
+    }
+  }
+  // pending/running: leave for next tick unless stale detection marked it terminal.
+}
+
+async function recordPollFailure(
+  job: InflightJob,
+  errorMessage: string,
+  deps: PollDeps,
+  warn: (message: string, meta: Record<string, unknown>) => void,
+): Promise<void> {
+  const lastPollErrorAt = (deps.now?.() ?? new Date()).toISOString();
+  const nextPollErrorCount = (job.poll_error_count ?? 0) + 1;
+  try {
+    if (nextPollErrorCount >= POLL_UNRECOVERABLE_AFTER_ERRORS) {
+      if (deps.markPollUnrecoverable) {
+        await deps.markPollUnrecoverable({
+          job,
+          poll_error_count: nextPollErrorCount,
+          last_poll_error_at: lastPollErrorAt,
+          error_message: errorMessage,
+        });
+      } else {
+        await deps.finalizeError({ job, error_code: 'poll_unrecoverable' });
+      }
+      return;
+    }
+
+    await deps.recordPollError?.({
+      job,
+      poll_error_count: nextPollErrorCount,
+      last_poll_error_at: lastPollErrorAt,
+      error_message: errorMessage,
+    });
+  } catch (err) {
+    warn('[poll-orchestrator] poll failure bookkeeping failed', {
+      job_id: job.id,
+      project_id: job.project_id,
+      kind: job.kind,
+      fal_request_id: job.fal_request_id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+function isStuckInQueue(job: InflightJob, now: Date, deps: PollDeps): boolean {
+  if (!job.created_at) return false;
+  const createdAtMs = Date.parse(job.created_at);
+  if (Number.isNaN(createdAtMs)) return false;
+  const threshold =
+    deps.staleThresholdMsByKind?.[job.kind] ??
+    DEFAULT_STALE_THRESHOLD_MS_BY_KIND[job.kind] ??
+    DEFAULT_STALE_THRESHOLD_MS;
+  return now.getTime() - createdAtMs > threshold;
 }
 
 async function onComplete(job: InflightJob, ctx: PollContext, deps: PollDeps): Promise<void> {
@@ -139,7 +258,7 @@ async function onComplete(job: InflightJob, ctx: PollContext, deps: PollDeps): P
       {
         user_id: ctx.user_id,
         project_id: ctx.project_id,
-        // AssetContext requires character_id; for scene jobs we pass '' as placeholder
+        // AssetContext requires character_id; for scene jobs we pass '' as placeholder.
         character_id: '',
       },
     );

@@ -5,6 +5,7 @@ export type MediaErrorCode =
   | 'forbidden'
   | 'timeout'
   | 'budget_exceeded'
+  | 'fal_status_missing'
   | 'unknown';
 
 export class MediaProviderError extends Error {

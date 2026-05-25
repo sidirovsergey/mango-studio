@@ -75,6 +75,133 @@ describe('pollMediaJobsAction', () => {
     );
   });
 
+  it('recordPollAttempt bumps poll metadata for active jobs', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      id: 'u1',
+    });
+    const projectQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          user_id: 'u1',
+          script: { scenes: [], characters: [], title: 't', master_clip: null },
+        },
+        error: null,
+      }),
+    };
+    const mediaJobsUpdate = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockResolvedValue({ error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn((table: string) => (table === 'projects' ? projectQuery : mediaJobsUpdate)),
+    });
+
+    let captured: Parameters<typeof runPollTick>[1] | undefined;
+    (runPollTick as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      async (_ctx, deps) => {
+        captured = deps;
+      },
+    );
+
+    const result = await pollMediaJobsAction({ project_id: 'p1' });
+    expect(result.ok).toBe(true);
+    expect(captured).toBeDefined();
+
+    await captured!.recordPollAttempt?.({
+      job: {
+        id: 'job-polled',
+        user_id: 'u1',
+        project_id: 'p1',
+        scene_id: 's1',
+        character_id: null,
+        kind: 'video',
+        model: 'm',
+        fal_request_id: 'req',
+        status: 'pending',
+        request_input: {},
+        poll_count: 4,
+      },
+      status: 'running',
+      polled_at: '2026-05-25T12:00:00.000Z',
+    });
+
+    expect(mediaJobsUpdate.update).toHaveBeenCalledWith({
+      status: 'running',
+      poll_count: 5,
+      last_polled_at: '2026-05-25T12:00:00.000Z',
+      poll_error_count: 0,
+      last_poll_error_at: null,
+      updated_at: '2026-05-25T12:00:00.000Z',
+    });
+    expect(mediaJobsUpdate.eq).toHaveBeenCalledWith('id', 'job-polled');
+    expect(mediaJobsUpdate.in).toHaveBeenCalledWith('status', ['pending', 'running']);
+  });
+
+  it('finalizeError skips already-terminal rows without throwing', async () => {
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      id: 'u1',
+    });
+    const projectQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          user_id: 'u1',
+          script: { scenes: [], characters: [], title: 't', master_clip: null },
+        },
+        error: null,
+      }),
+    };
+    const mediaJobsUpdate = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      select: vi.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn((table: string) => (table === 'projects' ? projectQuery : mediaJobsUpdate)),
+    });
+
+    let captured: Parameters<typeof runPollTick>[1] | undefined;
+    (runPollTick as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      async (_ctx, deps) => {
+        captured = deps;
+      },
+    );
+
+    const result = await pollMediaJobsAction({ project_id: 'p1' });
+    expect(result.ok).toBe(true);
+    expect(captured).toBeDefined();
+
+    await expect(
+      captured!.finalizeError({
+        job: {
+          id: 'job-terminal',
+          user_id: 'u1',
+          project_id: 'p1',
+          scene_id: 's1',
+          character_id: null,
+          kind: 'video',
+          model: 'm',
+          fal_request_id: 'req',
+          status: 'pending',
+          request_input: {},
+        },
+        error_code: 'stuck_in_queue',
+      }),
+    ).resolves.not.toThrow();
+    expect(mediaJobsUpdate.in).toHaveBeenCalledWith('status', ['pending', 'running']);
+    expect(debugSpy).toHaveBeenCalledWith(
+      '[pollMediaJobs] skipped terminal error update for already-terminal job',
+      expect.objectContaining({ job_id: 'job-terminal', error_code: 'stuck_in_queue' }),
+    );
+    debugSpy.mockRestore();
+  });
+
   it('finalizeCompleted appends a first_frame version + emits MirrorHint', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       id: 'u1',
@@ -128,7 +255,9 @@ describe('pollMediaJobsAction', () => {
     };
     const mediaJobsUpdate = {
       update: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockResolvedValue({ error: null }),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      select: vi.fn().mockResolvedValue({ data: [{ id: 'job-1' }], error: null }),
     };
     let projectsCall = 0;
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
@@ -223,7 +352,9 @@ describe('pollMediaJobsAction', () => {
     };
     const mediaJobsUpdate = {
       update: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockResolvedValue({ error: null }),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      select: vi.fn().mockResolvedValue({ data: [{ id: 'job-last-frame' }], error: null }),
     };
     let projectsCall = 0;
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
@@ -336,7 +467,9 @@ function makeSbForFinalize(
   };
   const mediaJobsUpdate = {
     update: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockResolvedValue({ error: null }),
+    eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    select: vi.fn().mockResolvedValue({ data: [{ id: 'job-dossier-1' }], error: null }),
   };
 
   let projectsCall = 0;
