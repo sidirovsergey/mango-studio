@@ -1,8 +1,8 @@
 'use client';
 
 import type { MasterClipVersion } from '@mango/core';
+import { useScriptState } from '../ScriptStateProvider';
 import { StageHead } from '../shared/StageHead';
-import { useStage04 } from './scenes/Stage04Provider';
 
 interface Props {
   /** Kept for API compatibility — gating is now derived from live script
@@ -28,7 +28,7 @@ export function StageFinal(_: Props) {
 }
 
 function StageFinalBody() {
-  const { script, jobs } = useStage04();
+  const { script, jobs } = useScriptState();
   const scenes = script?.scenes ?? [];
   const versions = script?.master_clip_versions ?? [];
   const activeId = script?.master_clip_active_version_id ?? null;

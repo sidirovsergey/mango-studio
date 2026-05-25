@@ -17,6 +17,27 @@ import { createBrowserClient } from './supabase-browser';
  * Usage in a client component:
  *   const ch = subscribeMediaJobs(project_id, (job) => updateLocalState(job));
  *   return () => { ch.unsubscribe(); };
+ *
+ * ⚠ KNOWN LEAK — TO BE FIXED IN A FOLLOW-UP PR
+ * Supabase Realtime's postgres_changes delivers the FULL row over the WS
+ * frame. Internal columns (request_input, fal_request_id, model,
+ * result_storage, cost_usd, latency_ms, metadata) are visible in browser
+ * DevTools → Network → WS even though the JS state in ScriptStateProvider
+ * is narrowed via pickJobUiFields. RLS ensures this is a SAME-USER leak
+ * only (no cross-user exposure), so callers see their own internal data,
+ * not anyone else's. Still, the spec §6 claim that internal fields stay
+ * server-side is not fully honored on the realtime path.
+ *
+ * Fix paths considered for the follow-up PR:
+ *   (a) Sanitized broadcast: server-side trigger publishes to a Supabase
+ *       Realtime Broadcast channel with only UI fields.
+ *   (b) Sanitized event table: a `media_job_ui_events` table populated by
+ *       trigger from media_jobs, containing only the MediaJobUiRow columns,
+ *       with its own RLS + replication.
+ *   (c) Drop the payload entirely: realtime fires as a "something changed"
+ *       ping, the client responds by re-fetching the narrow projection via
+ *       pollMediaJobsAction (already exists). Loses ~50ms latency.
+ * See Codex audit dated 2026-05-25 on PR #56 for the original finding.
  */
 export function subscribeMediaJobs(
   project_id: string,

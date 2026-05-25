@@ -2,6 +2,11 @@
 
 import { useInsufficientBalance } from '@/components/account/InsufficientBalanceProvider';
 import { useTierGate } from '@/components/account/TierGateProvider';
+import {
+  type MediaJobUiRow,
+  type SceneView,
+  useScriptState,
+} from '@/components/workspace/ScriptStateProvider';
 import { generateFirstFrameAction } from '@/server/actions/generateFirstFrameAction';
 import { generateSceneVideoAction } from '@/server/actions/generateSceneVideoAction';
 import { regenSceneTextAction } from '@/server/actions/regenSceneTextAction';
@@ -11,13 +16,10 @@ import { setSceneTierAction } from '@/server/actions/setSceneTierAction';
 import { toggleSceneContinuityAction } from '@/server/actions/toggleSceneContinuityAction';
 import { uploadSceneAssetAction } from '@/server/actions/uploadSceneAssetAction';
 import { type Character, getActiveVideoModels, getVideoModelMeta } from '@mango/core';
-import type { Database } from '@mango/db';
+import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { PromptEditorModal } from './PromptEditorModal';
-import { type SceneView, useStage04 } from './Stage04Provider';
 import { IconClapper, IconFrame, IconNote, IconPencil, IconPlay, IconRefresh } from './icons';
-
-type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 
 interface Props {
   projectId: string;
@@ -25,7 +27,7 @@ interface Props {
   index: number;
   sceneNum?: string;
   characters: Character[];
-  activeJob: MediaJobRow | null;
+  activeJob: MediaJobUiRow | null;
   tier: 'economy' | 'premium';
 }
 
@@ -103,9 +105,49 @@ export function SceneSidePanel({
   const [error, setError] = useState<string | null>(null);
   const [promptModal, setPromptModal] = useState<'first_frame' | 'video' | null>(null);
   const [activeAction, setActiveAction] = useState<ActionId | null>(null);
-  const { prospectivePrompts } = useStage04();
+  const { prospectivePrompts } = useScriptState();
   const { open: openTierGate } = useTierGate();
   const { open: openInsufficientBalance } = useInsufficientBalance();
+  const router = useRouter();
+
+  // Lifted optimistic model state. Owned here (not in ModelControl) so the
+  // same `effectiveModel` value feeds BOTH the dropdown label AND the
+  // model_override argument of generateSceneVideoAction below. Otherwise a
+  // user could pick model M2 and immediately click «Сгенерировать» — the
+  // video action would still see scene.config_overrides.model = M1 (stale
+  // until setSceneModelAction's router.refresh lands ~500ms-1s later).
+  // Counter ref enforces last-select-wins: rapid M1→M2 selects can't have
+  // M1's resolution clear M2's pending state (Codex audit re-pass 2026-05-25).
+  const [pendingModel, setPendingModel] = useState<string | null>(null);
+  const [modelPending, modelStartT] = useTransition();
+  const modelSelectIdRef = useRef(0);
+  const effectiveModel = pendingModel ?? scene.config_overrides?.model;
+
+  useEffect(() => {
+    if (pendingModel && scene.config_overrides?.model === pendingModel) {
+      setPendingModel(null);
+    }
+  }, [scene.config_overrides?.model, pendingModel]);
+
+  const handleSelectModel = (model: string) => {
+    const myId = ++modelSelectIdRef.current;
+    setPendingModel(model);
+    modelStartT(async () => {
+      const r = await setSceneModelAction({
+        project_id: projectId,
+        scene_id: scene.scene_id,
+        model,
+      });
+      // Stale response — a newer select has superseded this one. Ignore.
+      if (myId !== modelSelectIdRef.current) return;
+      if (!r.ok && 'error' in r && r.error) {
+        setError(r.error);
+        setPendingModel(null);
+        return;
+      }
+      router.refresh();
+    });
+  };
 
   // F53 UI gate — mirror the server-side hard precondition in
   // generateFirstFrameAction so the "Кадр" tile is visibly disabled while the
@@ -127,7 +169,7 @@ export function SceneSidePanel({
   const activeVideo =
     scene.video_versions.find((v) => v.version_id === scene.video_active_version_id) ?? null;
 
-  // Pre-built (prospective) prompts come from the Stage04Provider batch cache;
+  // Pre-built (prospective) prompts come from the ScriptStateProvider batch cache;
   // they refresh on every poll-tick alongside the script. When no version is
   // generated yet, surface this draft so the user can read + edit it inline.
   const sceneProspective = prospectivePrompts?.[scene.scene_id] ?? null;
@@ -354,12 +396,10 @@ export function SceneSidePanel({
               generateSceneVideoAction({
                 project_id: projectId,
                 scene_id: scene.scene_id,
-                // Pass the model from client state explicitly — guarantees that
-                // even if setSceneModelAction's revalidate hasn't propagated yet,
-                // fal.ai is called with the model the user just picked.
-                ...(scene.config_overrides?.model
-                  ? { model_override: scene.config_overrides.model }
-                  : {}),
+                // Use the lifted effectiveModel so an in-flight model select
+                // still reaches fal.ai even if setSceneModelAction hasn't
+                // finished its router.refresh yet.
+                ...(effectiveModel ? { model_override: effectiveModel } : {}),
               }),
             )
           }
@@ -368,12 +408,11 @@ export function SceneSidePanel({
 
       <section className="controls-strip" aria-label="Параметры сцены">
         <ModelControl
-          projectId={projectId}
-          sceneId={scene.scene_id}
-          currentModel={scene.config_overrides?.model}
+          effectiveModel={effectiveModel}
           tier={tier}
           disabled={lockedByGen}
-          onError={setError}
+          pending={modelPending}
+          onSelect={handleSelectModel}
         />
         <DurationControl
           projectId={projectId}
@@ -533,30 +572,28 @@ function ActionTile({
 }
 
 interface ModelControlProps {
-  projectId: string;
-  sceneId: string;
-  currentModel: string | undefined;
+  effectiveModel: string | undefined;
   tier: 'economy' | 'premium';
   disabled: boolean;
-  onError: (msg: string) => void;
+  pending: boolean;
+  onSelect: (model: string) => void;
 }
 
-function ModelControl({
-  projectId,
-  sceneId,
-  currentModel,
-  tier,
-  disabled,
-  onError,
-}: ModelControlProps) {
-  const [pending, startT] = useTransition();
+/**
+ * Dumb dropdown — owns only open/close + click-outside. Effective model and
+ * the actual setSceneModelAction call live in the SceneSidePanel parent so
+ * the same `effectiveModel` value can ALSO be passed to generateSceneVideoAction
+ * as model_override. Without that lift, a user could pick a new model and
+ * immediately click «Сгенерировать», sending the action with the stale model
+ * still in scene.config_overrides (Codex audit re-pass 2026-05-25).
+ */
+function ModelControl({ effectiveModel, tier, disabled, pending, onSelect }: ModelControlProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const { script, setScript } = useStage04();
 
   const models = getActiveVideoModels(tier);
-  const currentLabel = currentModel
-    ? (MODEL_LABEL[currentModel] ?? currentModel.split('/').pop())
+  const currentLabel = effectiveModel
+    ? (MODEL_LABEL[effectiveModel] ?? effectiveModel.split('/').pop())
     : 'авто';
 
   useEffect(() => {
@@ -577,30 +614,7 @@ function ModelControl({
 
   const handleSelect = (model: string) => {
     setOpen(false);
-    // Optimistic update — the poll loop only runs every 5s, so without this
-    // the user could click "Generate" before the new model is reflected in
-    // client state. generateSceneVideoAction reads from DB so the server
-    // is consistent, but client UX would lag. We mutate the script in-place
-    // so the dropdown label updates immediately AND scene.config_overrides
-    // is fresh when the next action fires.
-    if (script) {
-      setScript({
-        ...script,
-        scenes: script.scenes.map((s) =>
-          s.scene_id === sceneId
-            ? { ...s, config_overrides: { ...(s.config_overrides ?? {}), model } }
-            : s,
-        ),
-      });
-    }
-    startT(async () => {
-      const r = await setSceneModelAction({ project_id: projectId, scene_id: sceneId, model });
-      if (!r.ok && 'error' in r && r.error) {
-        onError(r.error);
-        // Revert optimistic update on failure
-        if (script) setScript(script);
-      }
-    });
+    onSelect(model);
   };
 
   return (
@@ -626,7 +640,7 @@ function ModelControl({
           </div>
           {models.map((m) => {
             const meta = getVideoModelMeta(m);
-            const isActive = m === currentModel;
+            const isActive = m === effectiveModel;
             return (
               <button
                 key={m}

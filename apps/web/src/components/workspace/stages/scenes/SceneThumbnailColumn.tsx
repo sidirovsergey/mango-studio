@@ -1,22 +1,20 @@
 'use client';
 
+import type { MediaJobUiRow, SceneView } from '@/components/workspace/ScriptStateProvider';
 import { cancelMediaJobAction } from '@/server/actions/cancelMediaJobAction';
 import { rollbackVersionAction } from '@/server/actions/rollbackVersionAction';
 import { setActiveVersionAction } from '@/server/actions/setActiveVersionAction';
 import type { SceneAssetVersion, StoredAsset } from '@mango/core';
-import type { Database } from '@mango/db';
 import { useState, useTransition } from 'react';
-import type { SceneView } from './Stage04Provider';
 
-type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 type Mode = 'first_frame' | 'video' | 'final';
 
 interface Props {
   projectId: string;
   scene: SceneView;
   index: number;
-  activeJob: MediaJobRow | null;
-  failedAudioJob: MediaJobRow | null;
+  activeJob: MediaJobUiRow | null;
+  failedAudioJob: MediaJobUiRow | null;
 }
 
 function getActiveVersion(
@@ -177,6 +175,8 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
     return null;
   })();
 
+  const doneBadge = !isActiveJob && scene.video_active_version_id !== null;
+
   return (
     <div className="thumb-col">
       <div className="thumb">
@@ -195,7 +195,7 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
               onClick={handleCancel}
               disabled={pending}
               aria-label="Отменить генерацию"
-              title="Отменить fal job"
+              title="Отменить — если fal ещё не списал, баланс вернётся"
             >
               ✕
             </button>
@@ -210,6 +210,11 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
         )}
         {!isActiveJob && !failedAudioJob && (
           <div className="thumb-badges">
+            {doneBadge && (
+              <span className="badge done" title="Видео сцены готово">
+                ✓
+              </span>
+            )}
             {audioBadge && (
               <span className="badge" title={audioBadge.title}>
                 {audioBadge.icon}

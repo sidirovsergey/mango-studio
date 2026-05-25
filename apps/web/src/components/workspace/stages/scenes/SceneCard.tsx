@@ -1,20 +1,17 @@
 'use client';
 
+import type { MediaJobUiRow, SceneView } from '@/components/workspace/ScriptStateProvider';
 import type { Character } from '@mango/core';
-import type { Database } from '@mango/db';
 import { SceneSidePanel } from './SceneSidePanel';
 import { SceneThumbnailColumn } from './SceneThumbnailColumn';
-import type { SceneView } from './Stage04Provider';
-
-type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 
 interface Props {
   projectId: string;
   scene: SceneView;
   index: number;
   characters: Character[];
-  activeJob: MediaJobRow | null;
-  failedAudioJob: MediaJobRow | null;
+  activeJob: MediaJobUiRow | null;
+  failedAudioJob: MediaJobUiRow | null;
   tier: 'economy' | 'premium';
 }
 

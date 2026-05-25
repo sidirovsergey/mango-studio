@@ -3,15 +3,17 @@
 import { InsufficientBalanceProvider } from '@/components/account/InsufficientBalanceProvider';
 import { TierGateProvider } from '@/components/account/TierGateProvider';
 import { Chat } from '@/components/chat/Chat';
+import type { MediaJobUiRow } from '@/lib/pickJobUiFields';
 import type { PersistedScript, Tier } from '@mango/core';
 import type { Database } from '@mango/db/types';
+import { ScriptStateProvider, type Stage04Script } from './ScriptStateProvider';
+import { TelemetryHeader } from './TelemetryHeader';
 import { TopBar } from './TopBar';
 import { WorkspaceScroll } from './WorkspaceScroll';
 import { StageFinal } from './stages/StageFinal';
 import { StageIdea } from './stages/StageIdea';
 import { StageScenes } from './stages/StageScenes';
 import { StageScript } from './stages/StageScript';
-import { Stage04Provider, type Stage04Script } from './stages/scenes/Stage04Provider';
 
 type ProjectRow = Database['public']['Tables']['projects']['Row'];
 type ChatMessageRow = Database['public']['Tables']['chat_messages']['Row'];
@@ -19,6 +21,7 @@ type ChatMessageRow = Database['public']['Tables']['chat_messages']['Row'];
 interface WorkspaceProps {
   project: ProjectRow;
   initialChatMessages: ChatMessageRow[];
+  initialJobs: MediaJobUiRow[];
   charactersSlot: React.ReactNode;
   userEmail: string | null;
   isAnonymous: boolean;
@@ -27,6 +30,7 @@ interface WorkspaceProps {
 export function Workspace({
   project,
   initialChatMessages,
+  initialJobs,
   charactersSlot,
   userEmail,
   isAnonymous,
@@ -53,15 +57,17 @@ export function Workspace({
               userEmail={userEmail}
               isAnonymous={isAnonymous}
             />
-            <WorkspaceScroll>
-              <div className="workspace">
-                <StageIdea project={project} />
-                {charactersSlot}
-                <StageScript project={project} script={script} />
-                <Stage04Provider
-                  projectId={project.id}
-                  initialScript={(script as unknown as Stage04Script) ?? null}
-                >
+            <ScriptStateProvider
+              projectId={project.id}
+              initialScript={(script as unknown as Stage04Script) ?? null}
+              initialJobs={initialJobs}
+            >
+              <TelemetryHeader />
+              <WorkspaceScroll>
+                <div className="workspace">
+                  <StageIdea project={project} />
+                  {charactersSlot}
+                  <StageScript project={project} script={script} />
                   <StageScenes
                     projectId={project.id}
                     projectStatus={status}
@@ -69,9 +75,9 @@ export function Workspace({
                     tier={project.tier as Tier}
                   />
                   <StageFinal projectStatus={status} projectId={project.id} />
-                </Stage04Provider>
-              </div>
-            </WorkspaceScroll>
+                </div>
+              </WorkspaceScroll>
+            </ScriptStateProvider>
           </main>
         </div>
       </InsufficientBalanceProvider>

@@ -1,21 +1,19 @@
 'use client';
 
-import { useStage04 } from '@/components/workspace/stages/scenes/Stage04Provider';
+import { useScriptState } from '@/components/workspace/ScriptStateProvider';
+import { type MediaJobUiRow, pickJobUiFields } from '@/lib/pickJobUiFields';
 import { subscribeMediaJobs } from '@/lib/realtime-publication';
 import { buildAllProspectivePromptsAction } from '@/server/actions/buildProspectivePromptAction';
 import { fetchProjectScriptAction } from '@/server/actions/fetchProjectScriptAction';
 import { pollMediaJobsAction } from '@/server/actions/pollMediaJobsAction';
-import type { Database } from '@mango/db';
 import { useEffect, useRef } from 'react';
-
-type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 
 const POLL_INTERVAL_MS = 5000;
 
 const TERMINAL_STATUSES = new Set(['completed', 'error', 'cancelled', 'superseded']);
 
 export function usePollJobs(projectId: string) {
-  const { setScript, setProspectivePrompts, upsertJob, removeJob } = useStage04();
+  const { setScript, setProspectivePrompts, upsertJob, removeJob } = useScriptState();
   const tickInProgress = useRef(false);
 
   useEffect(() => {
@@ -67,8 +65,11 @@ export function usePollJobs(projectId: string) {
 
     // Realtime subscription for instant push updates
     const channel = subscribeMediaJobs(projectId, (row) => {
-      const job = row as unknown as MediaJobRow;
-      if (!job?.id) return;
+      // Narrow the realtime payload to the UI-only shape before pushing
+      // into provider state — see lib/pickJobUiFields for the contract.
+      const full = row as unknown as Parameters<typeof pickJobUiFields>[0];
+      if (!full?.id) return;
+      const job: MediaJobUiRow = pickJobUiFields(full);
 
       if (TERMINAL_STATUSES.has(job.status)) {
         // ⚠ Ordering matters: the realtime payload arrives the moment

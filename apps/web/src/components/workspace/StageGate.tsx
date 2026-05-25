@@ -23,7 +23,7 @@ export function StageGate({ unlocked, scrollToStageId, hint, children }: Props) 
   // Locked: do NOT mount expensive children (they may set up polling, Realtime
   // subscriptions, server-action effects that don't make sense for an empty
   // pre-script project). Render only a CTA pointing back to the prerequisite
-  // stage. This fixes a v1.3.5 regression where Stage04Inline + Stage04Provider
+  // stage. This fixes a v1.3.5 regression where Stage04Inline + ScriptStateProvider
   // + usePollJobs would mount unconditionally on draft projects.
   return (
     <button

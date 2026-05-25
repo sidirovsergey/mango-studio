@@ -35,7 +35,7 @@ export default async function ProjectPage({ params, searchParams }: Props) {
   const user = await getCurrentUser();
   const supabase = await getServerSupabase();
 
-  const [projectResult, messagesResult, characterJobsResult] = await Promise.all([
+  const [projectResult, messagesResult, jobsResult] = await Promise.all([
     supabase
       .from('projects')
       .select(
@@ -50,17 +50,41 @@ export default async function ProjectPage({ params, searchParams }: Props) {
       .order('created_at', { ascending: true }),
     supabase
       .from('media_jobs')
-      .select('id, character_id, kind, status, error_code, created_at')
+      // Narrow projection — UI never reads request_input / fal_request_id /
+      // model / result_storage / cost_usd / latency_ms / user_id. Keep them
+      // server-side only. Mirrors MediaJobUiRow in lib/pickJobUiFields.
+      // NOTE: must be a single string literal (no concatenation) so the
+      // Supabase TS client can parse the column list at compile time.
+      .select(
+        'id, project_id, scene_id, character_id, kind, status, error_code, created_at, updated_at, retry_count, delayed_until',
+      )
       .eq('project_id', id)
-      .in('kind', ['character_dossier', 'character_avatar'])
+      .in('kind', [
+        'character_dossier',
+        'character_avatar',
+        'scene_first_frame',
+        'first_frame',
+        'video',
+        'voice',
+        'final_clip',
+        'master_clip',
+      ])
       .in('status', ['reserved', 'pending', 'running', 'error'])
       .order('created_at', { ascending: false })
-      .limit(50),
+      .limit(200),
   ]);
 
   if (projectResult.error || !projectResult.data) {
     return notFound();
   }
+
+  const allInflightJobs = jobsResult.data ?? [];
+  const characterJobs = allInflightJobs.filter(
+    (j) => j.kind === 'character_dossier' || j.kind === 'character_avatar',
+  );
+  const sceneJobs = allInflightJobs.filter(
+    (j) => j.kind !== 'character_dossier' && j.kind !== 'character_avatar',
+  );
 
   const { count: projectCount } = await supabase
     .from('projects')
@@ -89,7 +113,7 @@ export default async function ProjectPage({ params, searchParams }: Props) {
       script={script}
       tier={project.tier as Tier}
       style={style}
-      characterJobs={(characterJobsResult.data ?? []) as CharacterJobSummary[]}
+      characterJobs={characterJobs as CharacterJobSummary[]}
     />
   );
 
@@ -100,6 +124,7 @@ export default async function ProjectPage({ params, searchParams }: Props) {
       <Workspace
         project={project}
         initialChatMessages={messagesResult.data ?? []}
+        initialJobs={sceneJobs}
         charactersSlot={charactersSlot}
         userEmail={user.email ?? null}
         isAnonymous={Boolean(user.is_anonymous)}

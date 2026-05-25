@@ -21,6 +21,9 @@ coverage/
 # Vercel
 .vercel/
 
+# Superpowers brainstorming mockups (local-only)
+.superpowers/
+
 # Supabase
 .supabase/
 supabase/.branches/

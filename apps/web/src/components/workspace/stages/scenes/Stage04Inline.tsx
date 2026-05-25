@@ -3,38 +3,25 @@
 import { useInsufficientBalance } from '@/components/account/InsufficientBalanceProvider';
 import { useTierGate } from '@/components/account/TierGateProvider';
 import { usePollJobs } from '@/hooks/use-poll-jobs';
+import { scrollToFinal } from '@/lib/scroll-to-final';
 import { generateMasterClipAction } from '@/server/actions/generateMasterClipAction';
 import '@/styles/storyboard-inline.css';
 import '@/styles/audio-pipeline.css';
-import type { Database } from '@mango/db';
+import { type MediaJobUiRow, useScriptState } from '@/components/workspace/ScriptStateProvider';
 import { useEffect, useState, useTransition } from 'react';
 import { CostMeter } from './CostMeter';
 import { CostWarningToast } from './CostWarningToast';
 // FinalizeConfirmDialog import dropped 2026-05-13 — the dialog only existed to
 // gate on missing voice / final_clip, which no longer happens.
 import { SceneCard } from './SceneCard';
-import { useStage04 } from './Stage04Provider';
-
-type MediaJobRow = Database['public']['Tables']['media_jobs']['Row'];
 
 interface Stage04InlineProps {
   projectId: string;
   tier: 'economy' | 'premium';
 }
 
-/**
- * Scroll the user's attention to Stage 05 (Финал) — that's where the
- * master clip player lives now. Called after finalize starts AND when
- * user clicks "Открыть ролик" on a ready master.
- */
-function scrollToFinal() {
-  if (typeof document === 'undefined') return;
-  const el = document.getElementById('finalStage');
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
-  const { script, jobs } = useStage04();
+  const { script, jobs } = useScriptState();
   const [masterError, setMasterError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const { open: openTierGate } = useTierGate();
@@ -54,7 +41,7 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
   const masterActiveId = script?.master_clip_active_version_id ?? null;
   const activeMaster = masterVersions.find((m) => m.version_id === masterActiveId) ?? null;
 
-  const jobsByScene: Record<string, MediaJobRow> = {};
+  const jobsByScene: Record<string, MediaJobUiRow> = {};
   for (const job of jobs) {
     // Include 'reserved' alongside pending/running so the UI shows "генерация
     // начата" for the brief window between reserveMediaJob (writes
@@ -72,7 +59,7 @@ export function Stage04Inline({ projectId, tier }: Stage04InlineProps) {
 
   // Phase 1.4.1: per-scene audio failure after retry_count is exhausted.
   // Surfaces the failed-state UI with manual retry button.
-  const failedAudioByScene: Record<string, MediaJobRow> = {};
+  const failedAudioByScene: Record<string, MediaJobUiRow> = {};
   for (const job of jobs) {
     if (
       job.scene_id &&
