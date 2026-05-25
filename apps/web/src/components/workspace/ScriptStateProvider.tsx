@@ -93,7 +93,21 @@ function isContradictedByScript(job: MediaJobUiRow, script: Stage04Script | null
   // master_clip jobs have scene_id=null by design — check them before the
   // scene-scoped rules below so a settled master version can prune a stale
   // master_clip row left over after a missed terminal callback.
-  if (job.kind === 'master_clip') return Boolean(script.master_clip_active_version_id);
+  //
+  // Compare timestamps: the job is contradicted only when the active master
+  // was generated AFTER the job was created. Without this, a legitimate
+  // re-finalize pending job (active master still M1, user clicked again
+  // creating M2-pending) would be wrongly pruned because the script still
+  // points at M1. Codex audit finding 2026-05-25 on PR #56.
+  if (job.kind === 'master_clip') {
+    const activeId = script.master_clip_active_version_id;
+    if (!activeId) return false;
+    const active = (script.master_clip_versions ?? []).find((v) => v.version_id === activeId);
+    if (!active) return false;
+    const activeMs = active.generated_at ? new Date(active.generated_at).getTime() : 0;
+    const jobMs = job.created_at ? new Date(job.created_at).getTime() : 0;
+    return activeMs > jobMs;
+  }
   if (!job.scene_id) return false;
   const scene = script.scenes.find((s) => s.scene_id === job.scene_id);
   if (!scene) return true;

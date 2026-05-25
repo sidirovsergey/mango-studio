@@ -55,7 +55,12 @@ function scriptFixture(
       ? [
           {
             version_id: opts.masterId,
-            generated_at: new Date().toISOString(),
+            // Generated 1 minute in the future so the timestamp-based prune
+            // in isContradictedByScript treats this master as newer than any
+            // job created via the `job` fixture (which defaults to NOW).
+            // This reflects the real-world ordering: when M1 lands in the
+            // script via router.refresh, M1.generated_at > job.created_at.
+            generated_at: new Date(Date.now() + 60_000).toISOString(),
             storage: { kind: 'fal_passthrough', url: 'x' },
             composed_from_scene_versions: [],
             has_full_audio: true,

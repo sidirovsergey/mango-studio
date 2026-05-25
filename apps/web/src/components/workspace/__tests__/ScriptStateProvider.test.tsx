@@ -210,4 +210,84 @@ describe('ScriptStateProvider — Bug 1: jobs RSC-authoritative + grace + script
     const j5 = readState(stateRef).jobs.find((j) => j.id === 'j-5');
     expect(j5?.status).toBe('error');
   });
+
+  it('t6: master_clip pruned when active master generated_at is NEWER than job created_at', () => {
+    const activeAt = new Date(Date.now() - 10_000).toISOString(); // 10s ago
+    const jobCreated = new Date(Date.now() - 12_000).toISOString(); // 12s ago (older)
+    const staleMasterJob = makeJob({
+      id: 'jm-stale',
+      kind: 'master_clip',
+      scene_id: null,
+      created_at: jobCreated,
+    });
+    const script: Stage04Script = {
+      ...makeScript(),
+      master_clip_active_version_id: 'M1',
+      master_clip_versions: [
+        {
+          version_id: 'M1',
+          generated_at: activeAt,
+          storage: { kind: 'fal_passthrough', url: 'x' },
+          cost_usd: null,
+          composed_from_scene_versions: [],
+          has_full_audio: true,
+        },
+      ],
+    };
+    const stateRef = createRef<ScriptStateSnapshot>();
+    const renderProvider = (jobs: MediaJobUiRow[]) => (
+      <ScriptStateProvider projectId="p" initialScript={script} initialJobs={jobs}>
+        <ScriptStateBridge ref={stateRef} />
+      </ScriptStateProvider>
+    );
+    const { rerender } = render(renderProvider([]));
+    act(() => {
+      readState(stateRef).upsertJob(staleMasterJob);
+    });
+    expect(readState(stateRef).jobs.find((j) => j.id === 'jm-stale')).toBeDefined();
+    rerender(renderProvider([]));
+    expect(readState(stateRef).jobs.find((j) => j.id === 'jm-stale')).toBeUndefined();
+  });
+
+  it('t7: master_clip KEPT when active master generated_at is OLDER than job created_at (re-finalize)', () => {
+    // Scenario from Codex audit finding: user already has active M1, then clicks
+    // «Финализировать» again. Realtime delivers a new pending master_clip job
+    // (created AFTER M1). A lagged router.refresh fires with initialJobs=[]
+    // (server snapshot didn't catch the new job yet). Pruning MUST NOT drop
+    // this legitimate re-finalize job just because the script still shows M1.
+    const activeAt = new Date(Date.now() - 30_000).toISOString(); // M1 finished 30s ago
+    const refinalizeJob = makeJob({
+      id: 'jm-refinalize',
+      kind: 'master_clip',
+      scene_id: null,
+      created_at: new Date(Date.now() - 1_000).toISOString(), // job created 1s ago, after M1
+    });
+    const script: Stage04Script = {
+      ...makeScript(),
+      master_clip_active_version_id: 'M1',
+      master_clip_versions: [
+        {
+          version_id: 'M1',
+          generated_at: activeAt,
+          storage: { kind: 'fal_passthrough', url: 'x' },
+          cost_usd: null,
+          composed_from_scene_versions: [],
+          has_full_audio: true,
+        },
+      ],
+    };
+    const stateRef = createRef<ScriptStateSnapshot>();
+    const renderProvider = (jobs: MediaJobUiRow[]) => (
+      <ScriptStateProvider projectId="p" initialScript={script} initialJobs={jobs}>
+        <ScriptStateBridge ref={stateRef} />
+      </ScriptStateProvider>
+    );
+    const { rerender } = render(renderProvider([]));
+    act(() => {
+      readState(stateRef).upsertJob(refinalizeJob);
+    });
+    expect(readState(stateRef).jobs.find((j) => j.id === 'jm-refinalize')).toBeDefined();
+    rerender(renderProvider([]));
+    expect(readState(stateRef).jobs.find((j) => j.id === 'jm-refinalize')).toBeDefined();
+  });
 });
