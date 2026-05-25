@@ -108,6 +108,46 @@ export function SceneSidePanel({
   const { prospectivePrompts } = useScriptState();
   const { open: openTierGate } = useTierGate();
   const { open: openInsufficientBalance } = useInsufficientBalance();
+  const router = useRouter();
+
+  // Lifted optimistic model state. Owned here (not in ModelControl) so the
+  // same `effectiveModel` value feeds BOTH the dropdown label AND the
+  // model_override argument of generateSceneVideoAction below. Otherwise a
+  // user could pick model M2 and immediately click «Сгенерировать» — the
+  // video action would still see scene.config_overrides.model = M1 (stale
+  // until setSceneModelAction's router.refresh lands ~500ms-1s later).
+  // Counter ref enforces last-select-wins: rapid M1→M2 selects can't have
+  // M1's resolution clear M2's pending state (Codex audit re-pass 2026-05-25).
+  const [pendingModel, setPendingModel] = useState<string | null>(null);
+  const [modelPending, modelStartT] = useTransition();
+  const modelSelectIdRef = useRef(0);
+  const effectiveModel = pendingModel ?? scene.config_overrides?.model;
+
+  useEffect(() => {
+    if (pendingModel && scene.config_overrides?.model === pendingModel) {
+      setPendingModel(null);
+    }
+  }, [scene.config_overrides?.model, pendingModel]);
+
+  const handleSelectModel = (model: string) => {
+    const myId = ++modelSelectIdRef.current;
+    setPendingModel(model);
+    modelStartT(async () => {
+      const r = await setSceneModelAction({
+        project_id: projectId,
+        scene_id: scene.scene_id,
+        model,
+      });
+      // Stale response — a newer select has superseded this one. Ignore.
+      if (myId !== modelSelectIdRef.current) return;
+      if (!r.ok && 'error' in r && r.error) {
+        setError(r.error);
+        setPendingModel(null);
+        return;
+      }
+      router.refresh();
+    });
+  };
 
   // F53 UI gate — mirror the server-side hard precondition in
   // generateFirstFrameAction so the "Кадр" tile is visibly disabled while the
@@ -356,12 +396,10 @@ export function SceneSidePanel({
               generateSceneVideoAction({
                 project_id: projectId,
                 scene_id: scene.scene_id,
-                // Pass the model from client state explicitly — guarantees that
-                // even if setSceneModelAction's revalidate hasn't propagated yet,
-                // fal.ai is called with the model the user just picked.
-                ...(scene.config_overrides?.model
-                  ? { model_override: scene.config_overrides.model }
-                  : {}),
+                // Use the lifted effectiveModel so an in-flight model select
+                // still reaches fal.ai even if setSceneModelAction hasn't
+                // finished its router.refresh yet.
+                ...(effectiveModel ? { model_override: effectiveModel } : {}),
               }),
             )
           }
@@ -370,12 +408,11 @@ export function SceneSidePanel({
 
       <section className="controls-strip" aria-label="Параметры сцены">
         <ModelControl
-          projectId={projectId}
-          sceneId={scene.scene_id}
-          currentModel={scene.config_overrides?.model}
+          effectiveModel={effectiveModel}
           tier={tier}
           disabled={lockedByGen}
-          onError={setError}
+          pending={modelPending}
+          onSelect={handleSelectModel}
         />
         <DurationControl
           projectId={projectId}
@@ -535,47 +572,29 @@ function ActionTile({
 }
 
 interface ModelControlProps {
-  projectId: string;
-  sceneId: string;
-  currentModel: string | undefined;
+  effectiveModel: string | undefined;
   tier: 'economy' | 'premium';
   disabled: boolean;
-  onError: (msg: string) => void;
+  pending: boolean;
+  onSelect: (model: string) => void;
 }
 
-function ModelControl({
-  projectId,
-  sceneId,
-  currentModel,
-  tier,
-  disabled,
-  onError,
-}: ModelControlProps) {
-  const [pending, startT] = useTransition();
+/**
+ * Dumb dropdown — owns only open/close + click-outside. Effective model and
+ * the actual setSceneModelAction call live in the SceneSidePanel parent so
+ * the same `effectiveModel` value can ALSO be passed to generateSceneVideoAction
+ * as model_override. Without that lift, a user could pick a new model and
+ * immediately click «Сгенерировать», sending the action with the stale model
+ * still in scene.config_overrides (Codex audit re-pass 2026-05-25).
+ */
+function ModelControl({ effectiveModel, tier, disabled, pending, onSelect }: ModelControlProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const router = useRouter();
-  // Local-only optimistic state for the dropdown label. We intentionally do
-  // NOT mutate provider script here — the T4 prop-sync useEffect would wipe
-  // any optimistic provider mutation as soon as a stale router.refresh fires
-  // (Codex audit finding 2026-05-25). The server action is the only writer
-  // of the canonical scene.config_overrides; we just trigger router.refresh
-  // on success and clear pendingModel once the snapshot catches up via the
-  // effect below.
-  const [pendingModel, setPendingModel] = useState<string | null>(null);
-  const effectiveModel = pendingModel ?? currentModel;
 
   const models = getActiveVideoModels(tier);
   const currentLabel = effectiveModel
     ? (MODEL_LABEL[effectiveModel] ?? effectiveModel.split('/').pop())
     : 'авто';
-
-  // Clear the local override once the server snapshot reflects our choice.
-  useEffect(() => {
-    if (pendingModel && currentModel === pendingModel) {
-      setPendingModel(null);
-    }
-  }, [currentModel, pendingModel]);
 
   useEffect(() => {
     if (!open) return;
@@ -595,19 +614,7 @@ function ModelControl({
 
   const handleSelect = (model: string) => {
     setOpen(false);
-    setPendingModel(model);
-    startT(async () => {
-      const r = await setSceneModelAction({ project_id: projectId, scene_id: sceneId, model });
-      if (!r.ok && 'error' in r && r.error) {
-        onError(r.error);
-        setPendingModel(null);
-        return;
-      }
-      // Ask Next to re-fetch page.tsx so scene.config_overrides arrives.
-      // The effect above will clear pendingModel once it lands. Until then
-      // the local override keeps the dropdown stable.
-      router.refresh();
-    });
+    onSelect(model);
   };
 
   return (
@@ -633,7 +640,7 @@ function ModelControl({
           </div>
           {models.map((m) => {
             const meta = getVideoModelMeta(m);
-            const isActive = m === currentModel;
+            const isActive = m === effectiveModel;
             return (
               <button
                 key={m}
