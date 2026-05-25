@@ -89,7 +89,12 @@ const REALTIME_GRACE_MS = 5_000;
  * callback failed to clean up.
  */
 function isContradictedByScript(job: MediaJobUiRow, script: Stage04Script | null): boolean {
-  if (!script || !job.scene_id) return false;
+  if (!script) return false;
+  // master_clip jobs have scene_id=null by design — check them before the
+  // scene-scoped rules below so a settled master version can prune a stale
+  // master_clip row left over after a missed terminal callback.
+  if (job.kind === 'master_clip') return Boolean(script.master_clip_active_version_id);
+  if (!job.scene_id) return false;
   const scene = script.scenes.find((s) => s.scene_id === job.scene_id);
   if (!scene) return true;
   if (job.kind === 'video' && scene.video_active_version_id) return true;
@@ -100,7 +105,6 @@ function isContradictedByScript(job: MediaJobUiRow, script: Stage04Script | null
     return true;
   if (job.kind === 'voice' && scene.voice_audio_active_version_id) return true;
   if (job.kind === 'final_clip' && scene.final_clip) return true;
-  if (job.kind === 'master_clip' && script.master_clip_active_version_id) return true;
   return false;
 }
 
