@@ -362,6 +362,11 @@
   backdrop-filter: blur(10px);
 }
 .badge.warn { background: rgba(216, 95, 0, 0.85); }
+.badge.done {
+  background: rgba(6, 145, 80, 0.14);
+  color: var(--leaf-500, #069150);
+  border: 1px solid rgba(6, 145, 80, 0.32);
+}
 
 .thumb-mode {
   position: absolute; bottom: 8px; left: 8px; right: 8px;
