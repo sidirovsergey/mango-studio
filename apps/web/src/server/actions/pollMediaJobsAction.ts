@@ -478,7 +478,7 @@ export async function pollMediaJobsAction(input: {
           .update({ script: nextScript as never })
           .eq('id', job.project_id);
 
-        await sb
+        const { data: completedRows, error: completedErr } = await sb
           .from('media_jobs')
           .update({
             status: 'completed',
@@ -487,7 +487,20 @@ export async function pollMediaJobsAction(input: {
             result_storage: stored as never,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', job.id);
+          .eq('id', job.id)
+          .in('status', ['pending', 'running'])
+          .select('id');
+        if (completedErr) throw new Error(completedErr.message);
+        if ((completedRows?.length ?? 0) === 0) {
+          console.debug(
+            '[pollMediaJobs] skipped terminal completed update for already-terminal job',
+            {
+              job_id: job.id,
+              project_id: job.project_id,
+              kind: job.kind,
+            },
+          );
+        }
 
         // Audio chain advancement (Phase 1.4.1) retired 2026-05-13.
         // Active video models bake audio in directly; no follow-up voice
@@ -524,18 +537,82 @@ export async function pollMediaJobsAction(input: {
       },
 
       finalizeError: async ({ job, error_code }) => {
-        await sb
+        const { data, error } = await sb
           .from('media_jobs')
           .update({
             status: 'error',
             error_code,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', job.id);
+          .eq('id', job.id)
+          .in('status', ['pending', 'running'])
+          .select('id');
+        if (error) throw new Error(error.message);
+        if ((data?.length ?? 0) === 0) {
+          console.debug('[pollMediaJobs] skipped terminal error update for already-terminal job', {
+            job_id: job.id,
+            project_id: job.project_id,
+            kind: job.kind,
+            error_code,
+          });
+        }
 
         // Phase 1.4.1 audio retry (voice + final_clip backoff) retired
         // 2026-05-13 alongside the audio pipeline. Failed video jobs
         // surface to the user; they can re-trigger via the regular UI.
+      },
+
+      recordPollAttempt: async ({ job, status, polled_at }) => {
+        const { error } = await sb
+          .from('media_jobs')
+          .update({
+            status,
+            // Approximate under concurrent pollers; last_polled_at is authoritative.
+            poll_count: (job.poll_count ?? 0) + 1,
+            last_polled_at: polled_at,
+            poll_error_count: 0,
+            last_poll_error_at: null,
+            updated_at: polled_at,
+          })
+          .eq('id', job.id)
+          .in('status', ['pending', 'running']);
+        if (error) throw new Error(error.message);
+      },
+
+      recordPollError: async ({ job, poll_error_count, last_poll_error_at }) => {
+        const { error } = await sb
+          .from('media_jobs')
+          .update({
+            poll_error_count,
+            last_poll_error_at,
+            updated_at: last_poll_error_at,
+          })
+          .eq('id', job.id)
+          .in('status', ['pending', 'running']);
+        if (error) throw new Error(error.message);
+      },
+
+      markPollUnrecoverable: async ({ job, poll_error_count, last_poll_error_at }) => {
+        const { data, error } = await sb
+          .from('media_jobs')
+          .update({
+            status: 'error',
+            error_code: 'poll_unrecoverable',
+            poll_error_count,
+            last_poll_error_at,
+            updated_at: last_poll_error_at,
+          })
+          .eq('id', job.id)
+          .in('status', ['pending', 'running'])
+          .select('id');
+        if (error) throw new Error(error.message);
+        if ((data?.length ?? 0) === 0) {
+          console.debug('[pollMediaJobs] skipped poll_unrecoverable for already-terminal job', {
+            job_id: job.id,
+            project_id: job.project_id,
+            kind: job.kind,
+          });
+        }
       },
 
       recordPendingJob: async (params) =>

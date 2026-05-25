@@ -307,4 +307,266 @@ describe('runPollTick', () => {
       error_code: 'fal_failed',
     });
   });
+
+  it('records poll attempts for pending/running jobs', async () => {
+    const recordPollAttempt = vi.fn().mockResolvedValue(undefined);
+    const now = () => new Date('2026-05-25T12:00:00.000Z');
+    const deps = mkDeps({
+      listInflight: vi.fn().mockResolvedValue([
+        {
+          id: 'jp',
+          user_id: 'u',
+          project_id: 'p',
+          scene_id: 's1',
+          character_id: null,
+          kind: 'video',
+          model: 'm',
+          fal_request_id: 'req-p',
+          status: 'pending',
+          request_input: {},
+          created_at: '2026-05-25T11:59:00.000Z',
+          poll_count: 2,
+        },
+      ]),
+      provider: mkProvider({
+        status: { status: 'running' },
+      }) as unknown as PollDeps['provider'],
+      recordPollAttempt,
+      now,
+    });
+
+    await runPollTick({ project_id: 'p', user_id: 'u' }, deps);
+
+    expect(recordPollAttempt).toHaveBeenCalledWith({
+      job: expect.objectContaining({ id: 'jp' }),
+      status: 'running',
+      polled_at: '2026-05-25T12:00:00.000Z',
+    });
+    expect(deps.finalizeError).not.toHaveBeenCalled();
+  });
+
+  it('marks pending jobs as stuck_in_queue after the per-kind threshold', async () => {
+    const deps = mkDeps({
+      listInflight: vi.fn().mockResolvedValue([
+        {
+          id: 'j-stuck',
+          user_id: 'u',
+          project_id: 'p',
+          scene_id: null,
+          character_id: 'c1',
+          kind: 'character_dossier',
+          model: 'm',
+          fal_request_id: 'req-stuck',
+          status: 'pending',
+          request_input: {},
+          created_at: '2026-05-25T11:56:59.000Z',
+        },
+      ]),
+      provider: mkProvider({
+        status: { status: 'pending' },
+      }) as unknown as PollDeps['provider'],
+      recordPollAttempt: vi.fn().mockResolvedValue(undefined),
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    await runPollTick({ project_id: 'p', user_id: 'u' }, deps);
+
+    expect(deps.finalizeError).toHaveBeenCalledWith({
+      job: expect.objectContaining({ id: 'j-stuck' }),
+      error_code: 'stuck_in_queue',
+    });
+  });
+
+  it('still applies stale detection when heartbeat write fails', async () => {
+    const warn = vi.fn();
+    const deps = mkDeps({
+      listInflight: vi.fn().mockResolvedValue([
+        {
+          id: 'j-heartbeat-fail',
+          user_id: 'u',
+          project_id: 'p',
+          scene_id: null,
+          character_id: 'c1',
+          kind: 'character_dossier',
+          model: 'm',
+          fal_request_id: 'req-heartbeat-fail',
+          status: 'pending',
+          request_input: {},
+          created_at: '2026-05-25T11:56:59.000Z',
+        },
+      ]),
+      provider: mkProvider({
+        status: { status: 'pending' },
+      }) as unknown as PollDeps['provider'],
+      recordPollAttempt: vi.fn().mockRejectedValue(new Error('db write failed')),
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+      warn,
+    });
+
+    await runPollTick({ project_id: 'p', user_id: 'u' }, deps);
+
+    expect(warn).toHaveBeenCalledWith(
+      '[poll-orchestrator] heartbeat write failed; continuing to stale eval',
+      expect.objectContaining({ job_id: 'j-heartbeat-fail', error: 'db write failed' }),
+    );
+    expect(deps.finalizeError).toHaveBeenCalledWith({
+      job: expect.objectContaining({ id: 'j-heartbeat-fail' }),
+      error_code: 'stuck_in_queue',
+    });
+  });
+
+  it('does not mark running jobs stale even when old', async () => {
+    const deps = mkDeps({
+      listInflight: vi.fn().mockResolvedValue([
+        {
+          id: 'j-running',
+          user_id: 'u',
+          project_id: 'p',
+          scene_id: 's1',
+          character_id: null,
+          kind: 'video',
+          model: 'm',
+          fal_request_id: 'req-running',
+          status: 'running',
+          request_input: {},
+          created_at: '2026-05-25T11:00:00.000Z',
+        },
+      ]),
+      provider: mkProvider({
+        status: { status: 'running' },
+      }) as unknown as PollDeps['provider'],
+      recordPollAttempt: vi.fn().mockResolvedValue(undefined),
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+    });
+
+    await runPollTick({ project_id: 'p', user_id: 'u' }, deps);
+
+    expect(deps.finalizeError).not.toHaveBeenCalled();
+  });
+
+  it('continues polling remaining jobs when one job throws', async () => {
+    const warn = vi.fn();
+    const provider = mkProvider() as unknown as PollDeps['provider'] & {
+      getJobStatus: ReturnType<typeof vi.fn>;
+    };
+    provider.getJobStatus
+      .mockRejectedValueOnce(new Error('fal unavailable'))
+      .mockResolvedValueOnce({ status: 'error', error_code: 'fal_failed' });
+    const deps = mkDeps({
+      listInflight: vi.fn().mockResolvedValue([
+        {
+          id: 'j-bad',
+          user_id: 'u',
+          project_id: 'p',
+          scene_id: 's1',
+          character_id: null,
+          kind: 'video',
+          model: 'm',
+          fal_request_id: 'req-bad',
+          status: 'pending',
+          request_input: {},
+        },
+        {
+          id: 'j-good',
+          user_id: 'u',
+          project_id: 'p',
+          scene_id: 's2',
+          character_id: null,
+          kind: 'video',
+          model: 'm',
+          fal_request_id: 'req-good',
+          status: 'pending',
+          request_input: {},
+        },
+      ]),
+      provider,
+      warn,
+    });
+
+    await runPollTick({ project_id: 'p', user_id: 'u' }, deps);
+
+    expect(warn).toHaveBeenCalledWith(
+      '[poll-orchestrator] job poll failed',
+      expect.objectContaining({ job_id: 'j-bad', error: 'fal unavailable' }),
+    );
+    expect(deps.finalizeError).toHaveBeenCalledWith({
+      job: expect.objectContaining({ id: 'j-good' }),
+      error_code: 'fal_failed',
+    });
+  });
+
+  it('bumps poll_error_count for transient status-check exceptions', async () => {
+    const recordPollError = vi.fn().mockResolvedValue(undefined);
+    const deps = mkDeps({
+      listInflight: vi.fn().mockResolvedValue([
+        {
+          id: 'j-transient',
+          user_id: 'u',
+          project_id: 'p',
+          scene_id: 's1',
+          character_id: null,
+          kind: 'video',
+          model: 'm',
+          fal_request_id: 'req-transient',
+          status: 'pending',
+          request_input: {},
+          poll_error_count: 2,
+        },
+      ]),
+      provider: {
+        ...mkProvider(),
+        getJobStatus: vi.fn().mockRejectedValue(new Error('fal_status_missing')),
+      } as unknown as PollDeps['provider'],
+      recordPollError,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+      warn: vi.fn(),
+    });
+
+    await runPollTick({ project_id: 'p', user_id: 'u' }, deps);
+
+    expect(recordPollError).toHaveBeenCalledWith({
+      job: expect.objectContaining({ id: 'j-transient' }),
+      poll_error_count: 3,
+      last_poll_error_at: '2026-05-25T12:00:00.000Z',
+      error_message: 'fal_status_missing',
+    });
+    expect(deps.finalizeError).not.toHaveBeenCalled();
+  });
+
+  it('marks jobs poll_unrecoverable after five consecutive status-check exceptions', async () => {
+    const markPollUnrecoverable = vi.fn().mockResolvedValue(undefined);
+    const deps = mkDeps({
+      listInflight: vi.fn().mockResolvedValue([
+        {
+          id: 'j-unrecoverable',
+          user_id: 'u',
+          project_id: 'p',
+          scene_id: 's1',
+          character_id: null,
+          kind: 'video',
+          model: 'm',
+          fal_request_id: 'req-unrecoverable',
+          status: 'pending',
+          request_input: {},
+          poll_error_count: 4,
+        },
+      ]),
+      provider: {
+        ...mkProvider(),
+        getJobStatus: vi.fn().mockRejectedValue(new Error('permanent poll failure')),
+      } as unknown as PollDeps['provider'],
+      markPollUnrecoverable,
+      now: () => new Date('2026-05-25T12:00:00.000Z'),
+      warn: vi.fn(),
+    });
+
+    await runPollTick({ project_id: 'p', user_id: 'u' }, deps);
+
+    expect(markPollUnrecoverable).toHaveBeenCalledWith({
+      job: expect.objectContaining({ id: 'j-unrecoverable' }),
+      poll_error_count: 5,
+      last_poll_error_at: '2026-05-25T12:00:00.000Z',
+      error_message: 'permanent poll failure',
+    });
+  });
 });

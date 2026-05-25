@@ -1,6 +1,7 @@
 import { fal } from '@fal-ai/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FalMediaProvider } from './FalMediaProvider';
+import type { MediaProviderError } from './errors';
 
 vi.mock('@fal-ai/client', () => ({
   fal: {
@@ -182,11 +183,58 @@ describe('FalMediaProvider.submitMasterConcat', () => {
 });
 
 describe('FalMediaProvider.getJobStatus / getJobResult', () => {
-  it('maps fal status into typed status', async () => {
-    queue.status.mockResolvedValueOnce({ status: 'IN_QUEUE' });
+  it.each([
+    ['IN_QUEUE', 'pending', undefined],
+    ['IN_PROGRESS', 'running', undefined],
+    ['COMPLETED', 'completed', undefined],
+    ['FAILED', 'error', 'fal_failed'],
+  ] as const)('maps fal status %s into typed status %s', async (raw, status, error_code) => {
+    queue.status.mockResolvedValueOnce({ status: raw });
     const provider = new FalMediaProvider({ apiKey: 'k' });
     const s = await provider.getJobStatus('req-1', 'm');
-    expect(s.status).toBe('pending');
+    expect(s).toEqual(error_code ? { status, error_code } : { status });
+  });
+
+  it('treats unknown fal status as terminal error and logs raw status', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    queue.status.mockResolvedValueOnce({ status: 'CANCELED' });
+    const provider = new FalMediaProvider({ apiKey: 'k' });
+
+    const s = await provider.getJobStatus('req-cancelled', 'xai/grok-imagine-video/image-to-video');
+
+    expect(s).toEqual({
+      status: 'error',
+      error_code: 'unknown_fal_status:CANCELED',
+    });
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[fal] unknown queue status',
+      expect.objectContaining({
+        model: 'xai/grok-imagine-video/image-to-video',
+        request_id: 'req-cancelled',
+        raw_status: 'CANCELED',
+        error_code: 'unknown_fal_status:CANCELED',
+      }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('treats missing fal status as transient provider error', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    queue.status.mockResolvedValueOnce({});
+    const provider = new FalMediaProvider({ apiKey: 'k' });
+
+    await expect(provider.getJobStatus('req-missing', 'm')).rejects.toMatchObject({
+      code: 'fal_status_missing',
+    } satisfies Partial<MediaProviderError>);
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[fal] missing queue status - transient',
+      expect.objectContaining({
+        model: 'm',
+        request_id: 'req-missing',
+        raw_status: null,
+      }),
+    );
+    warnSpy.mockRestore();
   });
 
   it('returns primary_url and last_frame_url when present', async () => {
