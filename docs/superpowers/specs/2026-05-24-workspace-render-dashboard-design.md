@@ -237,6 +237,19 @@ const sceneJobs = allInflightJobs.filter(
 
 `characterJobs` is mapped to `CharacterJobSummary[]` (a narrower subset). `sceneJobs` is **already `MediaJobUiRow[]`** because the SELECT only requests those columns — no further narrowing needed before passing to `<Workspace initialJobs={sceneJobs}>`.
 
+### 6.1 Known gap — realtime payload still leaks internal columns (deferred to follow-up PR)
+
+The narrow projection above covers the RSC fetch path. The Supabase Realtime path (`subscribeMediaJobs` in `apps/web/src/lib/realtime-publication.ts`) **still delivers the full `media_jobs` row** over the WebSocket frame, including `request_input`, `fal_request_id`, `model`, `result_storage`, `cost_usd`, `latency_ms`, and `metadata`. JS state in `ScriptStateProvider` is properly narrowed via `pickJobUiFields` after WS receipt, but the bytes themselves are observable in browser DevTools.
+
+RLS guarantees this is a **same-user leak only** — the row belongs to the viewing user, no cross-user data is exposed. The practical concern is that a user could read their own internal unit-economics (`cost_usd` per kind/model) by inspecting WS frames, which slightly conflicts with the §6 claim that internal columns stay server-side.
+
+Fix is architectural and out of PR1 scope. Tracked for follow-up PR4:
+- **Option A**: server-side trigger publishes to a Supabase Realtime Broadcast channel with only UI fields.
+- **Option B**: a `media_job_ui_events` table populated by trigger from `media_jobs`, containing only the `MediaJobUiRow` columns, with its own RLS + replication.
+- **Option C**: drop the payload entirely — realtime fires as a "something changed" ping, client re-fetches the narrow projection via existing `pollMediaJobsAction`. ~50ms latency increase.
+
+Original Codex audit on 2026-05-25 (PR #56) flagged this as BLOCKER; downgraded after RLS-scoping clarification.
+
 **Narrow type for client state:**
 
 ```ts
