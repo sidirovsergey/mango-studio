@@ -16,6 +16,7 @@ import { setSceneTierAction } from '@/server/actions/setSceneTierAction';
 import { toggleSceneContinuityAction } from '@/server/actions/toggleSceneContinuityAction';
 import { uploadSceneAssetAction } from '@/server/actions/uploadSceneAssetAction';
 import { type Character, getActiveVideoModels, getVideoModelMeta } from '@mango/core';
+import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { PromptEditorModal } from './PromptEditorModal';
 import { IconClapper, IconFrame, IconNote, IconPencil, IconPlay, IconRefresh } from './icons';
@@ -553,12 +554,28 @@ function ModelControl({
   const [pending, startT] = useTransition();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const { script, setScript } = useScriptState();
+  const router = useRouter();
+  // Local-only optimistic state for the dropdown label. We intentionally do
+  // NOT mutate provider script here — the T4 prop-sync useEffect would wipe
+  // any optimistic provider mutation as soon as a stale router.refresh fires
+  // (Codex audit finding 2026-05-25). The server action is the only writer
+  // of the canonical scene.config_overrides; we just trigger router.refresh
+  // on success and clear pendingModel once the snapshot catches up via the
+  // effect below.
+  const [pendingModel, setPendingModel] = useState<string | null>(null);
+  const effectiveModel = pendingModel ?? currentModel;
 
   const models = getActiveVideoModels(tier);
-  const currentLabel = currentModel
-    ? (MODEL_LABEL[currentModel] ?? currentModel.split('/').pop())
+  const currentLabel = effectiveModel
+    ? (MODEL_LABEL[effectiveModel] ?? effectiveModel.split('/').pop())
     : 'авто';
+
+  // Clear the local override once the server snapshot reflects our choice.
+  useEffect(() => {
+    if (pendingModel && currentModel === pendingModel) {
+      setPendingModel(null);
+    }
+  }, [currentModel, pendingModel]);
 
   useEffect(() => {
     if (!open) return;
@@ -578,29 +595,18 @@ function ModelControl({
 
   const handleSelect = (model: string) => {
     setOpen(false);
-    // Optimistic update — the poll loop only runs every 5s, so without this
-    // the user could click "Generate" before the new model is reflected in
-    // client state. generateSceneVideoAction reads from DB so the server
-    // is consistent, but client UX would lag. We mutate the script in-place
-    // so the dropdown label updates immediately AND scene.config_overrides
-    // is fresh when the next action fires.
-    if (script) {
-      setScript({
-        ...script,
-        scenes: script.scenes.map((s) =>
-          s.scene_id === sceneId
-            ? { ...s, config_overrides: { ...(s.config_overrides ?? {}), model } }
-            : s,
-        ),
-      });
-    }
+    setPendingModel(model);
     startT(async () => {
       const r = await setSceneModelAction({ project_id: projectId, scene_id: sceneId, model });
       if (!r.ok && 'error' in r && r.error) {
         onError(r.error);
-        // Revert optimistic update on failure
-        if (script) setScript(script);
+        setPendingModel(null);
+        return;
       }
+      // Ask Next to re-fetch page.tsx so scene.config_overrides arrives.
+      // The effect above will clear pendingModel once it lands. Until then
+      // the local override keeps the dropdown stable.
+      router.refresh();
     });
   };
 
