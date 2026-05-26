@@ -458,33 +458,36 @@ export async function pollMediaJobsAction(input: { project_id: string }): Promis
           }
         }
 
-        await sb
-          .from('projects')
-          .update({ script: nextScript as never })
-          .eq('id', job.project_id);
-
-        const { data: completedRows, error: completedErr } = await sb
-          .from('media_jobs')
-          .update({
-            status: 'completed',
-            cost_usd,
-            latency_ms,
-            result_storage: stored as never,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', job.id)
-          .in('status', ['pending', 'running'])
-          .select('id');
-        if (completedErr) throw new Error(completedErr.message);
-        if ((completedRows?.length ?? 0) === 0) {
+        // Atomic finalize: media_jobs claim + projects.script publish in one
+        // transaction via fn_atomic_finalize_job. Closes the race where a
+        // concurrent terminal transition could leave a published asset on a
+        // cancelled/errored job. Returns FALSE when the job is no longer in
+        // pending/running — in that case we MUST NOT have published the script
+        // (the RPC didn't), so we just log and skip the downstream mirror.
+        const rpcFinalize = sb.rpc.bind(sb) as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: boolean | null; error: { message: string } | null }>;
+        const finalizeRes = await rpcFinalize('fn_atomic_finalize_job', {
+          _job_id: job.id,
+          _new_script: nextScript,
+          _cost_usd: cost_usd,
+          _latency_ms: latency_ms,
+          _result_storage: stored,
+        });
+        if (finalizeRes.error) {
+          throw new Error(finalizeRes.error.message);
+        }
+        if (finalizeRes.data === false) {
           console.debug(
-            '[pollMediaJobs] skipped terminal completed update for already-terminal job',
+            '[pollMediaJobs] skipped finalize for already-terminal job (race lost)',
             {
               job_id: job.id,
               project_id: job.project_id,
               kind: job.kind,
             },
           );
+          return undefined;
         }
 
         // Audio chain advancement (Phase 1.4.1) retired 2026-05-13.
