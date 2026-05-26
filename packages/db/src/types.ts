@@ -110,7 +110,11 @@ export type Database = {
           id: string;
           kind: string;
           latency_ms: number | null;
+          last_poll_error_at: string | null;
+          last_polled_at: string | null;
           model: string;
+          poll_error_count: number;
+          poll_count: number;
           project_id: string;
           request_input: Json | null;
           result_storage: Json | null;
@@ -130,7 +134,11 @@ export type Database = {
           id?: string;
           kind: string;
           latency_ms?: number | null;
+          last_poll_error_at?: string | null;
+          last_polled_at?: string | null;
           model: string;
+          poll_error_count?: number;
+          poll_count?: number;
           project_id: string;
           request_input?: Json | null;
           result_storage?: Json | null;
@@ -150,7 +158,11 @@ export type Database = {
           id?: string;
           kind?: string;
           latency_ms?: number | null;
+          last_poll_error_at?: string | null;
+          last_polled_at?: string | null;
           model?: string;
+          poll_error_count?: number;
+          poll_count?: number;
           project_id?: string;
           request_input?: Json | null;
           result_storage?: Json | null;

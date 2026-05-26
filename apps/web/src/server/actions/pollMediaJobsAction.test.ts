@@ -75,6 +75,133 @@ describe('pollMediaJobsAction', () => {
     );
   });
 
+  it('recordPollAttempt bumps poll metadata for active jobs', async () => {
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      id: 'u1',
+    });
+    const projectQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          user_id: 'u1',
+          script: { scenes: [], characters: [], title: 't', master_clip: null },
+        },
+        error: null,
+      }),
+    };
+    const mediaJobsUpdate = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockResolvedValue({ error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn((table: string) => (table === 'projects' ? projectQuery : mediaJobsUpdate)),
+    });
+
+    let captured: Parameters<typeof runPollTick>[1] | undefined;
+    (runPollTick as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      async (_ctx, deps) => {
+        captured = deps;
+      },
+    );
+
+    const result = await pollMediaJobsAction({ project_id: 'p1' });
+    expect(result.ok).toBe(true);
+    expect(captured).toBeDefined();
+
+    await captured!.recordPollAttempt?.({
+      job: {
+        id: 'job-polled',
+        user_id: 'u1',
+        project_id: 'p1',
+        scene_id: 's1',
+        character_id: null,
+        kind: 'video',
+        model: 'm',
+        fal_request_id: 'req',
+        status: 'pending',
+        request_input: {},
+        poll_count: 4,
+      },
+      status: 'running',
+      polled_at: '2026-05-25T12:00:00.000Z',
+    });
+
+    expect(mediaJobsUpdate.update).toHaveBeenCalledWith({
+      status: 'running',
+      poll_count: 5,
+      last_polled_at: '2026-05-25T12:00:00.000Z',
+      poll_error_count: 0,
+      last_poll_error_at: null,
+      updated_at: '2026-05-25T12:00:00.000Z',
+    });
+    expect(mediaJobsUpdate.eq).toHaveBeenCalledWith('id', 'job-polled');
+    expect(mediaJobsUpdate.in).toHaveBeenCalledWith('status', ['pending', 'running']);
+  });
+
+  it('finalizeError skips already-terminal rows without throwing', async () => {
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      id: 'u1',
+    });
+    const projectQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          user_id: 'u1',
+          script: { scenes: [], characters: [], title: 't', master_clip: null },
+        },
+        error: null,
+      }),
+    };
+    const mediaJobsUpdate = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      select: vi.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn((table: string) => (table === 'projects' ? projectQuery : mediaJobsUpdate)),
+    });
+
+    let captured: Parameters<typeof runPollTick>[1] | undefined;
+    (runPollTick as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      async (_ctx, deps) => {
+        captured = deps;
+      },
+    );
+
+    const result = await pollMediaJobsAction({ project_id: 'p1' });
+    expect(result.ok).toBe(true);
+    expect(captured).toBeDefined();
+
+    await expect(
+      captured!.finalizeError({
+        job: {
+          id: 'job-terminal',
+          user_id: 'u1',
+          project_id: 'p1',
+          scene_id: 's1',
+          character_id: null,
+          kind: 'video',
+          model: 'm',
+          fal_request_id: 'req',
+          status: 'pending',
+          request_input: {},
+        },
+        error_code: 'stuck_in_queue',
+      }),
+    ).resolves.not.toThrow();
+    expect(mediaJobsUpdate.in).toHaveBeenCalledWith('status', ['pending', 'running']);
+    expect(debugSpy).toHaveBeenCalledWith(
+      '[pollMediaJobs] skipped terminal error update for already-terminal job',
+      expect.objectContaining({ job_id: 'job-terminal', error_code: 'stuck_in_queue' }),
+    );
+    debugSpy.mockRestore();
+  });
+
   it('finalizeCompleted appends a first_frame version + emits MirrorHint', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       id: 'u1',
@@ -128,9 +255,12 @@ describe('pollMediaJobsAction', () => {
     };
     const mediaJobsUpdate = {
       update: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockResolvedValue({ error: null }),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      select: vi.fn().mockResolvedValue({ data: [{ id: 'job-1' }], error: null }),
     };
     let projectsCall = 0;
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn((table: string) => {
         if (table === 'projects') {
@@ -141,6 +271,7 @@ describe('pollMediaJobsAction', () => {
         }
         return mediaJobsUpdate;
       }),
+      rpc,
       storage: { from: () => ({ remove: vi.fn() }) },
     });
 
@@ -178,12 +309,12 @@ describe('pollMediaJobsAction', () => {
     expect(hint?.scene_id).toBe('s1');
     expect(hint?.ext).toBe('png');
     expect(hint?.dropped_supabase_path).toBeUndefined();
-    expect(projectsUpdate.update).toHaveBeenCalled();
-    // Verify the updated script contains the new version
-    const updatePayload = projectsUpdate.update.mock.calls[0]?.[0];
-    expect(updatePayload?.script?.scenes[0]?.first_frame_versions?.length).toBe(1);
-    expect(updatePayload?.script?.scenes[0]?.first_frame_active_version_id).toBe(
-      updatePayload?.script?.scenes[0]?.first_frame_versions[0]?.version_id,
+    // Atomic RPC was called with the merged script as _new_script.
+    expect(rpc).toHaveBeenCalledWith('fn_atomic_finalize_job', expect.any(Object));
+    const rpcArgs = rpc.mock.calls[0]?.[1];
+    expect(rpcArgs?._new_script?.scenes[0]?.first_frame_versions?.length).toBe(1);
+    expect(rpcArgs?._new_script?.scenes[0]?.first_frame_active_version_id).toBe(
+      rpcArgs?._new_script?.scenes[0]?.first_frame_versions[0]?.version_id,
     );
   });
 
@@ -223,9 +354,12 @@ describe('pollMediaJobsAction', () => {
     };
     const mediaJobsUpdate = {
       update: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockResolvedValue({ error: null }),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      select: vi.fn().mockResolvedValue({ data: [{ id: 'job-last-frame' }], error: null }),
     };
     let projectsCall = 0;
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
     (getServerSupabase as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       from: vi.fn((table: string) => {
         if (table === 'projects') {
@@ -236,6 +370,7 @@ describe('pollMediaJobsAction', () => {
         }
         return mediaJobsUpdate;
       }),
+      rpc,
       storage: { from: () => ({ remove: vi.fn() }) },
     });
 
@@ -268,8 +403,8 @@ describe('pollMediaJobsAction', () => {
       latency_ms: 1000,
     });
 
-    const updatePayload = projectsUpdate.update.mock.calls[0]?.[0];
-    expect(updatePayload?.script?.scenes[0]?.last_frame).toEqual({
+    const rpcArgs = rpc.mock.calls[0]?.[1];
+    expect(rpcArgs?._new_script?.scenes[0]?.last_frame).toEqual({
       storage: { kind: 'fal_passthrough', url: 'https://cdn.fal.ai/last.png' },
       extracted_from_version_id: 'video-ver-source',
     });
@@ -336,10 +471,13 @@ function makeSbForFinalize(
   };
   const mediaJobsUpdate = {
     update: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockResolvedValue({ error: null }),
+    eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    select: vi.fn().mockResolvedValue({ data: [{ id: 'job-dossier-1' }], error: null }),
   };
 
   let projectsCall = 0;
+  const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
   const sb = {
     from: vi.fn((table: string) => {
       if (table === 'projects') {
@@ -350,10 +488,11 @@ function makeSbForFinalize(
       }
       return mediaJobsUpdate;
     }),
+    rpc,
     storage: { from: () => ({ remove: vi.fn() }) },
   };
 
-  return { sb, projectsUpdate, mediaJobsUpdate };
+  return { sb, projectsUpdate, mediaJobsUpdate, rpc };
 }
 
 /**
@@ -492,7 +631,7 @@ describe('pollMediaJobsAction — dossier→reference_image chain (F53)', () => 
       ],
     };
 
-    const { sb, mediaJobsUpdate } = makeSbForFinalize(script);
+    const { sb, rpc } = makeSbForFinalize(script);
     const captured = await captureFinalize(sb);
 
     (generateReferenceImageAction as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
@@ -512,8 +651,8 @@ describe('pollMediaJobsAction — dossier→reference_image chain (F53)', () => 
 
     await Promise.resolve();
 
-    // media_jobs update still happened (dossier IS saved)
-    expect(mediaJobsUpdate.update).toHaveBeenCalled();
+    // Atomic finalize RPC was called (dossier IS saved)
+    expect(rpc).toHaveBeenCalledWith('fn_atomic_finalize_job', expect.any(Object));
     // Failure was logged
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('post-dossier reference image dispatch failed'),
@@ -540,7 +679,7 @@ describe('pollMediaJobsAction — dossier→reference_image chain (F53)', () => 
       ],
     };
 
-    const { sb, mediaJobsUpdate } = makeSbForFinalize(script);
+    const { sb, rpc } = makeSbForFinalize(script);
     const captured = await captureFinalize(sb);
 
     (generateReferenceImageAction as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
@@ -561,8 +700,8 @@ describe('pollMediaJobsAction — dossier→reference_image chain (F53)', () => 
     await Promise.resolve();
     await Promise.resolve();
 
-    // media_jobs update still happened
-    expect(mediaJobsUpdate.update).toHaveBeenCalled();
+    // Atomic finalize RPC was called
+    expect(rpc).toHaveBeenCalledWith('fn_atomic_finalize_job', expect.any(Object));
     // Network error was caught and logged
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('post-dossier reference image dispatch threw'),

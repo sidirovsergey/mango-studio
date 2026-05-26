@@ -14,6 +14,8 @@ export function friendlyMediaError(code: MediaErrorCode, raw: string): string {
       return 'Генерация заняла слишком много времени. Попробуй ещё раз.';
     case 'budget_exceeded':
       return 'Превышен дневной бюджет на генерацию изображений.';
+    case 'fal_status_missing':
+      return 'Сервис генерации вернул неполный статус. Попробуй ещё раз.';
     case 'unknown':
       return `Неизвестная ошибка генерации: ${raw}`;
   }

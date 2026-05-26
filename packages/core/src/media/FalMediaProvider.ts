@@ -90,6 +90,11 @@ function extractCostUsd(resp: unknown): number | null {
   return null;
 }
 
+function unknownFalStatusCode(raw: unknown): string {
+  const value = typeof raw === 'string' && raw.trim() ? raw.trim() : 'missing';
+  return `unknown_fal_status:${value.replace(/\s+/g, '_').slice(0, 120)}`;
+}
+
 export class FalMediaProvider implements MediaProvider {
   constructor(private opts: FalMediaProviderOptions) {
     fal.config({ credentials: opts.apiKey });
@@ -266,13 +271,29 @@ export class FalMediaProvider implements MediaProvider {
   ): Promise<{ status: JobStatus; error_code?: string }> {
     try {
       const resp = await fal.queue.status(model, { requestId: fal_request_id });
-      const raw = (resp as { status?: string }).status ?? '';
+      const raw = (resp as { status?: unknown }).status;
+      if (typeof raw !== 'string' || raw.trim() === '') {
+        console.warn('[fal] missing queue status - transient', {
+          model,
+          request_id: fal_request_id,
+          raw_status: raw ?? null,
+        });
+        throw new MediaProviderError('fal_status_missing', `fal returned status=${raw ?? 'null'}`);
+      }
       if (raw === 'IN_QUEUE') return { status: 'pending' };
       if (raw === 'IN_PROGRESS') return { status: 'running' };
       if (raw === 'COMPLETED') return { status: 'completed' };
       if (raw === 'FAILED') return { status: 'error', error_code: 'fal_failed' };
-      return { status: 'pending' };
+      const error_code = unknownFalStatusCode(raw);
+      console.warn('[fal] unknown queue status', {
+        model,
+        request_id: fal_request_id,
+        raw_status: raw ?? null,
+        error_code,
+      });
+      return { status: 'error', error_code };
     } catch (raw) {
+      if (raw instanceof MediaProviderError) throw raw;
       throw new MediaProviderError(classifyMediaError(raw), String((raw as Error)?.message ?? raw));
     }
   }
