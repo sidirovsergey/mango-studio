@@ -47,6 +47,11 @@ const MODEL_COST_FALLBACK_USD: Record<string, number> = {
   'fal-ai/nano-banana-pro/edit': 0.06,
   'fal-ai/bytedance/seedance/v1/lite/image-to-video': 0.18,
   'fal-ai/bytedance/seedance-2.0/image-to-video': 0.4,
+  // Active short-id alias — VIDEO_MODELS in video-models.ts uses the namespace
+  // without the `fal-ai/` prefix per fal's docs. Both ids resolve to the same
+  // endpoint on submit; keep both fallback rows in sync to avoid estimateCostUsd
+  // dropping to the generic $0.25 video bucket.
+  'bytedance/seedance-2.0/image-to-video': 0.4,
   'fal-ai/veo3.1/image-to-video': 0.5,
   'fal-ai/kling-video/v2.5-turbo/pro/image-to-video': 0.35,
   // Grok Imagine Video — 480p $0.05/s + $0.002 image input; 720p $0.07/s + $0.002.

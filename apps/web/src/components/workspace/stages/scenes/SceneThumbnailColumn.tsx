@@ -182,25 +182,35 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
   // "обычно 30–90 сек" lie. After PR-A's stale-detection the server flips
   // truly-stuck jobs to error after ~10 min for video / 5 min for other
   // kinds — UI shows real elapsed up until that point.
+  const createdMs = activeJob?.created_at ? new Date(activeJob.created_at).getTime() : Number.NaN;
+  const hasValidCreatedAt = Number.isFinite(createdMs);
   const [nowTick, setNowTick] = useState(() => Date.now());
   useEffect(() => {
-    if (!isActiveJob || !activeJob?.created_at) return;
+    if (!isActiveJob || !hasValidCreatedAt) return;
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [isActiveJob, activeJob?.created_at]);
+  }, [isActiveJob, hasValidCreatedAt]);
 
   const elapsedSec =
-    isActiveJob && activeJob?.created_at
-      ? Math.max(0, Math.floor((nowTick - new Date(activeJob.created_at).getTime()) / 1000))
-      : 0;
-  const elapsedLabel =
-    elapsedSec < 60
+    isActiveJob && hasValidCreatedAt ? Math.max(0, Math.floor((nowTick - createdMs) / 1000)) : 0;
+  const showElapsed = isActiveJob && hasValidCreatedAt;
+  const elapsedLabel = !showElapsed
+    ? 'генерация…'
+    : elapsedSec < 60
       ? `${elapsedSec}с`
       : `${Math.floor(elapsedSec / 60)}м ${String(elapsedSec % 60).padStart(2, '0')}с`;
   // Soft amber warning crosses in at 2 minutes — well above typical 30–90 sec
   // success window, before the server's 5/10-minute stale snap.
-  const slowWarning = elapsedSec >= 120;
-  const verySlowWarning = elapsedSec >= 300;
+  const slowWarning = showElapsed && elapsedSec >= 120;
+  const verySlowWarning = showElapsed && elapsedSec >= 300;
+  // Screen-reader announcement only on state transition (normal → slow → very
+  // slow), NOT on every second tick — aria-live on the elapsed text itself
+  // would spam every second. Empty string while normal so SR stays quiet.
+  const slowAnnouncement = verySlowWarning
+    ? 'Модель не отвечает дольше пяти минут — можно отменить.'
+    : slowWarning
+      ? 'Модель отвечает медленнее обычного.'
+      : '';
 
   return (
     <div className="thumb-col">
@@ -231,12 +241,17 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
             <div className="thumb-loading-core">
               <div className="spinner" />
               <span className="thumb-loading-label">{activeJobLabel ?? 'генерация'}</span>
-              <span className="thumb-loading-sub" aria-live="polite">
+              <span className="thumb-loading-sub">
                 {verySlowWarning
                   ? `${elapsedLabel} · модель не отвечает, можно отменить`
                   : slowWarning
                     ? `${elapsedLabel} · модель долго отвечает`
                     : elapsedLabel}
+              </span>
+              {/* SR-only live region — fires once per state transition, not
+                  per second. Empty string in the normal state keeps SRs silent. */}
+              <span className="sr-only" role="status" aria-live="polite">
+                {slowAnnouncement}
               </span>
             </div>
           </div>
