@@ -87,14 +87,21 @@ const VIDEO_MODEL_LIST: readonly VideoModelMeta[] = [
 ];
 
 // Active model sets — only native-audio engines after 2026-05-13.
-//   Economy = Grok only (one Kalashnikov choice).
-//   Premium = Seedance 2.0 default + Veo 3.1 alt + Grok 720p alt.
-// The action layer picks Grok resolution (480p / 720p) by tier; the model id
-// itself is shared across tiers.
+//
+// Economy default swapped from Grok to Seedance 2.0 on 2026-05-26 after the
+// e942fd19 production incident. xAI Grok via fal-partner had a 24% success
+// rate over 21 prod video jobs (5 completed / 16 stuck IN_QUEUE forever).
+// Pattern looked like fal accepting a submit + returning fal_request_id but
+// xAI processing only ~1 concurrent job per session — successive submits
+// queued forever. Seedance 2.0 has native audio AND demonstrated reliability
+// from its premium-tier production track record. Grok stays available as an
+// economy alternative for users who want to retry it; PR-A's stale-detection
+// now snaps stuck Grok jobs to error after 10 min instead of hanging the UI
+// forever, so the alternative is safe to expose.
 export const VIDEO_MODELS = {
   economy: {
-    default: 'xai/grok-imagine-video/image-to-video',
-    alternatives: [] as readonly string[],
+    default: 'bytedance/seedance-2.0/image-to-video',
+    alternatives: ['xai/grok-imagine-video/image-to-video'] as readonly string[],
   },
   premium: {
     default: 'bytedance/seedance-2.0/image-to-video',

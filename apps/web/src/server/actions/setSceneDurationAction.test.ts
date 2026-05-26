@@ -44,7 +44,10 @@ const makeProject = () => ({
 });
 
 describe('setSceneDurationAction', () => {
-  it('clamps duration 7 → 5 for economy default model (seedance lite: [5, 10])', async () => {
+  it('clamps duration 15 → 12 for economy default (seedance 2.0: [4..12])', async () => {
+    // 2026-05-26: economy default is now Seedance 2.0 (was Grok), which
+    // supports durations [4,5,6,7,8,9,10,12]. 15 is above the max → clamps
+    // to 12 (the nearest supported value).
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
 
     const project = makeProject();
@@ -64,24 +67,24 @@ describe('setSceneDurationAction', () => {
     const result = await setSceneDurationAction({
       project_id: PROJECT_ID,
       scene_id: 's1',
-      duration_sec: 7, // not in [5, 10] — should clamp to 5 (nearest)
+      duration_sec: 15, // above max 12 → clamps to 12
     });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.clamped_to).toBe(5);
+      expect(result.clamped_to).toBe(12);
     }
 
     expect(updateFn).toHaveBeenCalledWith(
       expect.objectContaining({
         script: expect.objectContaining({
-          scenes: expect.arrayContaining([expect.objectContaining({ duration_sec: 5 })]),
+          scenes: expect.arrayContaining([expect.objectContaining({ duration_sec: 12 })]),
         }),
       }),
     );
   });
 
-  it('passes through duration 10 unchanged (in [5, 10] for seedance lite)', async () => {
+  it('passes through duration 10 unchanged (in [4..12] for seedance 2.0)', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
 
     const project = makeProject();

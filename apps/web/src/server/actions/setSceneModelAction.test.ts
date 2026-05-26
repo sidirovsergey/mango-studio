@@ -70,7 +70,7 @@ const makeSupabase = (project: ReturnType<typeof makeProject>) => {
 };
 
 describe('setSceneModelAction', () => {
-  it('rejects premium model on economy project', async () => {
+  it('rejects premium-only model on economy project', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
 
     const sb = makeSupabase(makeProject('economy'));
@@ -79,7 +79,9 @@ describe('setSceneModelAction', () => {
     const result = await setSceneModelAction({
       project_id: PROJECT_ID,
       scene_id: 's1',
-      model: 'bytedance/seedance-2.0/image-to-video', // premium model
+      // Veo 3.1 remains premium-only after the 2026-05-26 economy default
+      // swap (Seedance 2.0 is now in both tiers).
+      model: 'fal-ai/veo3.1/image-to-video',
     });
 
     expect(result.ok).toBe(false);

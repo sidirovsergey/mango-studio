@@ -50,14 +50,16 @@ describe('setSceneTierAction', () => {
 
   it('reverts invalid model when tier change makes it inactive', async () => {
     (getCurrentUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 'u1' });
-    // bytedance/seedance-2.0/image-to-video is premium-only.
+    // 2026-05-26: Seedance 2.0 is now valid in BOTH tiers. Veo 3.1 remains
+    // premium-only, so use it as the model that gets reverted on tier
+    // downgrade.
     const script = {
       scenes: [
         {
           scene_id: 's1',
           config_overrides: {
             tier: 'premium',
-            model: 'bytedance/seedance-2.0/image-to-video',
+            model: 'fal-ai/veo3.1/image-to-video',
           },
         },
       ],
@@ -71,7 +73,7 @@ describe('setSceneTierAction', () => {
       tier: 'economy',
     });
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.reverted_model).toBe('bytedance/seedance-2.0/image-to-video');
+    if (r.ok) expect(r.reverted_model).toBe('fal-ai/veo3.1/image-to-video');
     const payload = update.mock.calls[0]?.[0];
     expect(payload?.script?.scenes[0]?.config_overrides?.model).toBeUndefined();
     expect(payload?.script?.scenes[0]?.config_overrides?.tier).toBe('economy');
