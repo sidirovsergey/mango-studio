@@ -1,7 +1,6 @@
 'use client';
 
 import type { MediaJobUiRow, SceneView } from '@/components/workspace/ScriptStateProvider';
-import { cancelMediaJobAction } from '@/server/actions/cancelMediaJobAction';
 import { rollbackVersionAction } from '@/server/actions/rollbackVersionAction';
 import { setActiveVersionAction } from '@/server/actions/setActiveVersionAction';
 import type { SceneAssetVersion, StoredAsset } from '@mango/core';
@@ -95,13 +94,6 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
       });
       if (!r.ok) setError(r.error);
       else setError(null);
-    });
-  };
-
-  const handleCancel = () => {
-    if (!activeJob) return;
-    startTransition(async () => {
-      await cancelMediaJobAction({ job_id: activeJob.id });
     });
   };
 
@@ -207,7 +199,7 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
   // slow), NOT on every second tick — aria-live on the elapsed text itself
   // would spam every second. Empty string while normal so SR stays quiet.
   const slowAnnouncement = verySlowWarning
-    ? 'Модель не отвечает дольше пяти минут — можно отменить.'
+    ? 'Модель не отвечает дольше пяти минут — подожди ещё немного.'
     : slowWarning
       ? 'Модель отвечает медленнее обычного.'
       : '';
@@ -228,22 +220,12 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
               verySlowWarning ? ' thumb-loading-very-slow' : ''
             }`}
           >
-            <button
-              type="button"
-              className="thumb-cancel"
-              onClick={handleCancel}
-              disabled={pending}
-              aria-label="Отменить генерацию"
-              title="Отменить — если fal ещё не списал, баланс вернётся"
-            >
-              ✕
-            </button>
             <div className="thumb-loading-core">
               <div className="spinner" />
               <span className="thumb-loading-label">{activeJobLabel ?? 'генерация'}</span>
               <span className="thumb-loading-sub">
                 {verySlowWarning
-                  ? `${elapsedLabel} · модель не отвечает, можно отменить`
+                  ? `${elapsedLabel} · модель не отвечает, подожди ещё немного`
                   : slowWarning
                     ? `${elapsedLabel} · модель долго отвечает`
                     : elapsedLabel}
