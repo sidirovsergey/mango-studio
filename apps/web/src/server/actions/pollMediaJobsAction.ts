@@ -494,14 +494,11 @@ export async function pollMediaJobsAction(input: {
           throw new Error(finalizeRes.error.message);
         }
         if (finalizeRes.data === false) {
-          console.debug(
-            '[pollMediaJobs] skipped finalize for already-terminal job (race lost)',
-            {
-              job_id: job.id,
-              project_id: job.project_id,
-              kind: job.kind,
-            },
-          );
+          console.debug('[pollMediaJobs] skipped finalize for already-terminal job (race lost)', {
+            job_id: job.id,
+            project_id: job.project_id,
+            kind: job.kind,
+          });
           return undefined;
         }
 
