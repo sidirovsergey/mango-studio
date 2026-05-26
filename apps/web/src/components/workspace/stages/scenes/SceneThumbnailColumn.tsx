@@ -5,7 +5,7 @@ import { cancelMediaJobAction } from '@/server/actions/cancelMediaJobAction';
 import { rollbackVersionAction } from '@/server/actions/rollbackVersionAction';
 import { setActiveVersionAction } from '@/server/actions/setActiveVersionAction';
 import type { SceneAssetVersion, StoredAsset } from '@mango/core';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 
 type Mode = 'first_frame' | 'video' | 'final';
 
@@ -177,6 +177,31 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
 
   const doneBadge = !isActiveJob && scene.video_active_version_id !== null;
 
+  // Live elapsed timer for the in-flight job. Re-renders every second while
+  // a job is active so the user sees real progress, not a hardcoded
+  // "обычно 30–90 сек" lie. After PR-A's stale-detection the server flips
+  // truly-stuck jobs to error after ~10 min for video / 5 min for other
+  // kinds — UI shows real elapsed up until that point.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isActiveJob || !activeJob?.created_at) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isActiveJob, activeJob?.created_at]);
+
+  const elapsedSec =
+    isActiveJob && activeJob?.created_at
+      ? Math.max(0, Math.floor((nowTick - new Date(activeJob.created_at).getTime()) / 1000))
+      : 0;
+  const elapsedLabel =
+    elapsedSec < 60
+      ? `${elapsedSec}с`
+      : `${Math.floor(elapsedSec / 60)}м ${String(elapsedSec % 60).padStart(2, '0')}с`;
+  // Soft amber warning crosses in at 2 minutes — well above typical 30–90 sec
+  // success window, before the server's 5/10-minute stale snap.
+  const slowWarning = elapsedSec >= 120;
+  const verySlowWarning = elapsedSec >= 300;
+
   return (
     <div className="thumb-col">
       <div className="thumb">
@@ -188,7 +213,11 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
           the regular thumb-loading branch.
         */}
         {isActiveJob ? (
-          <div className="thumb-loading">
+          <div
+            className={`thumb-loading${slowWarning ? ' thumb-loading-slow' : ''}${
+              verySlowWarning ? ' thumb-loading-very-slow' : ''
+            }`}
+          >
             <button
               type="button"
               className="thumb-cancel"
@@ -202,7 +231,13 @@ export function SceneThumbnailColumn({ projectId, scene, activeJob, failedAudioJ
             <div className="thumb-loading-core">
               <div className="spinner" />
               <span className="thumb-loading-label">{activeJobLabel ?? 'генерация'}</span>
-              <span className="thumb-loading-sub">обычно 30–90 сек</span>
+              <span className="thumb-loading-sub" aria-live="polite">
+                {verySlowWarning
+                  ? `${elapsedLabel} · модель не отвечает, можно отменить`
+                  : slowWarning
+                    ? `${elapsedLabel} · модель долго отвечает`
+                    : elapsedLabel}
+              </span>
             </div>
           </div>
         ) : (
