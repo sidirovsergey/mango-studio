@@ -280,7 +280,8 @@
   .storyboard-scene-card,
   .sticky-cta-bar,
   .loading-view-eyebrow,
-  .scene-frame-placeholder {
+  .scene-frame-placeholder,
+  .scene-frame-placeholder-icon {
     animation: none !important;
     opacity: 1;
     transform: none;
@@ -384,35 +385,62 @@
   display: block;
 }
 
-/* Placeholder shimmer — silent cream→white wave (NOT a spinner). */
+/* Placeholder — honest "frame is being prepared" tile.
+ * Previously this was a near-invisible cream-on-cream shimmer that visually
+ * read as "empty slot" rather than "frame coming". Now: clear icon, two
+ * lines of text, contrasted bg, gentle shimmer on top so it still feels
+ * alive but doesn't camouflage into the page. */
 .scene-frame-placeholder {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(
-    100deg,
-    var(--storyboard-paper-warm) 0%,
-    var(--storyboard-paper-deep) 35%,
-    var(--storyboard-paper-warm) 70%
-  );
-  background-size: 250% 100%;
-  animation: shimmer 2.8s ease-in-out infinite;
-  color: var(--storyboard-ink-muted);
+  gap: 10px;
+  padding: 16px;
+  /* Diagonal cream stripes so the slot is unambiguously a placeholder, not
+   * background bleed. Stripes are subtle enough to coexist with the real
+   * image when it lands (img sits on top via z-index from overflow). */
+  background:
+    repeating-linear-gradient(
+      135deg,
+      var(--storyboard-paper-deep) 0,
+      var(--storyboard-paper-deep) 14px,
+      #e6d5b1 14px,
+      #e6d5b1 28px
+    );
+  color: var(--storyboard-ink-soft);
   font-family: var(--storyboard-mono);
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  text-align: center;
+  box-shadow: inset 0 0 0 1px rgba(184, 135, 70, 0.25);
 }
 
-@keyframes shimmer {
-  0% {
-    background-position: 180% 0;
-  }
-  100% {
-    background-position: -80% 0;
-  }
+.scene-frame-placeholder-icon {
+  color: var(--storyboard-gold);
+  opacity: 0.85;
+  animation: placeholder-breathe 2.6s ease-in-out infinite;
+}
+
+.scene-frame-placeholder-text {
+  font-size: 12px;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--storyboard-ink);
+}
+
+.scene-frame-placeholder-hint {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--storyboard-ink-muted);
+  font-family: var(--storyboard-body);
+  text-transform: none;
+}
+
+@keyframes placeholder-breathe {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.06); }
 }
 
 /* Placeholder gradient flatten under reduced-motion is handled by the
@@ -489,7 +517,11 @@
  * ========================================================= */
 
 .public-storyboard-spacer {
-  height: 140px;
+  /* Sticky CTA can grow to ~150-180px on mobile when info wraps + button is
+   * full-width. 140px was leaving the bottom scene text visually clipped
+   * behind the bar. 220px keeps clearance with a safety margin for animated
+   * rise + safe-area bottom inset. */
+  height: 220px;
 }
 
 .sticky-cta-bar {
