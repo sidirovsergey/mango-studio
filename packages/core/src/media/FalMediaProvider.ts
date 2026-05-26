@@ -277,13 +277,18 @@ export class FalMediaProvider implements MediaProvider {
     try {
       const resp = await fal.queue.status(model, { requestId: fal_request_id });
       const raw = (resp as { status?: unknown }).status;
+      // Hotfix 2026-05-26 (yXLljaLaF6 prod incident): the previous PR-A
+      // implementation threw MediaProviderError('fal_status_missing') here,
+      // which the poll-orchestrator's per-job catch counted toward
+      // poll_error_count and snapped jobs to poll_unrecoverable after 5 ticks.
+      // In practice fal's queue.status response for nano-banana and similar
+      // image models sometimes lacks a string `status` field on the very
+      // first poll after submit — that's a transient shape quirk, not a
+      // partner-side error. Treat missing/non-string status as plain
+      // 'pending' (the safe pre-PR-A behaviour). PR-A's age-based stale
+      // rule (5/10 min by created_at) still catches truly stuck jobs.
       if (typeof raw !== 'string' || raw.trim() === '') {
-        console.warn('[fal] missing queue status - transient', {
-          model,
-          request_id: fal_request_id,
-          raw_status: raw ?? null,
-        });
-        throw new MediaProviderError('fal_status_missing', `fal returned status=${raw ?? 'null'}`);
+        return { status: 'pending' };
       }
       if (raw === 'IN_QUEUE') return { status: 'pending' };
       if (raw === 'IN_PROGRESS') return { status: 'running' };
@@ -293,7 +298,7 @@ export class FalMediaProvider implements MediaProvider {
       console.warn('[fal] unknown queue status', {
         model,
         request_id: fal_request_id,
-        raw_status: raw ?? null,
+        raw_status: raw,
         error_code,
       });
       return { status: 'error', error_code };

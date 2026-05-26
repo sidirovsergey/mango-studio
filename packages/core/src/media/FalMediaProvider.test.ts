@@ -218,23 +218,17 @@ describe('FalMediaProvider.getJobStatus / getJobResult', () => {
     warnSpy.mockRestore();
   });
 
-  it('treats missing fal status as transient provider error', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it('treats missing fal status as plain pending (hotfix 2026-05-26)', async () => {
+    // fal.queue.status sometimes returns a response without a string `status`
+    // field on the first poll after submit (observed for nano-banana). The
+    // prior PR-A behaviour threw fal_status_missing, which the poll-orchestrator
+    // counted toward poll_error_count and snapped legitimate jobs to
+    // poll_unrecoverable after 5 ticks. Safe behaviour: treat as pending and
+    // rely on the age-based stale rule.
     queue.status.mockResolvedValueOnce({});
     const provider = new FalMediaProvider({ apiKey: 'k' });
 
-    await expect(provider.getJobStatus('req-missing', 'm')).rejects.toMatchObject({
-      code: 'fal_status_missing',
-    } satisfies Partial<MediaProviderError>);
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[fal] missing queue status - transient',
-      expect.objectContaining({
-        model: 'm',
-        request_id: 'req-missing',
-        raw_status: null,
-      }),
-    );
-    warnSpy.mockRestore();
+    await expect(provider.getJobStatus('req-missing', 'm')).resolves.toEqual({ status: 'pending' });
   });
 
   it('returns primary_url and last_frame_url when present', async () => {
