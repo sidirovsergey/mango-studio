@@ -49,10 +49,6 @@
 import { getServerSupabase } from '@mango/db/server';
 import type { MediaJobKind } from './scene-helpers';
 
-// Mirrors the SQL-side constant c_quota_limit in migration v4. Used only to
-// shape the user-facing error message; the RPC enforces the real cap.
-const SQL_QUOTA_LIMIT = 50;
-
 export type ReserveResult =
   | { ok: true; mode: 'reserved'; job_id: string; used: number; dedup: boolean }
   | { ok: true; mode: 'bypass' }
@@ -141,9 +137,17 @@ export async function reserveMediaJob(input: ReserveInput): Promise<ReserveResul
   }
 
   if (!row.allowed) {
+    // User-facing copy intentionally omits the number (soft cap is high
+    // enough that legitimate users should never see this; hard ceiling
+    // serves the anti-drain purpose). row.used stays in logs for
+    // observability during abuse investigations.
+    console.warn('[rate-limit] user quota exhausted', {
+      user_id: input.user_id,
+      used: row.used,
+    });
     return {
       ok: false,
-      error: `Дневной лимит ${SQL_QUOTA_LIMIT} генераций исчерпан (${row.used}/${SQL_QUOTA_LIMIT}). Попробуй через несколько часов.`,
+      error: 'Сегодня было много генераций — попробуй немного позже.',
     };
   }
 

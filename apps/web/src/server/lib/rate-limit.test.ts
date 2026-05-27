@@ -83,8 +83,9 @@ describe('reserveMediaJob', () => {
 
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      // Limit is mirrored from the SQL-side constant (50).
-      expect(r.error).toContain('50/50');
+      // v5: user-facing copy intentionally omits the number. Numerics live
+      // in row.used / server logs only.
+      expect(r.error).toBe('Сегодня было много генераций — попробуй немного позже.');
     }
   });
 
