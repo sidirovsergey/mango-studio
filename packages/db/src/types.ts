@@ -111,6 +111,9 @@ export type Database = {
           kind: string;
           latency_ms: number | null;
           last_poll_error_at: string | null;
+          last_poll_error_message: string | null;
+          last_poll_error_name: string | null;
+          last_poll_error_stack: string | null;
           last_polled_at: string | null;
           model: string;
           poll_error_count: number;
@@ -135,6 +138,9 @@ export type Database = {
           kind: string;
           latency_ms?: number | null;
           last_poll_error_at?: string | null;
+          last_poll_error_message?: string | null;
+          last_poll_error_name?: string | null;
+          last_poll_error_stack?: string | null;
           last_polled_at?: string | null;
           model: string;
           poll_error_count?: number;
@@ -159,6 +165,9 @@ export type Database = {
           kind?: string;
           latency_ms?: number | null;
           last_poll_error_at?: string | null;
+          last_poll_error_message?: string | null;
+          last_poll_error_name?: string | null;
+          last_poll_error_stack?: string | null;
           last_polled_at?: string | null;
           model?: string;
           poll_error_count?: number;

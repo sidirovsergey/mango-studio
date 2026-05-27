@@ -529,6 +529,8 @@ describe('runPollTick', () => {
       poll_error_count: 3,
       last_poll_error_at: '2026-05-25T12:00:00.000Z',
       error_message: 'fal_status_missing',
+      error_name: 'Error',
+      error_stack: expect.any(String),
     });
     expect(deps.finalizeError).not.toHaveBeenCalled();
   });
@@ -567,6 +569,8 @@ describe('runPollTick', () => {
       poll_error_count: 5,
       last_poll_error_at: '2026-05-25T12:00:00.000Z',
       error_message: 'permanent poll failure',
+      error_name: 'Error',
+      error_stack: expect.any(String),
     });
   });
 });

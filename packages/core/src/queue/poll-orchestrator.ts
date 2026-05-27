@@ -65,12 +65,16 @@ export interface PollDeps {
     poll_error_count: number;
     last_poll_error_at: string;
     error_message: string;
+    error_name: string;
+    error_stack: string | null;
   }): Promise<void>;
   markPollUnrecoverable?(args: {
     job: InflightJob;
     poll_error_count: number;
     last_poll_error_at: string;
     error_message: string;
+    error_name: string;
+    error_stack: string | null;
   }): Promise<void>;
   recordPendingJob(args: {
     user_id: string;
@@ -122,14 +126,23 @@ export async function runPollTick(ctx: PollContext, deps: PollDeps): Promise<voi
     } catch (err) {
       const warn = deps.warn ?? console.warn;
       const errorMessage = err instanceof Error ? err.message : String(err);
+      const errorName =
+        err instanceof Error ? (err.constructor?.name ?? err.name ?? 'Error') : 'unknown';
+      const errorStack = err instanceof Error && typeof err.stack === 'string' ? err.stack : null;
       warn('[poll-orchestrator] job poll failed', {
         job_id: job.id,
         project_id: job.project_id,
         kind: job.kind,
         fal_request_id: job.fal_request_id,
         error: errorMessage,
+        error_name: errorName,
       });
-      await recordPollFailure(job, errorMessage, deps, warn);
+      await recordPollFailure(
+        job,
+        { errorMessage, errorName, errorStack },
+        deps,
+        warn,
+      );
     }
   }
 }
@@ -171,7 +184,7 @@ async function pollOneJob(job: InflightJob, ctx: PollContext, deps: PollDeps): P
 
 async function recordPollFailure(
   job: InflightJob,
-  errorMessage: string,
+  errorMeta: { errorMessage: string; errorName: string; errorStack: string | null },
   deps: PollDeps,
   warn: (message: string, meta: Record<string, unknown>) => void,
 ): Promise<void> {
@@ -184,7 +197,9 @@ async function recordPollFailure(
           job,
           poll_error_count: nextPollErrorCount,
           last_poll_error_at: lastPollErrorAt,
-          error_message: errorMessage,
+          error_message: errorMeta.errorMessage,
+          error_name: errorMeta.errorName,
+          error_stack: errorMeta.errorStack,
         });
       } else {
         await deps.finalizeError({ job, error_code: 'poll_unrecoverable' });
@@ -196,7 +211,9 @@ async function recordPollFailure(
       job,
       poll_error_count: nextPollErrorCount,
       last_poll_error_at: lastPollErrorAt,
-      error_message: errorMessage,
+      error_message: errorMeta.errorMessage,
+      error_name: errorMeta.errorName,
+      error_stack: errorMeta.errorStack,
     });
   } catch (err) {
     warn('[poll-orchestrator] poll failure bookkeeping failed', {

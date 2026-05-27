@@ -572,6 +572,9 @@ export async function pollMediaJobsAction(input: {
             last_polled_at: polled_at,
             poll_error_count: 0,
             last_poll_error_at: null,
+            last_poll_error_message: null,
+            last_poll_error_name: null,
+            last_poll_error_stack: null,
             updated_at: polled_at,
           })
           .eq('id', job.id)
@@ -579,12 +582,22 @@ export async function pollMediaJobsAction(input: {
         if (error) throw new Error(error.message);
       },
 
-      recordPollError: async ({ job, poll_error_count, last_poll_error_at }) => {
+      recordPollError: async ({
+        job,
+        poll_error_count,
+        last_poll_error_at,
+        error_message,
+        error_name,
+        error_stack,
+      }) => {
         const { error } = await sb
           .from('media_jobs')
           .update({
             poll_error_count,
             last_poll_error_at,
+            last_poll_error_message: error_message.slice(0, 4000),
+            last_poll_error_name: error_name.slice(0, 200),
+            last_poll_error_stack: error_stack ? error_stack.slice(0, 4000) : null,
             updated_at: last_poll_error_at,
           })
           .eq('id', job.id)
@@ -592,7 +605,14 @@ export async function pollMediaJobsAction(input: {
         if (error) throw new Error(error.message);
       },
 
-      markPollUnrecoverable: async ({ job, poll_error_count, last_poll_error_at }) => {
+      markPollUnrecoverable: async ({
+        job,
+        poll_error_count,
+        last_poll_error_at,
+        error_message,
+        error_name,
+        error_stack,
+      }) => {
         const { data, error } = await sb
           .from('media_jobs')
           .update({
@@ -600,6 +620,9 @@ export async function pollMediaJobsAction(input: {
             error_code: 'poll_unrecoverable',
             poll_error_count,
             last_poll_error_at,
+            last_poll_error_message: error_message.slice(0, 4000),
+            last_poll_error_name: error_name.slice(0, 200),
+            last_poll_error_stack: error_stack ? error_stack.slice(0, 4000) : null,
             updated_at: last_poll_error_at,
           })
           .eq('id', job.id)
