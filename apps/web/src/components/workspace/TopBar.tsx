@@ -5,7 +5,10 @@ import { setAutoModeAction } from '@/server/actions/projects';
 import type { Tier } from '@mango/core';
 import Link from 'next/link';
 import { useTransition } from 'react';
-import { TierToggle } from './TierToggle';
+// TierToggle import temporarily removed — product decision 2026-05-27 to
+// hide the Economy/Premium UI surface and standardise on economy. Component
+// kept in tree for potential reinstatement.
+// import { TierToggle } from './TierToggle';
 
 interface Props {
   projectId: string;
@@ -48,7 +51,7 @@ export function TopBar({ projectId, autoMode, format, tier, userEmail, isAnonymo
             </button>
           ))}
         </div>
-        <TierToggle projectId={projectId} tier={tier} />
+        {/* Tier toggle hidden 2026-05-27 — single 'economy' tier surface */}
         <label
           className="auto-mode-toggle"
           style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}

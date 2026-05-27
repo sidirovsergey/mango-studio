@@ -253,24 +253,9 @@ export function SceneSidePanel({
             {sceneTitle}
           </span>
         </div>
-        <button
-          type="button"
-          className="tier-toggle"
-          title="Сменить тариф для этой сцены"
-          onClick={() =>
-            onAction(() =>
-              setSceneTierAction({
-                project_id: projectId,
-                scene_id: scene.scene_id,
-                tier: tier === 'premium' ? 'economy' : 'premium',
-              }),
-            )
-          }
-          disabled={lockedByGen}
-        >
-          <span className={`tier-dot ${tier}`} aria-hidden />
-          {tier === 'premium' ? 'PREMIUM' : 'ECONOMY'}
-        </button>
+        {/* Per-scene tier toggle hidden 2026-05-27 — product standardised on
+            single 'economy' tier. tier prop / setSceneTierAction kept for
+            potential reinstatement. */}
       </header>
 
       {isGenerating && (
@@ -635,9 +620,7 @@ function ModelControl({ effectiveModel, tier, disabled, pending, onSelect }: Mod
       </button>
       {open && (
         <div className="control-popover" role="listbox" aria-label="Video model" tabIndex={-1}>
-          <div className="popover-head">
-            видео-модель · {tier === 'premium' ? 'Premium' : 'Economy'}
-          </div>
+          <div className="popover-head">видео-модель</div>
           {models.map((m) => {
             const meta = getVideoModelMeta(m);
             const isActive = m === effectiveModel;
