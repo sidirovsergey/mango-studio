@@ -7,6 +7,7 @@ import { getAccountTier } from '@/server/lib/get-account-tier';
 import { getBalance } from '@/server/lib/get-balance';
 import { getMediaProvider } from '@/server/lib/media-provider-factory';
 import { reserveMediaJob } from '@/server/lib/rate-limit';
+import { getDisplayUrl } from '@/server/lib/storage-display-url';
 import {
   finalizeMediaJobReservation,
   recordPendingJob,
@@ -53,9 +54,16 @@ type SceneShape = {
 
 type ScriptShape = { scenes: SceneShape[] };
 
-function urlOfStorage(storage: StoredAsset): string {
+async function urlOfStorage(storage: StoredAsset): Promise<string> {
   if (storage.kind === 'fal_passthrough') return storage.url;
-  return `supabase://${storage.path}`;
+  // Phase 1.3.5+ scene-assets carry their own bucket on the descriptor; the
+  // positional 'character-references' is just a legacy fallback for assets
+  // without a bucket field (none of master_clip's inputs in production fall
+  // into that bucket). Returns a 1-hour signed URL fal can fetch directly.
+  // Closes the 2026-05-27 master_clip outage where fal ffmpeg-api received
+  // pseudo "supabase://path" strings instead of HTTPS URLs and 422'd on
+  // getJobResult.
+  return await getDisplayUrl(storage, 'character-references');
 }
 
 export async function generateMasterClipAction(rawInput: unknown): Promise<
@@ -123,7 +131,7 @@ export async function generateMasterClipAction(rawInput: unknown): Promise<
     if (s.final_clip) {
       resolved.push({
         scene_id: s.scene_id,
-        url: urlOfStorage(s.final_clip.storage),
+        url: await urlOfStorage(s.final_clip.storage),
         video_version_id: s.final_clip.composed_from.video_version_id,
         voice_audio_version_id: s.final_clip.composed_from.voice_audio_version_id,
       });
@@ -136,7 +144,7 @@ export async function generateMasterClipAction(rawInput: unknown): Promise<
     if (activeVid) {
       resolved.push({
         scene_id: s.scene_id,
-        url: urlOfStorage(activeVid.storage),
+        url: await urlOfStorage(activeVid.storage),
         video_version_id: activeVid.version_id,
         voice_audio_version_id: null,
       });
