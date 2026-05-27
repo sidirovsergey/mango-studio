@@ -15,7 +15,12 @@ interface Props {
 function resolveUrl(clip: MasterClipVersion): string | null {
   const s = clip.storage;
   if (s.kind === 'fal_passthrough') return s.url;
-  return `/api/storage/${s.path}`;
+  // The `/api/storage/...` route was assumed but never implemented. The
+  // actual signed-URL proxy for `scene-assets` is `/api/scene-asset?path=`,
+  // shared with SceneThumbnailColumn. Closes the 2026-05-27 invisible-
+  // master_clip bug where Stage 5 rendered a broken <video> even when the
+  // backend finalize succeeded (Codex master_clip audit must-fix #2).
+  return `/api/scene-asset?path=${encodeURIComponent(s.path)}`;
 }
 
 export function StageFinal(_: Props) {

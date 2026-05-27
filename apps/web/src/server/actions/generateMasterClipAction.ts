@@ -156,6 +156,20 @@ export async function generateMasterClipAction(rawInput: unknown): Promise<
     };
   }
 
+  // Early-return if any scene URL came back empty. getDisplayUrl returns ''
+  // when createSignedUrl fails (RLS deny, missing object, transient storage
+  // error) — without this guard we'd ship video_urls:['',...] to fal and
+  // recreate the same 422 class the URL signing fix was meant to close.
+  // Runs before reservation/balance so no row is created on failure (Codex
+  // must-fix #1).
+  const emptyClip = resolved.find((r) => !r.url);
+  if (emptyClip) {
+    return {
+      ok: false,
+      error: `scene ${emptyClip.scene_id} video could not be resolved to a fetchable URL`,
+    };
+  }
+
   const composed = resolved.map((r) => ({
     scene_id: r.scene_id,
     video_version_id: r.video_version_id,
