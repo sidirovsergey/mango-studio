@@ -17,10 +17,29 @@ export async function getDisplayUrl(
   bucket: 'character-dossiers' | 'character-references',
 ): Promise<string> {
   if (asset.kind === 'fal_passthrough') return asset.url;
+  // Phase 1.3.5+ bucketed scene assets carry their own bucket (validated by
+  // SceneAssetVersionSchema with default 'scene-assets'). Prefer it over the
+  // positional argument. Legacy character assets (DossierSchema's StoredAsset
+  // variant has no bucket field) fall back to the positional argument as
+  // before. Closes the 2026-05-27 Stage-04 outage where scene-assets paths
+  // were signed through 'character-references' → 404 → image_url='' → fal
+  // 422 on video submit.
+  const targetBucket =
+    'bucket' in asset &&
+    typeof (asset as { bucket?: unknown }).bucket === 'string' &&
+    (asset as { bucket: string }).bucket
+      ? (asset as { bucket: string }).bucket
+      : bucket;
   const sb = await getServerSupabase();
-  const { data, error } = await sb.storage.from(bucket).createSignedUrl(asset.path, 3600);
+  const { data, error } = await sb.storage
+    .from(targetBucket)
+    .createSignedUrl(asset.path, 3600);
   if (error || !data) {
-    console.error('[getDisplayUrl] signed URL failed', { bucket, path: asset.path, error });
+    console.error('[getDisplayUrl] signed URL failed', {
+      bucket: targetBucket,
+      path: asset.path,
+      error,
+    });
     return '';
   }
   return data.signedUrl;
