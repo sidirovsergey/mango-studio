@@ -89,7 +89,7 @@ sections = [
         ("Organic/referral share of new users", 0.35, "доля, снижает blended CAC"),
     ]),
     ("OPEX — фиксированные ежемесячные расходы (USD)", [
-        ("Team cost (S2: 2 разработчика + fractional PM/design)", 9000, "USD/мес, см. 08"),
+        ("Team cost (S1: 1 AI-first разработчик + fractional legal/design)", 5500, "USD/мес — $220/день x 20 дней (см. 08) + ~$1,100 на подрядчиков"),
         ("Infra fixed (hosting, DB, CDN, monitoring, GPU reserved)", 900, "USD/мес при <10k users"),
         ("Infra fixed scaling step (+ per 10k users)", 350, "USD/мес добавка на каждые 10k MAU"),
         ("Content moderation / compliance tooling", 300, "USD/мес"),
@@ -267,7 +267,7 @@ for i, (mau, col) in enumerate(zip(mau_values, col_letters)):
     ws3[f"{col}{r_gp}"] = f"={col}{r_mrr}-{col}{r_cogs}"
     ws3[f"{col}{r_gm}"] = f"={col}{r_gp}/{col}{r_mrr}"
     ws3[f"{col}{r_opex}"] = (
-        f"={A['Team cost (S2: 2 разработчика + fractional PM/design)']}"
+        f"={A['Team cost (S1: 1 AI-first разработчик + fractional legal/design)']}"
         f"+{A['Infra fixed (hosting, DB, CDN, monitoring, GPU reserved)']}"
         f"+{A['Infra fixed scaling step (+ per 10k users)']}*({col}{r_mau}/10000)"
         f"+{A['Content moderation / compliance tooling']}"
@@ -330,7 +330,7 @@ ws4["A1"].font = TITLE_FONT
 ws4.merge_cells("A1:D1")
 ws4["A3"] = "Fixed Opex (MVP baseline, USD/mo)"
 ws4["B3"] = (
-    f"={A['Team cost (S2: 2 разработчика + fractional PM/design)']}"
+    f"={A['Team cost (S1: 1 AI-first разработчик + fractional legal/design)']}"
     f"+{A['Infra fixed (hosting, DB, CDN, monitoring, GPU reserved)']}"
     f"+{A['Content moderation / compliance tooling']}"
     f"+{A['Office/admin/legal overhead']}"
@@ -390,7 +390,7 @@ for i, m in enumerate(months):
     ws5[f"{col}{r0+3}"] = f"={col}{r0+1}*{UE['COGS_per_user']}"
     ws5[f"{col}{r0+4}"] = f"={col}{r0+2}-{col}{r0+3}"
     ws5[f"{col}{r0+5}"] = (
-        f"={A['Team cost (S2: 2 разработчика + fractional PM/design)']}"
+        f"={A['Team cost (S1: 1 AI-first разработчик + fractional legal/design)']}"
         f"+{A['Infra fixed (hosting, DB, CDN, monitoring, GPU reserved)']}"
         f"+{A['Infra fixed scaling step (+ per 10k users)']}*({col}{r0}/10000)"
         f"+{A['Content moderation / compliance tooling']}"
